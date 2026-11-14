@@ -220,6 +220,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Resposta pelo número que recebeu (evolution-webhook-fanout, só com service role) ──
+    // Só vale para membros com lia_auto_reply; chamadas públicas nunca escolhem o número de envio.
+    let replyMemberId: string | null = null;
+    if (
+      typeof body.reply_team_member_id === "string" &&
+      req.headers.get("authorization") === `Bearer ${SERVICE_ROLE_KEY}`
+    ) {
+      const { data: rm } = await supabase
+        .from("team_members")
+        .select("id, evolution_instance_name")
+        .eq("id", body.reply_team_member_id)
+        .eq("ativo", true)
+        .eq("lia_auto_reply", true)
+        .maybeSingle();
+      if (rm?.id) replyMemberId = rm.id;
+    }
+    delete body.reply_team_member_id;
+
     console.log("[dra-lia-wa] Parsed body keys:", Object.keys(body).join(", "));
     console.log("[dra-lia-wa] Parsed body:", JSON.stringify(body).slice(0, 1500));
 
@@ -349,7 +367,9 @@ Deno.serve(async (req) => {
       .gte("created_at", fiveMinAgo)
       .limit(1);
 
-    if (recentInbound && recentInbound.length > 0) {
+    // O fanout já garante uma resposta por wa_message_id; o handler legado grava a mesma
+    // mensagem no inbox em paralelo, então este filtro por texto não vale para ele.
+    if (!replyMemberId && recentInbound && recentInbound.length > 0) {
       console.log(`[dra-lia-wa] Duplicate content: same phone+message found in last ${DEDUP_CONTENT_MINUTES}min — ignoring`);
       return new Response(JSON.stringify({ ignored: true, reason: "duplicate_content" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -561,10 +581,10 @@ Deno.serve(async (req) => {
 
     // 5. Send reply via smart-ops-wa-send (same path as manual card)
     let replySent = false;
-    let teamMemberId: string | null = null;
+    let teamMemberId: string | null = replyMemberId;
 
     // Find team_member_id: first try lead owner, then fallback
-    if (leadId) {
+    if (!teamMemberId && leadId) {
       const { data: att } = await supabase
         .from("lia_attendances")
         .select("proprietario_lead_crm")
@@ -617,6 +637,8 @@ Deno.serve(async (req) => {
             message: waMessage,
             lead_id: leadId,
             tipo: "text",
+            source: replyMemberId ? "dra_lia_autoreply" : "dra_lia_whatsapp",
+            strict_instance: !!replyMemberId,
           }),
           signal: AbortSignal.timeout(15000),
         });
@@ -636,7 +658,7 @@ Deno.serve(async (req) => {
     }
 
     // 6. Log inbound in whatsapp_inbox (outbound is persisted by smart-ops-wa-send)
-    await supabase.from("whatsapp_inbox").insert({
+    const inboundRow = {
       phone: phoneDigits,
       phone_normalized: phoneSuffix,
       message_text: messageText || (hasImage ? "[image]" : ""),
@@ -647,9 +669,23 @@ Deno.serve(async (req) => {
       matched_by: leadId ? `ilike_%${phoneSuffix}` : "created_new",
       intent_detected: intent,
       confidence_score: confidence,
-      raw_payload: body,
       processed_at: new Date().toISOString(),
-    });
+    };
+    if (replyMemberId && typeof body.instance === "string" && typeof body.wa_message_id === "string") {
+      // Mesma linha que o handler legado grava (instância + id da mensagem): completa, sem duplicar.
+      const { error: upErr } = await supabase.from("whatsapp_inbox").upsert({
+        ...inboundRow,
+        instance_name: body.instance,
+        wa_message_id: body.wa_message_id,
+        remote_jid: typeof body.remote_jid === "string" ? body.remote_jid : null,
+        team_member_id: replyMemberId,
+        sender_name: senderName || null,
+        is_group: false,
+      }, { onConflict: "instance_name,wa_message_id" });
+      if (upErr) console.warn("[dra-lia-wa] inbox upsert error:", upErr.message);
+    } else {
+      await supabase.from("whatsapp_inbox").insert({ ...inboundRow, raw_payload: body });
+    }
 
     // 7. Hot lead alert: notify seller for immediate/future interest
     if (leadId && (intent === "interesse_imediato" || intent === "interesse_futuro")) {

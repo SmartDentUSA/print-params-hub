@@ -29650,6 +29650,7 @@ export type Database = {
           group_message_provider: string
           id: string
           instagram_url: string | null
+          lia_auto_reply: boolean
           linkedin_url: string | null
           manychat_api_key: string | null
           manychat_page_id: string | null
@@ -29698,6 +29699,7 @@ export type Database = {
           group_message_provider?: string
           id?: string
           instagram_url?: string | null
+          lia_auto_reply?: boolean
           linkedin_url?: string | null
           manychat_api_key?: string | null
           manychat_page_id?: string | null
@@ -29746,6 +29748,7 @@ export type Database = {
           group_message_provider?: string
           id?: string
           instagram_url?: string | null
+          lia_auto_reply?: boolean
           linkedin_url?: string | null
           manychat_api_key?: string | null
           manychat_page_id?: string | null
