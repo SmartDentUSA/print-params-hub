@@ -304,6 +304,16 @@ Deno.serve(async (req) => {
       }
     }
     const phoneSuffix = normalizePhoneForMatch(phoneDigits);
+
+    // ── Modo teste: responde só aos números de LIA_WA_ONLY_PHONES (vazio = todos) ──
+    // ponytail: compara os últimos 8 dígitos (tolera 55 e 9º dígito); LID não resolvido é ignorado.
+    const onlyPhones = (Deno.env.get("LIA_WA_ONLY_PHONES") ?? "5519992612348").split(",").map((p) => p.replace(/\D/g, "").slice(-8)).filter(Boolean);
+    if (onlyPhones.length && !onlyPhones.includes(phoneDigits.slice(-8))) {
+      console.log(`[dra-lia-wa] Test mode: ${phoneDigits} not allowed — ignoring`);
+      return new Response(JSON.stringify({ ignored: true, reason: "not_in_allowlist" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.log(`[dra-lia-wa] Received: phone=${phoneDigits} lid=${lidId || "-"} msg="${messageText.slice(0, 80)}"`);
 
     // ── Anti-echo: ignore inbound that matches recent LIA outbound text (SDR/automation echo) ──
