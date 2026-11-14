@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CampaignLinkPicker } from '@/components/smartops/CampaignLinkPicker';
+import { GROUP_LINK_SECTIONS } from '@/lib/social/groupLinkSections';
 import type { PostInput } from '@/lib/social/postSchema';
 
 interface Props {
@@ -40,7 +41,11 @@ export function GroupLinkField({ value, onChange, inputId }: Props) {
           value={link}
           onChange={(e) => onChange({ group_link_url: e.target.value })}
         />
-        <CampaignLinkPicker channel="whatsapp_groups" onInsert={(l) => onChange({ group_link_url: l.trim() })} />
+        <CampaignLinkPicker
+          channel="whatsapp_groups"
+          sections={GROUP_LINK_SECTIONS}
+          onInsert={(l) => onChange({ group_link_url: l.trim() })}
+        />
         {link ? (
           <Button type="button" variant="ghost" size="icon" aria-label="Remover link" onClick={() => onChange({ group_link_url: '' })}>
             <X className="w-4 h-4" />
