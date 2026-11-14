@@ -17,6 +17,12 @@ import {
 import { shortenUrl } from "@/utils/shortLink";
 import { buildLiaUrl } from "@/lib/attendanceChannel";
 import { isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
+import {
+  ALL_LINK_SECTIONS,
+  simulatorOnly,
+  sectionsToFetch,
+  type LinkSectionKey,
+} from "@/lib/social/groupLinkSections";
 import { MessageCircle, Users, GraduationCap, Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2, FileText, Layout } from "lucide-react";
 
 type Channel = "sms" | "whatsapp" | "whatsapp_groups";
@@ -33,6 +39,8 @@ interface CampaignLink {
 interface Props {
   channel: Channel;
   onInsert: (text: string) => void;
+  /** Lists to show. Defaults to every list. */
+  sections?: LinkSectionKey[];
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -187,7 +195,10 @@ async function fetchLinks(channel: Channel): Promise<CampaignLink[]> {
   return items as CampaignLink[];
 }
 
-export function CampaignLinkPicker({ channel, onInsert }: Props) {
+export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
+  const activeSections = sections ?? ALL_LINK_SECTIONS;
+  const has = (s: LinkSectionKey) => activeSections.includes(s);
+  const need = sectionsToFetch(activeSections);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formLinksLoading, setFormLinksLoading] = useState(false);
@@ -224,13 +235,12 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
   };
 
   useEffect(() => {
-    if (open) {
-      load();
-      loadFormLinks();
-      fetchChatLinks().then(setChatLinks).catch(() => setChatLinks([]));
-      fetchCourseLinks().then(setCourseLinks).catch(() => setCourseLinks([]));
-      fetchGroupLinks().then(setGroupLinks).catch(() => setGroupLinks([]));
-    }
+    if (!open) return;
+    if (need.disparo) load();
+    if (need.shortLinks) loadFormLinks();
+    if (need.chat) fetchChatLinks().then(setChatLinks).catch(() => setChatLinks([]));
+    if (need.courses) fetchCourseLinks().then(setCourseLinks).catch(() => setCourseLinks([]));
+    if (need.groups) fetchGroupLinks().then(setGroupLinks).catch(() => setGroupLinks([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, channel]);
 
@@ -293,6 +303,21 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
 
   const disparoLinks = links.filter((l) => l.source === "disparopro");
   const manualLinks = links.filter((l) => l.source === "manual");
+  const formSectionLinks = formLinks.filter((l) => l.default_target === "form");
+  const landingSectionLinks = formLinks.filter((l) => l.default_target === "landing_page");
+  const simulatorSectionLinks = simulatorOnly(formLinks);
+
+  const visibleLinkCount =
+    (has("disparopro") ? disparoLinks.length : 0) +
+    (has("manual") ? manualLinks.length : 0) +
+    (has("forms") ? formSectionLinks.length : 0) +
+    (has("landing") ? landingSectionLinks.length : 0) +
+    (has("simulator") ? simulatorSectionLinks.length : 0) +
+    (has("groups") ? groupLinks.length : 0) +
+    (has("chat") ? chatLinks.length : 0) +
+    (has("courses") ? courseLinks.length : 0);
+
+  const fetching = (need.disparo && loading) || (need.shortLinks && formLinksLoading);
 
   return (
     <>
@@ -304,34 +329,36 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[420px] p-0" align="end">
-          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleSync}
-              disabled={syncing}
-              type="button"
-            >
-              {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Sincronizar DisparoPro
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => openEditor(null)} type="button">
-              <Plus className="w-3.5 h-3.5" /> Novo
-            </Button>
-          </div>
+          {need.disparo && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleSync}
+                disabled={syncing}
+                type="button"
+              >
+                {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Sincronizar DisparoPro
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => openEditor(null)} type="button">
+                <Plus className="w-3.5 h-3.5" /> Novo
+              </Button>
+            </div>
+          )}
 
           <div className="max-h-[420px] overflow-y-auto">
-            {loading && formLinksLoading && links.length === 0 && formLinks.length === 0 ? (
+            {fetching && visibleLinkCount === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
               </div>
-            ) : links.length === 0 && formLinks.length === 0 && chatLinks.length === 0 && courseLinks.length === 0 && groupLinks.length === 0 ? (
+            ) : visibleLinkCount === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 Nenhum link para este canal.
               </div>
             ) : (
               <>
-                {disparoLinks.length > 0 && (
+                {has("disparopro") && disparoLinks.length > 0 && (
                   <LinkSection
                     label="DisparoPro"
                     badgeVariant="default"
@@ -341,7 +368,7 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
                     onDelete={handleDelete}
                   />
                 )}
-                {manualLinks.length > 0 && (
+                {has("manual") && manualLinks.length > 0 && (
                   <LinkSection
                     label="Manual"
                     badgeVariant="secondary"
@@ -351,14 +378,31 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
                     onDelete={handleDelete}
                   />
                 )}
-                {formLinks.length > 0 && (
-                  <FormLinkSection
-                    label="Formulários, Landing Pages e Simulador WhatsApp"
-                    links={formLinks}
+                {has("forms") && formSectionLinks.length > 0 && (
+                  <ShortLinkSection
+                    label="Formulários"
+                    icon={<FileText className="w-3 h-3" />}
+                    links={formSectionLinks}
                     onInsert={handleInsertFormLink}
                   />
                 )}
-                {groupLinks.length > 0 && (
+                {has("landing") && landingSectionLinks.length > 0 && (
+                  <ShortLinkSection
+                    label="Landing Pages"
+                    icon={<Layout className="w-3 h-3" />}
+                    links={landingSectionLinks}
+                    onInsert={handleInsertFormLink}
+                  />
+                )}
+                {has("simulator") && simulatorSectionLinks.length > 0 && (
+                  <ShortLinkSection
+                    label="Simulador WhatsApp"
+                    icon={<MessageCircle className="w-3 h-3" />}
+                    links={simulatorSectionLinks}
+                    onInsert={handleInsertFormLink}
+                  />
+                )}
+                {has("groups") && groupLinks.length > 0 && (
                   <GroupLinkSection
                     links={groupLinks}
                     onInsert={(url) => {
@@ -367,7 +411,7 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
                     }}
                   />
                 )}
-                {chatLinks.length > 0 && (
+                {has("chat") && chatLinks.length > 0 && (
                   <DynamicLinkSection
                     label="Chat da Dra. LIA (formulários)"
                     icon={<MessageCircle className="w-3 h-3" />}
@@ -377,7 +421,7 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
                     onInsert={handleInsertDynamic}
                   />
                 )}
-                {courseLinks.length > 0 && (
+                {has("courses") && courseLinks.length > 0 && (
                   <DynamicLinkSection
                     label="Páginas de informações de cursos"
                     icon={<GraduationCap className="w-3 h-3" />}
@@ -471,85 +515,36 @@ function LinkSection({
   );
 }
 
-function FormLinkSection({
+function ShortLinkSection({
   label,
+  icon,
   links,
   onInsert,
 }: {
   label: string;
+  icon: import("react").ReactNode;
   links: FormShortLink[];
   onInsert: (l: FormShortLink) => void;
 }) {
-  const formLinks = links.filter((l) => l.default_target === "form");
-  const landingLinks = links.filter((l) => l.default_target === "landing_page");
-  const whatsappLinks = links.filter((l) => l.default_target === "whatsapp");
-
   return (
     <div className="py-1 border-t">
       <div className="px-3 py-1.5 flex items-center gap-2 sticky top-0 bg-popover">
-        <Badge variant="outline" className="text-[10px]">{label}</Badge>
+        <Badge variant="outline" className="text-[10px] gap-1">{icon}{label}</Badge>
         <span className="text-xs text-muted-foreground">{links.length}</span>
       </div>
-      {formLinks.length > 0 && (
-        <>
-          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-            <FileText className="w-3 h-3" /> Formulários
-          </div>
-          <ul className="divide-y">
-            {formLinks.map((l) => (
-              <li key={l.id} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{l.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{l.url}</div>
-                </div>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l)} type="button" title="Inserir">
-                  <CornerDownLeft className="w-3.5 h-3.5" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {landingLinks.length > 0 && (
-        <>
-          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-            <Layout className="w-3 h-3" /> Landing Pages
-          </div>
-          <ul className="divide-y">
-            {landingLinks.map((l) => (
-              <li key={l.id} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{l.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{l.url}</div>
-                </div>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l)} type="button" title="Inserir">
-                  <CornerDownLeft className="w-3.5 h-3.5" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {whatsappLinks.length > 0 && (
-        <>
-          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-            <MessageCircle className="w-3 h-3" /> Simulador WhatsApp
-          </div>
-          <ul className="divide-y">
-            {whatsappLinks.map((l) => (
-              <li key={l.id} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{l.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{l.url}</div>
-                </div>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l)} type="button" title="Inserir">
-                  <CornerDownLeft className="w-3.5 h-3.5" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      <ul className="divide-y">
+        {links.map((l) => (
+          <li key={l.id} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate">{l.name}</div>
+              <div className="text-xs text-muted-foreground truncate">{l.url}</div>
+            </div>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l)} type="button" title="Inserir">
+              <CornerDownLeft className="w-3.5 h-3.5" />
+            </Button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
