@@ -97,7 +97,6 @@ Deno.serve(async (req) => {
       metadata = null,
       media_url = null,
       media_type = "image",
-      strict_instance = false,
     } = body ?? {};
 
     // Mídia opcional: quando informada, a mensagem sai como imagem/vídeo com legenda.
@@ -133,10 +132,6 @@ Deno.serve(async (req) => {
       !!m?.evolution_instance_name &&
       m?.evolution_enabled !== false &&
       (m?.evolution_status ?? "connected") === "connected";
-    if (!usable(tm) && strict_instance === true) {
-      // Resposta automática precisa sair do número que recebeu a mensagem.
-      return json({ success: false, error: "requested_instance_unavailable", instance: tm?.evolution_instance_name ?? null }, 409);
-    }
     if (!usable(tm)) {
       const { data } = await supabase
         .from("team_members")
