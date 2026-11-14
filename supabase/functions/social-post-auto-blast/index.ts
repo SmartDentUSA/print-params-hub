@@ -6,7 +6,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { postTargetStatus } from '../_shared/post-group-eligibility.ts';
 import { generatePostSummary, pickPostMedia } from '../_shared/post-summary.ts';
-import { splitGroupBlastExclusions } from '../_shared/testimonial-post-filter.ts';
+import { buildGroupBlastText, findGroupLink, splitGroupBlastExclusions } from '../_shared/testimonial-post-filter.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -200,6 +200,15 @@ serve(async (req) => {
     console.log('[social-post-auto-blast] alvos fora do envio', JSON.stringify(skippedTargets));
   }
 
+  // Link escolhido no agendamento ("Link para os grupos"), ligado ao post pela legenda.
+  const { data: linkRows, error: linkErr } = await sb
+    .from('social_scheduled_posts')
+    .select('caption, channels, group_link_url, created_at')
+    .not('group_link_url', 'is', null)
+    .gte('created_at', new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString())
+    .limit(1000);
+  if (linkErr) console.error('[social-post-auto-blast] fetch group links', linkErr.message);
+
   let dispatched = 0;
   let skipped = 0;
   let deduped_suppressed = 0;
@@ -231,7 +240,8 @@ serve(async (req) => {
         const variant = variants.find((v: any) => v.id === variantId)!;
         const link = variant.short_link || variant.post_url;
         const summary = await buildSummary(String(variant.caption ?? ''), String(variant.platform ?? 'post'));
-        const text = `${summary}\n\n${link}`;
+        const groupLink = findGroupLink(variant.caption, (linkRows ?? []) as any[]);
+        const text = buildGroupBlastText(summary, link, groupLink);
         const media = pickMedia(variant);
         const messageType = media ? media.kind : 'msg';
         const content = media

@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { generateResponse, GatewayError } from 'npm:@lovable.dev/ai-gateway@0.1.11';
 import { buildTeaserMessage, cleanCaption, fallbackTeaser, pickCoverUrl } from './teaser.ts';
 import { generatePostSummary } from '../_shared/post-summary.ts';
+import { findGroupLink } from '../_shared/testimonial-post-filter.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -105,6 +106,17 @@ Deno.serve(async (req) => {
     }
     if (!link) return json({ error: 'Publicação sem link' }, 400);
 
+    // Link escolhido no agendamento ("Link para os grupos") vai em destaque abaixo da imagem.
+    let groupLink: string | null = null;
+    if (caption) {
+      const { data: linkRows } = await sb.from('social_scheduled_posts')
+        .select('caption, channels, group_link_url, created_at')
+        .not('group_link_url', 'is', null)
+        .gte('created_at', new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString())
+        .limit(1000);
+      groupLink = findGroupLink(caption, (linkRows ?? []) as any[]);
+    }
+
     const key = postId ?? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(link))))
       .slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -123,7 +135,10 @@ Deno.serve(async (req) => {
       teaser: teaser.text,
       ai: teaser.ai,
       link,
-      message: buildTeaserMessage(teaser.text, link),
+      group_link: groupLink,
+      message: groupLink
+        ? [buildTeaserMessage(teaser.text, groupLink), link !== groupLink ? `📲 Ver a publicação: ${link}` : ''].filter(Boolean).join('\n\n')
+        : buildTeaserMessage(teaser.text, link),
       media_url: mediaUrl,
     });
   } catch (e) {

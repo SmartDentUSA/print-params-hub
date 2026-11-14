@@ -37,6 +37,7 @@ export function useScheduledPost(id: string | undefined) {
         scheduled_at: isoToLocalInput(data.scheduled_at, data.timezone ?? 'America/Sao_Paulo'),
         timezone: data.timezone ?? 'America/Sao_Paulo',
         group_blast_enabled: (data as any).group_blast_enabled !== false,
+        group_link_url: (data as any).group_link_url ?? '',
       };
       return {
         id: data.id,

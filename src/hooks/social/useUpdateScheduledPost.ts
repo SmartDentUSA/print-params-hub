@@ -31,6 +31,7 @@ export function useUpdateScheduledPost() {
         product_ref: data.product_ref || null,
         product_category: data.product_category || null,
         group_blast_enabled: data.group_blast_enabled !== false,
+        group_link_url: data.group_link_url?.trim() || null,
         publish_errors: null,
       };
       const { error } = await supabase

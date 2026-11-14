@@ -27875,6 +27875,7 @@ export type Database = {
           created_by: string | null
           first_comment: string | null
           group_blast_enabled: boolean
+          group_link_url: string | null
           hashtags: string[] | null
           id: string
           media_items: Json | null
@@ -27901,6 +27902,7 @@ export type Database = {
           created_by?: string | null
           first_comment?: string | null
           group_blast_enabled?: boolean
+          group_link_url?: string | null
           hashtags?: string[] | null
           id?: string
           media_items?: Json | null
@@ -27927,6 +27929,7 @@ export type Database = {
           created_by?: string | null
           first_comment?: string | null
           group_blast_enabled?: boolean
+          group_link_url?: string | null
           hashtags?: string[] | null
           id?: string
           media_items?: Json | null
@@ -38509,6 +38512,7 @@ export type Database = {
           created_by: string | null
           first_comment: string | null
           group_blast_enabled: boolean
+          group_link_url: string | null
           hashtags: string[] | null
           id: string
           media_items: Json | null
