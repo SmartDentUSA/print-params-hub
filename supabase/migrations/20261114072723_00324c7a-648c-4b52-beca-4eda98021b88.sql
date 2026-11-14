@@ -1,0 +1,1 @@
+UPDATE public.team_members SET lia_auto_reply = false WHERE lia_auto_reply = true;
