@@ -4,7 +4,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { generateResponse, GatewayError } from 'npm:@lovable.dev/ai-gateway@0.1.11';
 import { buildTeaserMessage, cleanCaption, fallbackTeaser, pickCoverUrl } from './teaser.ts';
-import { generatePostSummary } from '../_shared/post-summary.ts';
+import { cleanSummaryText, generatePostSummary, POST_SUMMARY_LINK_CTA } from '../_shared/post-summary.ts';
 import { findGroupLink } from '../_shared/testimonial-post-filter.ts';
 
 const cors = {
@@ -23,13 +23,13 @@ const SYSTEM = [
   'Termine com uma chamada curta para ver a publicação completa. Responda só com o texto.',
 ].join(' ');
 
-async function makeTeaser(caption: string, platform: string): Promise<{ text: string; ai: boolean }> {
+async function makeTeaser(caption: string, platform: string, linkCta = false): Promise<{ text: string; ai: boolean }> {
   const clean = cleanCaption(caption);
   if (!clean) return { text: fallbackTeaser(''), ai: false };
   try {
     const r: any = await generateResponse({
       model: 'openai/gpt-6-astra',
-      instructions: SYSTEM,
+      instructions: linkCta ? `${SYSTEM} ${POST_SUMMARY_LINK_CTA}` : SYSTEM,
       input: `Rede: ${platform || 'post'}\n\nLegenda da publicação:\n${clean.slice(0, 2000)}`,
     });
     const txt = (r?.output ?? [])
@@ -38,7 +38,8 @@ async function makeTeaser(caption: string, platform: string): Promise<{ text: st
       .map((c: any) => String(c.text ?? ''))
       .join('')
       .trim();
-    if (txt && txt.length <= 600 && !/R\$\s?\d/.test(txt)) return { text: txt, ai: true };
+    const cleaned = cleanSummaryText(txt);
+    if (cleaned && cleaned.length <= 600 && !/R\$\s?\d/.test(cleaned)) return { text: cleaned, ai: true };
   } catch (e) {
     console.warn('[wa-post-teaser] IA falhou', e instanceof GatewayError ? `${e.code} ${e.httpStatus}` : String(e));
   }
@@ -125,8 +126,8 @@ Deno.serve(async (req) => {
     const style = body?.style === 'resumo' ? 'resumo' : 'teaser';
     const [teaser, mediaUrl] = await Promise.all([
       style === 'resumo'
-        ? generatePostSummary(caption, platform || 'post', Deno.env.get('LOVABLE_API_KEY'), '[wa-post-teaser]')
-        : makeTeaser(caption, platform),
+        ? generatePostSummary(caption, platform || 'post', Deno.env.get('LOVABLE_API_KEY'), '[wa-post-teaser]', { linkCta: !!groupLink })
+        : makeTeaser(caption, platform, !!groupLink),
       cover ? copyCover(sb, cover, key) : Promise.resolve(null),
     ]);
 

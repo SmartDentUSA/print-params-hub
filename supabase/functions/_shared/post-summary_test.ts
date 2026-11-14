@@ -36,3 +36,11 @@ Deno.test('usa o resumo quando existe, senão a legenda', () => {
   assertEquals(postBodyText({ resumo: '  ', caption: 'C' }), 'C');
   assertEquals(postBodyText({ caption: 'C' }), 'C');
 });
+
+Deno.test('resumo dos grupos: **negrito** vira *negrito* do WhatsApp e links/hashtags saem', async () => {
+  const { cleanSummaryText } = await import('./post-summary.ts');
+  assertEquals(
+    cleanSummaryText('A **BLACK 26** chegou! Veja https://x.com/a #blackfriday @smartdent\n\n\n\nToque no link abaixo 👇'),
+    'A *BLACK 26* chegou! Veja\n\nToque no link abaixo 👇',
+  );
+});

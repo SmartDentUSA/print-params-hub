@@ -19,8 +19,8 @@ const MAX_POSTS_PER_RUN = 20;
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 /** Resumo curto para WhatsApp (prompt compartilhado em _shared/post-summary.ts). */
-async function buildSummary(caption: string, platform: string): Promise<string> {
-  return (await generatePostSummary(caption, platform, LOVABLE_API_KEY, '[social-post-auto-blast]')).text;
+async function buildSummary(caption: string, platform: string, linkCta = false): Promise<string> {
+  return (await generatePostSummary(caption, platform, LOVABLE_API_KEY, '[social-post-auto-blast]', { linkCta })).text;
 }
 
 /** Escolhe a primeira mídia utilizável do post: media_urls → media_url → thumbnail_url. */
@@ -239,8 +239,8 @@ serve(async (req) => {
       for (const [variantId, jids] of jidsByVariant) {
         const variant = variants.find((v: any) => v.id === variantId)!;
         const link = variant.short_link || variant.post_url;
-        const summary = await buildSummary(String(variant.caption ?? ''), String(variant.platform ?? 'post'));
         const groupLink = findGroupLink(variant.caption, (linkRows ?? []) as any[]);
+        const summary = await buildSummary(String(variant.caption ?? ''), String(variant.platform ?? 'post'), !!groupLink);
         const text = buildGroupBlastText(summary, link, groupLink);
         const media = pickMedia(variant);
         const messageType = media ? media.kind : 'msg';
