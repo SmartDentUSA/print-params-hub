@@ -353,7 +353,7 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
                 )}
                 {formLinks.length > 0 && (
                   <FormLinkSection
-                    label="Formulários e Landing Pages"
+                    label="Formulários, Landing Pages e Simulador WhatsApp"
                     links={formLinks}
                     onInsert={handleInsertFormLink}
                   />
