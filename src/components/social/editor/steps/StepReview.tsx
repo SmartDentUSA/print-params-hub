@@ -30,6 +30,11 @@ export function StepReview({ value }: { value: PostInput }) {
             ? 'Vai para os grupos de WhatsApp depois de publicada'
             : 'Não vai para os grupos de WhatsApp'}
         </div>
+        {value.group_blast_enabled !== false && value.group_link_url ? (
+          <div className="text-sm text-muted-foreground break-all">
+            Link abaixo da imagem nos grupos: <span className="text-foreground">{value.group_link_url}</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="border rounded-md p-4 space-y-2">
