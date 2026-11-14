@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { shortenUrl } from "@/utils/shortLink";
 import { buildLiaUrl } from "@/lib/attendanceChannel";
-import { MessageCircle, GraduationCap, Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2, FileText, Layout } from "lucide-react";
+import { isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
+import { MessageCircle, Users, GraduationCap, Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2, FileText, Layout } from "lucide-react";
 
 type Channel = "sms" | "whatsapp" | "whatsapp_groups";
 
@@ -52,7 +53,7 @@ interface FormShortLink {
   name: string;
   slug: string;
   short_code: string;
-  default_target: "form" | "landing_page";
+  default_target: "form" | "landing_page" | "whatsapp";
   url: string;
   click_count: number;
 }
@@ -85,7 +86,7 @@ async function fetchFormShortLinks(): Promise<FormShortLink[]> {
         name: form.name,
         slug: form.slug,
         short_code: l.short_code,
-        default_target: l.default_target as "form" | "landing_page",
+        default_target: l.default_target as FormShortLink["default_target"],
         click_count: Number(l.click_count) || 0,
         url: `${SHORT_LINK_DOMAIN}/${l.short_code}`,
       };
@@ -114,6 +115,30 @@ async function fetchChatLinks(): Promise<DynamicLink[]> {
     target: buildLiaUrl({ formId: f.id, base: PUBLIC_SITE }) + "&utm_source=campanha&utm_medium=whatsapp_lia",
     utm: "",
   }));
+}
+
+interface GroupLink {
+  url: string;
+  forms: string[];
+}
+
+/** Convites de grupo (chat.whatsapp.com) salvos no editor dos formulários ativos, um por grupo. */
+async function fetchGroupLinks(): Promise<GroupLink[]> {
+  const { data } = await (supabase as any)
+    .from("smartops_forms")
+    .select("name, success_redirect_url")
+    .eq("active", true)
+    .ilike("success_redirect_url", "https://chat.whatsapp.com/%")
+    .order("name");
+  const byUrl = new Map<string, GroupLink>();
+  for (const f of (data ?? []) as any[]) {
+    const url = String(f.success_redirect_url ?? "").trim().replace(/\/+$/, "");
+    if (!isWhatsAppGroupLink(url)) continue;
+    const item = byUrl.get(url) ?? { url, forms: [] };
+    item.forms.push(f.name);
+    byUrl.set(url, item);
+  }
+  return [...byUrl.values()];
 }
 
 async function fetchCourseLinks(): Promise<DynamicLink[]> {
@@ -171,6 +196,7 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
   const [formLinks, setFormLinks] = useState<FormShortLink[]>([]);
   const [chatLinks, setChatLinks] = useState<DynamicLink[]>([]);
   const [courseLinks, setCourseLinks] = useState<DynamicLink[]>([]);
+  const [groupLinks, setGroupLinks] = useState<GroupLink[]>([]);
   const [shortening, setShortening] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CampaignLink | null>(null);
@@ -203,6 +229,7 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
       loadFormLinks();
       fetchChatLinks().then(setChatLinks).catch(() => setChatLinks([]));
       fetchCourseLinks().then(setCourseLinks).catch(() => setCourseLinks([]));
+      fetchGroupLinks().then(setGroupLinks).catch(() => setGroupLinks([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, channel]);
@@ -298,7 +325,7 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
               <div className="p-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
               </div>
-            ) : links.length === 0 && formLinks.length === 0 && chatLinks.length === 0 && courseLinks.length === 0 ? (
+            ) : links.length === 0 && formLinks.length === 0 && chatLinks.length === 0 && courseLinks.length === 0 && groupLinks.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 Nenhum link para este canal.
               </div>
@@ -329,6 +356,15 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
                     label="Formulários e Landing Pages"
                     links={formLinks}
                     onInsert={handleInsertFormLink}
+                  />
+                )}
+                {groupLinks.length > 0 && (
+                  <GroupLinkSection
+                    links={groupLinks}
+                    onInsert={(url) => {
+                      onInsert(url);
+                      setOpen(false);
+                    }}
                   />
                 )}
                 {chatLinks.length > 0 && (
@@ -446,6 +482,7 @@ function FormLinkSection({
 }) {
   const formLinks = links.filter((l) => l.default_target === "form");
   const landingLinks = links.filter((l) => l.default_target === "landing_page");
+  const whatsappLinks = links.filter((l) => l.default_target === "whatsapp");
 
   return (
     <div className="py-1 border-t">
@@ -493,6 +530,52 @@ function FormLinkSection({
           </ul>
         </>
       )}
+      {whatsappLinks.length > 0 && (
+        <>
+          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+            <MessageCircle className="w-3 h-3" /> Simulador WhatsApp
+          </div>
+          <ul className="divide-y">
+            {whatsappLinks.map((l) => (
+              <li key={l.id} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{l.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{l.url}</div>
+                </div>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l)} type="button" title="Inserir">
+                  <CornerDownLeft className="w-3.5 h-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
+function GroupLinkSection({ links, onInsert }: { links: GroupLink[]; onInsert: (url: string) => void }) {
+  return (
+    <div className="py-1 border-t">
+      <div className="px-3 py-1.5 flex items-center gap-2 sticky top-0 bg-popover">
+        <Badge variant="outline" className="text-[10px] gap-1"><Users className="w-3 h-3" />Grupos de WhatsApp (formulários)</Badge>
+        <span className="text-xs text-muted-foreground">{links.length}</span>
+      </div>
+      <ul className="divide-y">
+        {links.map((l) => (
+          <li key={l.url} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate" title={l.forms.join(" · ")}>
+                {l.forms[0]}{l.forms.length > 1 ? ` +${l.forms.length - 1}` : ""}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">{l.url}</div>
+            </div>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(l.url)} type="button" title="Inserir">
+              <CornerDownLeft className="w-3.5 h-3.5" />
+            </Button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
