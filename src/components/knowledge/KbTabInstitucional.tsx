@@ -173,7 +173,7 @@ export default function KbTabInstitucional() {
   // Produtos reais do catálogo (mesmo filtro da ProductPage) → nós Product no @graph.
   useEffect(() => {
     supabase.from('system_a_catalog')
-      .select('name, slug, description, meta_description, image_url, og_image_url, price, promo_price, currency, cta_1_url, extra_data')
+      .select('name, slug, description, meta_description, image_url, og_image_url, price, promo_price, currency, cta_1_url, canonical_url, extra_data')
       .eq('category', 'product').eq('active', true).eq('approved', true).eq('visible_in_ui', true)
       .gt('price', 0).order('name').limit(24) // ponytail: 24 itens no JSON-LD; paginar/priorizar se o catálogo crescer
       .then(({ data, error }) => { if (error) console.error('institutional products schema:', error); else setProducts(data ?? []); });
@@ -206,7 +206,7 @@ export default function KbTabInstitucional() {
         itemListElement: c.sol.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s[0], url: `${SITE}${p.kb}?tab=catalogo&cat=${SOL_CATS[i]}` })),
       },
       ...products.map((pr) => {
-        const productUrl = `${SITE}/produtos/${pr.slug}`;
+        const productUrl = pr.canonical_url || pr.cta_1_url || `${SITE}/produtos/${pr.slug}`; // canônico = loja
         return {
           '@type': 'Product', '@id': `${productUrl}#product`, name: pr.name, url: productUrl,
           description: pr.meta_description || pr.description || pr.name,
@@ -215,7 +215,7 @@ export default function KbTabInstitucional() {
           sku: pr.extra_data?.sku || undefined,
           offers: {
             '@type': 'Offer', priceCurrency: pr.currency || 'BRL', price: pr.promo_price ?? pr.price,
-            url: pr.cta_1_url || productUrl, seller: { '@id': `${SITE}/#org` },
+            url: productUrl, seller: { '@id': `${SITE}/#org` },
           },
         };
       }),

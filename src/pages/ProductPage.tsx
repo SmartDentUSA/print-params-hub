@@ -180,7 +180,7 @@ const ProductPage = () => {
   const faqs = extraData.faqs || [];
 
   const baseUrl = getPublicSiteOrigin();
-  const canonicalUrl = `${baseUrl}/produtos/${slug}`;
+  const canonicalUrl = product.canonical_url || `${baseUrl}/produtos/${slug}`; // canônico = loja
   const keywordsStr = product.keywords?.join(", ") || `${product.name}, ${companyName}`;
 
   // BreadcrumbList Schema
