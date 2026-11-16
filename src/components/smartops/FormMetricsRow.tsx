@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import AttendanceChannelMetrics from "@/components/lia/AttendanceChannelMetrics";
 import { QrCodeButton } from "./QrCodeButton";
+import { ShortLinkOriginMenu } from "./ShortLinkOriginMenu";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import { buildLiaUrl } from "@/lib/attendanceChannel";
 import type { FormMetrics, ShortLinkInfo, ShortLinkTarget } from "./FormMetricsCard";
@@ -114,7 +115,8 @@ function ShortChip({
           · {info.click_count.toLocaleString()}
         </span>
       </div>
-      {qr}
+      <ShortLinkOriginMenu code={info.short_code} />
+          {qr}
       </div>
     );
   }

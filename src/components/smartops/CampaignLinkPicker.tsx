@@ -17,6 +17,7 @@ import {
 import { shortenUrl } from "@/utils/shortLink";
 import { buildLiaUrl } from "@/lib/attendanceChannel";
 import { isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
+import { originForCampaignChannel, withClickOrigin } from "@/lib/clickOrigin";
 import {
   ALL_LINK_SECTIONS,
   simulatorOnly,
@@ -276,12 +277,13 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
   };
 
   const handleInsert = (link: CampaignLink) => {
-    onInsert(link.url_curta || link.url);
+    onInsert(withClickOrigin(link.url_curta || link.url, originForCampaignChannel(channel)));
     setOpen(false);
   };
 
+  // Links curtos oficiais levam a origem do canal (?o=sms, ?o=whatsapp, ?o=grupos) para o rastreio.
   const handleInsertFormLink = (link: FormShortLink) => {
-    onInsert(link.url);
+    onInsert(withClickOrigin(link.url, originForCampaignChannel(channel)));
     setOpen(false);
   };
 

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, Pencil, Trash2, Settings, CopyPlus, Copy, Layout, Link2, Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { QrCodeButton } from "./QrCodeButton";
+import { ShortLinkOriginMenu } from "./ShortLinkOriginMenu";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 
 export interface FormMetrics {
@@ -136,6 +137,7 @@ export function FormMetricsCard({
           <span className="text-muted-foreground tabular-nums">
             ({info.click_count.toLocaleString()})
           </span>
+          <ShortLinkOriginMenu code={info.short_code} />
           {qr}
         </div>
       );

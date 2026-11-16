@@ -295,6 +295,7 @@ export default function LiaCaptureChat({ formId, campaign, product, productId = 
       name: identity.name, email: identity.email, phone: identity.phone,
       session_id: sessionStorage.getItem("dra_lia_session"),
       utm_source: params.get("utm_source"), utm_medium: params.get("utm_medium"), utm_campaign: params.get("utm_campaign"),
+      utm_term: params.get("utm_term"),
     });
     setLead({ id: r.lead_id, token: r.token });
     await linkLeadToPageSession(r.lead_id);

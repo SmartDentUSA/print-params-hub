@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { parseSimulators, type LandingSimulator } from "@/lib/lp/customLanding";
+import { CLICK_ORIGINS, CLICK_ORIGIN_LABEL } from "@/lib/clickOrigin";
 
 type Row = { channel: string; views: number; leads: number; conversions: number; revenue: number };
 type SimRow = { simulator_id: string; label: string; views: number; leads: number; conversions: number; revenue: number };
@@ -17,12 +18,31 @@ function mergeSimulators(list: LandingSimulator[], data: any[]): SimRow[] {
   for (const [id, r] of byId) rows.push({ simulator_id: id, label: id, views: +r.views, leads: +r.leads, conversions: +r.conversions, revenue: +r.revenue });
   return rows;
 }
+type OriginRow = { origin: string; clicks: number; views: number; whatsapp_opens: number; leads: number; conversions: number; revenue: number };
+/** Todas as origens marcáveis aparecem (mesmo zeradas); "sem origem" só quando houver movimento. */
+function mergeOrigins(data: any[]): OriginRow[] {
+  const by = new Map<string, any>((data ?? []).map((r: any) => [String(r.origin), r]));
+  const num = (r: any): Omit<OriginRow, "origin"> => ({ clicks: +(r?.clicks ?? 0), views: +(r?.views ?? 0), whatsapp_opens: +(r?.whatsapp_opens ?? 0), leads: +(r?.leads ?? 0), conversions: +(r?.conversions ?? 0), revenue: +(r?.revenue ?? 0) });
+  const rows: OriginRow[] = CLICK_ORIGINS.map((o) => ({ origin: o, ...num(by.get(o)) }));
+  if (by.has("direto")) rows.push({ origin: "direto", ...num(by.get("direto")) });
+  return rows;
+}
 const LABEL: Record<string, string> = { form: "Formulário", specialist: "Falar com especialista", whatsapp_lia: "WhatsApp (Dra. LIA)" };
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 90, title, formOverride }: { formId?: string | null; campaignSlug?: string | null; days?: number; title?: string; formOverride?: { views: number; leads: number; conversions: number; revenue: number } }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [sims, setSims] = useState<SimRow[]>([]);
+  const [origins, setOrigins] = useState<OriginRow[]>([]);
+  useEffect(() => {
+    setOrigins([]);
+    if (!formId) return;
+    let cancelled = false;
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    (supabase as any).rpc("fn_attendance_origin_metrics", { _form_id: formId, _since: since })
+      .then(({ data, error }: any) => { if (!cancelled && !error) setOrigins(mergeOrigins(data ?? [])); }, () => {});
+    return () => { cancelled = true; };
+  }, [formId, days]);
   useEffect(() => {
     setSims([]);
     if (!formId) return;
@@ -80,6 +100,30 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                 </Fragment>))}
               </tbody>
             </table>
+            {origins.length > 0 && (
+              <div className="mt-4">
+                <div className="text-sm font-medium">Origem dos cliques</div>
+                <table className="mt-1 w-full text-sm">
+                  <thead className="text-left text-muted-foreground">
+                    <tr><th className="py-1">Origem</th><th>Cliques no link</th><th>Visitas na landing</th><th>Cliques no WhatsApp</th><th>Leads gerados</th><th>Conversões</th><th>Valor das conversões</th></tr>
+                  </thead>
+                  <tbody>
+                    {origins.map((o) => (
+                      <tr key={o.origin} className="border-t border-border">
+                        <td className="py-1.5 font-medium">{CLICK_ORIGIN_LABEL[o.origin as keyof typeof CLICK_ORIGIN_LABEL] ?? o.origin}</td>
+                        <td>{o.clicks}</td>
+                        <td>{o.views}</td>
+                        <td>{o.whatsapp_opens}</td>
+                        <td>{o.leads}</td>
+                        <td>{o.conversions}</td>
+                        <td>{brl(o.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-1 text-xs text-muted-foreground">Cada origem conta os links curtos marcados (?o=email, ?o=sms, ?o=whatsapp, ?o=grupos, ?o=bio), copiados pelo botão "origem" no card do formulário ou inseridos pelas telas de e-mail, SMS e WhatsApp. "Sem origem marcada" reúne os acessos sem marcação. A contagem por origem começa a partir de hoje.</p>
+              </div>
+            )}
             <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. {sims.length ? "Abaixo do WhatsApp, cada simulador da landing (geral e por produto) com seu identificador; a contagem por simulador começa a partir de hoje. " : ""}{formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
           </div>
         )}

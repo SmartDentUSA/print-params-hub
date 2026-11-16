@@ -18,7 +18,8 @@ import { EmailRichEditor } from "./EmailRichEditor";
 import { EmailHtmlEditor } from "./EmailHtmlEditor";
 import { parseSections, serializeSections, toggleSection, type EmailSection } from "./emailSections";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { buildSimulatorCtaOptions } from "@/lib/emailCtaOptions";
+import { buildLandingCtaOptions, buildSimulatorCtaOptions } from "@/lib/emailCtaOptions";
+import { withClickOrigin } from "@/lib/clickOrigin";
 
 type CtaType = "landing" | "form" | "whatsapp" | "custom";
 interface CtaOption { id: string; label: string; url: string; tipo: CtaType }
@@ -140,13 +141,24 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
       const { data: rows } = await sb
         .from("smartops_short_links")
         .select("short_code, form_slug, default_target")
-        .eq("default_target", "whatsapp");
+        .in("default_target", ["whatsapp", "landing_page"]);
       const slugs = [...new Set(((rows || []) as any[]).map(r => r.form_slug).filter(Boolean))];
       const { data: forms } = slugs.length
-        ? await sb.from("smartops_forms").select("slug, name").in("slug", slugs)
+        ? await sb.from("smartops_forms").select("id, slug, name").in("slug", slugs)
         : { data: [] as any[] };
-      const whatsapp = buildSimulatorCtaOptions(rows || [], forms || []);
-      setCtaOptions(prev => ({ ...prev, whatsapp }));
+      const slugById = new Map<string, string>(((forms || []) as any[]).map(f => [f.id, f.slug]));
+      const { data: lps } = slugById.size
+        ? await sb.from("smartops_form_landing_pages").select("id, form_id").eq("status", "published").in("form_id", [...slugById.keys()])
+        : { data: [] as any[] };
+      const lpBySlug = new Map<string, string>();
+      for (const lp of (lps || []) as any[]) {
+        const slug = slugById.get(lp.form_id);
+        if (slug) lpBySlug.set(slug, lp.id);
+      }
+      // Origem do clique: links curtos do e-mail levam ?o=email.
+      const whatsapp = buildSimulatorCtaOptions(rows || [], forms || []).map(o => ({ ...o, url: withClickOrigin(o.url, "email") }));
+      const landing = buildLandingCtaOptions(rows || [], forms || [], lpBySlug);
+      setCtaOptions(prev => ({ ...prev, whatsapp, landing }));
     })();
   }, []);
 
@@ -154,7 +166,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   useEffect(() => {
     (async () => {
       if (!produtoId) {
-        setCtaOptions(prev => ({ ...prev, landing: [], form: [], custom: [] }));
+        setCtaOptions(prev => ({ ...prev, form: [], custom: [] }));
         setCtaPrincipal(null);
         setCtasSecundarios([]);
         return;
@@ -164,15 +176,6 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         .from("smartops_forms")
         .select("id, name, slug")
         .eq("product_catalog_id", produtoId);
-      const formIds = (prodForms || []).map((f: any) => f.id);
-      const { data: prodLps } = formIds.length
-        ? await sb
-            .from("smartops_form_landing_pages")
-            .select("id, status, form_id")
-            .in("form_id", formIds)
-            .eq("status", "published")
-        : { data: [] as any[] };
-
       // Load official short links for these forms (same shorts shown on the form card).
       const formSlugs = (prodForms || []).map((f: any) => f.slug).filter(Boolean);
       const { data: shortRows } = formSlugs.length
@@ -190,30 +193,11 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
           shortMap[r.form_slug][r.default_target as "form" | "landing_page"] = r.short_code;
         }
       }
-      const formSlugById: Record<string, string> = {};
-      const formNameById: Record<string, string> = {};
-      for (const f of (prodForms || []) as any[]) {
-        formSlugById[f.id] = f.slug;
-        formNameById[f.id] = f.name || f.slug;
-      }
-
       // Política: usar SOMENTE URLs encurtadas oficiais (smartops_short_links),
       // exatamente as mesmas exibidas nos cards do formulário/LP. Nunca fabricar
       // URLs canônicas novas — se não houver short_code cadastrado, a opção
       // não é oferecida para não gerar link diferente do publicado.
-      const landing: CtaOption[] = (prodLps || [])
-        .map((p: any) => {
-          const fSlug = formSlugById[p.form_id];
-          const code = fSlug ? shortMap[fSlug]?.landing_page : undefined;
-          if (!code) return null;
-          return {
-            id: p.id,
-            tipo: "landing" as const,
-            label: `Landing: ${formNameById[p.form_id] || fSlug || p.id}`,
-            url: `${shortBase}/${code}`,
-          };
-        })
-        .filter(Boolean) as CtaOption[];
+      // Landing pages vêm da lista geral (todas as publicadas com link curto).
       const form: CtaOption[] = (prodForms || [])
         .map((f: any) => {
           const code = shortMap[f.slug]?.form;
@@ -222,12 +206,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             id: f.id,
             tipo: "form" as const,
             label: `Formulário: ${f.name || f.slug}`,
-            url: `${shortBase}/${code}`,
+            url: withClickOrigin(`${shortBase}/${code}`, "email"),
           };
         })
         .filter(Boolean) as CtaOption[];
 
-      setCtaOptions(prev => ({ ...prev, landing, form, custom: [] }));
+      setCtaOptions(prev => ({ ...prev, form, custom: [] }));
 
       // Padrão: formulário oficial do produto. O simulador de WhatsApp pode ser
       // escolhido manualmente. A landing page continua só como fonte visual/copy.
@@ -237,7 +221,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
     })();
   }, [produtoId]);
 
-  const allCtas = useMemo(() => [...ctaOptions.form, ...ctaOptions.whatsapp], [ctaOptions]);
+  const allCtas = useMemo(() => [...ctaOptions.landing, ...ctaOptions.form, ...ctaOptions.whatsapp], [ctaOptions]);
 
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
@@ -254,7 +238,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
 
   async function handleGenerate(mode: "all" | "subject" = "all") {
     if (!produtoId) return toast.error("Escolha um produto primeiro");
-    if (!ctaPrincipal) return toast.error("Escolha o botão do e-mail: formulário oficial do produto ou simulador de WhatsApp.");
+    if (!ctaPrincipal) return toast.error("Escolha o botão do e-mail: landing page, formulário oficial do produto ou simulador de WhatsApp.");
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("smart-ops-generate-email-ai", {
@@ -590,12 +574,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
               >
                 <SelectTrigger><SelectValue placeholder="Escolha o destino principal" /></SelectTrigger>
                 <SelectContent className="max-h-96">
-                  {(["form", "whatsapp"] as CtaType[]).flatMap(t => {
+                  {(["landing", "form", "whatsapp"] as CtaType[]).flatMap(t => {
                     const list = ctaOptions[t];
                     if (!list.length) return [];
                     return [
                       <div key={`h-${t}`} className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase">
-                        {t === "whatsapp" ? "Simuladores WhatsApp" : "Formulário oficial do produto"}
+                        {t === "whatsapp" ? "Simuladores WhatsApp" : t === "landing" ? "Landing pages" : "Formulário oficial do produto"}
                       </div>,
                       ...list.map(o => (
                         <SelectItem key={`${o.tipo}-${o.id}`} value={`${o.tipo}::${o.id}`}>{o.label}</SelectItem>
@@ -605,7 +589,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                   {!allCtas.length && (
                     <div className="px-2 py-4 text-xs text-muted-foreground text-center">
                       {produtoId
-                        ? "Nenhum formulário oficial ou simulador de WhatsApp com URL encurtada."
+                        ? "Nenhuma landing page, formulário oficial ou simulador de WhatsApp com URL encurtada."
                         : "Selecione um produto primeiro."}
                     </div>
                   )}

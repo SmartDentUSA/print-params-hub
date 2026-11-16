@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateSessionId } from "@/hooks/usePageTracking";
+import { clickOriginFromSearch, type ClickOrigin } from "@/lib/clickOrigin";
 
 export type AttendanceChannel = "form" | "specialist" | "whatsapp_lia";
 
@@ -17,6 +18,7 @@ export function trackAttendanceView(formId: string | null) {
       utm_source: query.get("utm_source"),
       utm_medium: query.get("utm_medium"),
       utm_campaign: query.get("utm_campaign"),
+      utm_term: query.get("utm_term"),
       extra_data: { form_id: formId, action: "view", channel: "whatsapp_lia", source_host: window.location.hostname },
     } as any).then(({ error }) => {
       if (error) console.warn("[AttendanceTracking]", error.message);
@@ -43,7 +45,13 @@ export function trackAttendanceEvent(e: {
   lead_id?: string | null;
   /** Simulador de WhatsApp que originou o evento (ex.: item da landing). */
   simulator_id?: string | null;
+  /** Origem do clique (e-mail, SMS...); padrão: lida da URL atual. */
+  origin?: ClickOrigin | null;
 }) {
+  let origin = e.origin ?? null;
+  if (e.origin === undefined) {
+    try { origin = clickOriginFromSearch(window.location.search); } catch { origin = null; }
+  }
   void (supabase as any).from("attendance_channel_events").insert({
     channel: e.channel,
     event_type: e.event_type,
@@ -52,6 +60,7 @@ export function trackAttendanceEvent(e: {
     product_name: e.product_name ?? null,
     lead_id: e.lead_id ?? null,
     ...(e.simulator_id ? { simulator_id: e.simulator_id.slice(0, 80) } : {}),
+    ...(origin ? { origin_channel: origin } : {}),
     session_id: sessionId(),
     page_path: window.location.pathname.slice(0, 300),
   }).then(() => {}, () => {});

@@ -34,3 +34,36 @@ export function buildSimulatorCtaOptions(rows: ShortRow[], forms: FormRow[]): Si
   }
   return out.sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 }
+
+export interface LandingCtaOption {
+  id: string;
+  label: string;
+  url: string;
+  tipo: "landing";
+}
+
+/**
+ * Landing pages publicadas com link curto oficial (default_target = 'landing_page'), marcadas com origem e-mail.
+ * `publishedLpBySlug`: slug do formulário → id da landing publicada (o gerador de e-mail lê a landing por esse id).
+ */
+export function buildLandingCtaOptions(rows: ShortRow[], forms: FormRow[], publishedLpBySlug: Map<string, string>): LandingCtaOption[] {
+  const nameBySlug = new Map<string, string>();
+  for (const f of forms) if (f.slug) nameBySlug.set(f.slug, (f.name || f.slug).trim());
+  const seen = new Set<string>();
+  const out: LandingCtaOption[] = [];
+  for (const r of rows) {
+    if (r.default_target !== "landing_page" || !r.short_code || !r.form_slug) continue;
+    const lpId = publishedLpBySlug.get(r.form_slug);
+    if (!lpId) continue;
+    const name = nameBySlug.get(r.form_slug);
+    if (!name || seen.has(r.short_code)) continue;
+    seen.add(r.short_code);
+    out.push({
+      id: lpId,
+      tipo: "landing",
+      label: `Landing page: ${name}`,
+      url: `${OFFICIAL_SHORT_BASE}/${r.short_code}?o=email`,
+    });
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+}
