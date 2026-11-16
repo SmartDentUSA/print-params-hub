@@ -1,5 +1,5 @@
 import { assertEquals } from 'jsr:@std/assert@1';
-import { MAX_TEST_PHONES, broadcastKeepsHeaderMedia, phoneVariants, checkHeaderImage, planSlots, pushIntoWindow, resolveButtons, templateMeta, validateSchedule } from './plan.ts';
+import { MAX_TEST_PHONES, broadcastKeepsHeaderMedia, fillTokens, phoneVariants, checkHeaderImage, planSlots, pushIntoWindow, resolveButtons, templateMeta, validateDailyAndCost, validateSchedule } from './plan.ts';
 
 const now = new Date('2026-11-20T12:00:00Z');
 const leads = Array.from({ length: 1000 }, (_, i) => i);
@@ -105,4 +105,42 @@ Deno.test('phoneVariants acha o celular com e sem o 9º dígito', () => {
   assertEquals(phoneVariants('5516997501531'), ['5516997501531', '551697501531']);
   assertEquals(phoneVariants('551697501531'), ['551697501531', '5516997501531']);
   assertEquals(phoneVariants('551634194735'), ['551634194735']);
+});
+
+Deno.test('máximo 250 por dia: 600 leads às 09:00 viram 3 lotes, um a cada 24 h', () => {
+  const s = planSlots(leads.slice(0, 600), { perDay: 250, scheduledAt: '2026-11-20T12:00:00Z', now: new Date('2026-11-20T10:00:00Z') });
+  assertEquals(s.map((x) => [x.at, x.leads.length]), [
+    ['2026-11-20T12:00:00.000Z', 250], ['2026-11-21T12:00:00.000Z', 250], ['2026-11-22T12:00:00.000Z', 100]]);
+});
+
+Deno.test('250 por dia e 100 por hora: 100, 100, 50 no dia; o resto só 24 h depois do 1º lote', () => {
+  const s = planSlots(leads.slice(0, 400), { perHour: 100, perDay: 250, scheduledAt: '2026-11-20T13:00:00Z', now });
+  assertEquals(s.map((x) => [x.at, x.leads.length]), [
+    ['2026-11-20T13:00:00.000Z', 100], ['2026-11-20T14:00:00.000Z', 100], ['2026-11-20T15:00:00.000Z', 50],
+    ['2026-11-21T13:00:00.000Z', 100], ['2026-11-21T14:00:00.000Z', 50]]);
+});
+
+Deno.test('público dentro do limite diário e sem data continua saindo agora', () => {
+  const s = planSlots(leads.slice(0, 200), { perDay: 250, now });
+  assertEquals(s, [{ at: null, leads: leads.slice(0, 200) }]);
+});
+
+Deno.test('lote diário que cairia às 22:00 de SP vai para 07:30 do dia seguinte', () => {
+  // começa 18:00 SP; 24 h depois = 18:00 do dia seguinte (dentro da janela)
+  const s = planSlots(leads.slice(0, 300), { perDay: 250, scheduledAt: '2026-11-20T21:00:00Z', now });
+  assertEquals(s.map((x) => x.at), ['2026-11-20T21:00:00.000Z', '2026-11-21T21:00:00.000Z']);
+});
+
+Deno.test('texto livre com campos do sistema', () => {
+  const vals: Record<string, string> = { primeiro_nome: '', empresa: 'Clínica Sorriso', cidade: '' };
+  const get = (k: string) => (k in vals ? vals[k] : null);
+  assertEquals(fillTokens('Oi {primeiro_nome}, oferta para {empresa}!', get), 'Oi colega, oferta para Clínica Sorriso!');
+  assertEquals(fillTokens('Condição em {cidade} hoje', get), 'Condição em hoje');
+  assertEquals(fillTokens('Use {cupom_x} agora', get), 'Use {cupom_x} agora');
+});
+
+Deno.test('limite diário e custo inválidos são recusados', () => {
+  assertEquals(typeof validateDailyAndCost(0, null), 'string');
+  assertEquals(typeof validateDailyAndCost(null, -1), 'string');
+  assertEquals(validateDailyAndCost(250, 0.35), null);
 });
