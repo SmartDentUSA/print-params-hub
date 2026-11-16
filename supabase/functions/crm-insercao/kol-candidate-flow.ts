@@ -2,8 +2,8 @@
 // Etapas (cada uma reporta status; falha em uma não esconde as anteriores e o
 // reenvio refaz só o que falhou — estado em kol_candidate_registrations):
 //   ficha do profissional → portal → pessoa PipeRun → deal funil KOL (Interessados,
-//   proprietário Beatriz) → grupo WhatsApp (Beatriz + vendedor + KOL) → mensagem
-//   da Beatriz → nota completa no deal → timeline do lead.
+//   proprietário Beatriz) → grupo WhatsApp criado pelo Celular Comercial (vendedor +
+//   KOL + Beatriz) → mensagem no grupo → nota completa no deal → timeline do lead.
 // Não toca em funis Vendas/CS: o deal vive só no pipeline KOL.
 import { z } from "npm:zod@3.23.8";
 import { piperunGet, piperunPost, addDealNote, normalizePipeRunDealStatus } from "../_shared/piperun-field-map.ts";
@@ -22,6 +22,8 @@ const PIPERUN_KEY = Deno.env.get("PIPERUN_API_KEY") ?? "";
 const PORTAL_BASE = Deno.env.get("PUBLIC_SITE_URL") || "https://www.smartdent.com.br";
 /** Beatriz Marketing Smart Dent (oraculosmartdent@gmail.com · 5516997501531). */
 const BEATRIZ_TM_ID = "09166137-34a0-40a8-8857-211eda7a2233";
+/** Celular Comercial (5516981596947): cria o grupo do candidato e envia a mensagem. */
+const GROUP_CREATOR_TM_ID = "406071b2-2bee-424c-a71f-5ffd023dad69";
 
 export const KolSubmitSchema = z.object({
   nome: z.string().trim().min(2).max(160),
@@ -202,18 +204,19 @@ export async function runKolCandidate(deps: {
     }
   }
 
-  // ── 5) Grupo de WhatsApp (instância Beatriz) + mensagem ──
+  // ── 5) Grupo de WhatsApp (instância Celular Comercial) + mensagem ──
   let groupJid = reg.wa_group_jid as string | null;
   const groupName = reg.wa_group_name || buildKolGroupName(profName);
-  const { data: beatriz } = await sb.from("team_members").select(`${WA_PROVIDER_COLUMNS}, whatsapp_number, evo_go_instance_name`).eq("id", BEATRIZ_TM_ID).maybeSingle();
+  const { data: creator } = await sb.from("team_members").select(`${WA_PROVIDER_COLUMNS}, whatsapp_number, evo_go_instance_name`).eq("id", GROUP_CREATOR_TM_ID).maybeSingle();
+  const { data: beatriz } = await sb.from("team_members").select("whatsapp_number").eq("id", BEATRIZ_TM_ID).maybeSingle();
   const { data: sellerRow } = await sb.from("team_members").select("whatsapp_number").eq("id", tm.id).maybeSingle();
   const { data: dry } = await sb.from("kol_program_settings").select("value").eq("key", "group_creation_dry_run").maybeSingle();
   const dryRun = dry?.value === true || dry?.value === "true";
   let provider: ReturnType<typeof requireConnectedEvolutionGo> | null = null;
-  try { provider = requireConnectedEvolutionGo(beatriz as any, "group_management"); }
-  catch (e) { if (!groupJid) { regPatch.wa_group_error = (e as Error).message; steps.push({ step: "grupo", ok: false, detail: `WhatsApp da Beatriz indisponível: ${(e as Error).message}` }); } }
+  try { provider = requireConnectedEvolutionGo(creator as any, "group_management"); }
+  catch (e) { if (!groupJid) { regPatch.wa_group_error = (e as Error).message; steps.push({ step: "grupo", ok: false, detail: `Celular Comercial indisponível: ${(e as Error).message}` }); } }
   if (!groupJid && provider) {
-    const participants = groupParticipants(sellerRow?.whatsapp_number, prof.telefone_normalized || phoneDigits, beatriz?.whatsapp_number);
+    const participants = groupParticipants([sellerRow?.whatsapp_number, prof.telefone_normalized || phoneDigits, beatriz?.whatsapp_number], creator?.whatsapp_number);
     if (dryRun) {
       steps.push({ step: "grupo", ok: true, detail: `Simulação ligada — grupo "${groupName}" não foi criado (${participants.length} participantes).` });
     } else if (participants.length < 1) {
@@ -226,7 +229,7 @@ export async function runKolCandidate(deps: {
         groupJid = parseGroupJid(r);
         if (!groupJid) throw new Error("grupo criado sem identificador na resposta");
         regPatch.wa_group_jid = groupJid; regPatch.wa_group_name = groupName; regPatch.wa_group_error = null;
-        steps.push({ step: "grupo", ok: true, detail: `Grupo "${groupName}" criado com você, o profissional e a Beatriz (administradora).` });
+        steps.push({ step: "grupo", ok: true, detail: `Grupo "${groupName}" criado pelo Celular Comercial com você, o profissional e a Beatriz.` });
       } catch (e) {
         regPatch.wa_group_error = String((e as Error).message).slice(0, 400);
         steps.push({ step: "grupo", ok: false, detail: `Falha ao criar o grupo: ${regPatch.wa_group_error}` });
@@ -242,7 +245,7 @@ export async function runKolCandidate(deps: {
       const r: any = await evoGoPost(provider.baseUrl, provider.credential, "/send/text", { number: groupJid, text });
       regPatch.wa_message_id = String(r?.data?.Info?.ID ?? r?.data?.id ?? r?.key?.id ?? "") || null;
       regPatch.wa_message_sent_at = new Date().toISOString(); regPatch.wa_message_error = null;
-      steps.push({ step: "mensagem", ok: true, detail: "Mensagem da Beatriz enviada no grupo com o link do portal." });
+      steps.push({ step: "mensagem", ok: true, detail: "Mensagem enviada no grupo com o link do portal." });
     } catch (e) {
       regPatch.wa_message_error = String((e as Error).message).slice(0, 400);
       steps.push({ step: "mensagem", ok: false, detail: `Falha ao enviar a mensagem: ${regPatch.wa_message_error}` });
@@ -273,7 +276,7 @@ export async function runKolCandidate(deps: {
       ...leadSummary.filter((b) => b.title !== "Quem é").map((b) => ({ title: b.title, lines: b.lines })),
       { title: "Credenciamento", rows: [
         ["Contrato", "Pendente (não gerado)"], ["Portal do Profissional Parceiro", portalUrl],
-        ["Grupo de WhatsApp", groupJid ? `${groupName} (Beatriz + ${tm.nome_completo} + profissional)` : dryRun ? "Simulação — não criado" : `Não criado: ${regPatch.wa_group_error ?? reg.wa_group_error ?? "—"}`],
+        ["Grupo de WhatsApp", groupJid ? `${groupName} (Celular Comercial + ${tm.nome_completo} + profissional + Beatriz)` : dryRun ? "Simulação — não criado" : `Não criado: ${regPatch.wa_group_error ?? reg.wa_group_error ?? "—"}`],
         ["Mensagem de boas-vindas", (regPatch.wa_message_sent_at || reg.wa_message_sent_at) ? "Enviada no grupo" : "Não enviada"],
       ] },
     ];
