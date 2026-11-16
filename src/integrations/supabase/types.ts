@@ -1448,6 +1448,7 @@ export type Database = {
           form_id: string | null
           id: string
           lead_id: string | null
+          origin_channel: string | null
           page_path: string | null
           product_name: string | null
           session_id: string | null
@@ -1461,6 +1462,7 @@ export type Database = {
           form_id?: string | null
           id?: string
           lead_id?: string | null
+          origin_channel?: string | null
           page_path?: string | null
           product_name?: string | null
           session_id?: string | null
@@ -1474,6 +1476,7 @@ export type Database = {
           form_id?: string | null
           id?: string
           lead_id?: string | null
+          origin_channel?: string | null
           page_path?: string | null
           product_name?: string | null
           session_id?: string | null
@@ -38638,6 +38641,18 @@ export type Database = {
           leads: number
           revenue: number
           views: number
+        }[]
+      }
+      fn_attendance_origin_metrics: {
+        Args: { _form_id: string; _since?: string }
+        Returns: {
+          clicks: number
+          conversions: number
+          leads: number
+          origin: string
+          revenue: number
+          views: number
+          whatsapp_opens: number
         }[]
       }
       fn_attendance_simulator_metrics: {
