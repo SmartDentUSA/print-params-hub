@@ -8,6 +8,7 @@ import { trackAttendanceEvent, buildLiaUrl } from "@/lib/attendanceChannel";
 import { AttendanceDialog } from "@/components/lia/AttendanceDialog";
 import { CustomLandingFrame } from "@/components/lp/CustomLandingFrame";
 import { parseSimulators, pickSimulator } from "@/lib/lp/customLanding";
+import { clickOriginFromSearch } from "@/lib/clickOrigin";
 
 type LandingPage = {
   id: string;
@@ -35,6 +36,9 @@ export default function PublicLandingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalChannel, setModalChannel] = useState<"form" | "specialist">("form");
   const [liaOpen, setLiaOpen] = useState(false);
+  // Origem do clique (e-mail, SMS, WhatsApp...) que trouxe o visitante; segue para formulário e simulador.
+  const origin = useMemo(() => clickOriginFromSearch(window.location.search), []);
+  const originQs = origin ? `&utm_term=${origin}` : "";
 
   useEffect(() => {
     if (!slug) return;
@@ -78,8 +82,8 @@ export default function PublicLandingPage() {
   }, [lp]);
 
   const iframeUrl = useMemo(
-    () => (lp ? `/f/${lp.smartops_forms.slug}?embed=1&utm_source=landing_page&channel=${modalChannel}` : null),
-    [lp, modalChannel],
+    () => (lp ? `/f/${lp.smartops_forms.slug}?embed=1&utm_source=landing_page&channel=${modalChannel}${originQs}` : null),
+    [lp, modalChannel, originQs],
   );
 
   // Visualização da landing (base do canal formulário)
@@ -94,7 +98,7 @@ export default function PublicLandingPage() {
     setLiaOpen(true);
   };
   const [simLiaUrl, setSimLiaUrl] = useState<string | null>(null);
-  const liaUrl = simLiaUrl ?? (lp ? buildLiaUrl({ formId: lp.smartops_forms.id }) + "&utm_source=landing_page&utm_medium=whatsapp_lia" : "");
+  const liaUrl = simLiaUrl ?? (lp ? buildLiaUrl({ formId: lp.smartops_forms.id }) + "&utm_source=landing_page&utm_medium=whatsapp_lia" + originQs : "");
   const simulators = useMemo(() => parseSimulators(lp?.custom_simulators), [lp?.custom_simulators]);
 
   // Landing personalizada: cada item abre o simulador de WhatsApp com o produto dele já preenchido.
@@ -106,6 +110,7 @@ export default function PublicLandingPage() {
     url.searchParams.set("utm_source", "landing_page");
     url.searchParams.set("utm_medium", "whatsapp_lia");
     url.searchParams.set("utm_content", sim.id);
+    if (origin) url.searchParams.set("utm_term", origin);
     setSimLiaUrl(url.toString());
     setLiaOpen(true);
   };
@@ -113,9 +118,9 @@ export default function PublicLandingPage() {
   const inlineFormUrl = useMemo(
     () =>
       lp
-        ? `/f/${lp.smartops_forms.slug}?embed=1&display=first_three&utm_source=landing_page&utm_medium=inline_form`
+        ? `/f/${lp.smartops_forms.slug}?embed=1&display=first_three&utm_source=landing_page&utm_medium=inline_form${originQs}`
         : null,
-    [lp],
+    [lp, originQs],
   );
 
   // Altura dinâmica do formulário embutido (postMessage vindo de /f/:slug?embed=1)
