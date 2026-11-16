@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface BioItem {
   id: string;
-  kind: "form" | "landing_page" | "custom";
+  kind: "form" | "landing_page" | "whatsapp" | "custom";
   label: string;
   description?: string | null;
   image_url?: string | null;
@@ -110,6 +110,20 @@ async function fetchBioSourceOptions(): Promise<BioSourceOption[]> {
         url: lpShort,
       });
     }
+    // Simuladores de WhatsApp: links encurtados com destino WhatsApp
+    const waShort = shortByKey.get(`whatsapp:${f.slug}`);
+    if (waShort) {
+      options.push({
+        key: `whatsapp:${f.slug}`,
+        kind: "whatsapp",
+        form_id: f.id,
+        slug: f.slug,
+        label,
+        description,
+        image_url: f.hero_image_url ?? null,
+        url: waShort,
+      });
+    }
   });
   return options;
 }
@@ -201,7 +215,7 @@ export function useDeleteBioPage() {
 export interface BioSourceOption {
   key: string;
   form_id?: string;
-  kind: "form" | "landing_page";
+  kind: "form" | "landing_page" | "whatsapp";
   slug: string;
   label: string;
   description: string | null;

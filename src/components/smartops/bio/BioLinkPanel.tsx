@@ -106,7 +106,7 @@ export function BioLinkPanel() {
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
-  const [pickerKind, setPickerKind] = useState<"all" | "form" | "landing_page">("all");
+  const [pickerKind, setPickerKind] = useState<"all" | "form" | "landing_page" | "whatsapp">("all");
 
   const filteredSources = useMemo(() => {
     const q = pickerSearch.trim().toLowerCase();
@@ -135,7 +135,7 @@ export function BioLinkPanel() {
       description: src.description,
       image_url: src.image_url,
       url: src.url,
-      button_text: src.kind === "landing_page" ? "Saiba mais" : "Quero participar",
+      button_text: src.kind === "landing_page" ? "Saiba mais" : src.kind === "whatsapp" ? "Falar no WhatsApp" : "Quero participar",
     };
     setEditor({ ...editor, items: [...editor.items, item] });
   };
@@ -369,6 +369,7 @@ export function BioLinkPanel() {
                         { k: "all", l: "Todos" },
                         { k: "form", l: "Somente formulários" },
                         { k: "landing_page", l: "Somente landing pages" },
+                        { k: "whatsapp", l: "Simuladores WhatsApp" },
                       ] as const).map(({ k, l }) => (
                         <Button
                           key={k}
@@ -390,8 +391,7 @@ export function BioLinkPanel() {
                     <div className="max-h-72 space-y-1 overflow-y-auto">
                       {filteredSources.length === 0 && (
                         <p className="p-2 text-xs text-muted-foreground">
-                          Nada encontrado. Ative "Link da Bio" no formulário/landing page e garanta que
-                          exista link encurtado.
+                          Nada encontrado. Ative "Link da Bio" no formulário/landing page ou crie um link do simulador de WhatsApp.
                         </p>
                       )}
                       {filteredSources.map((s) => {
@@ -407,7 +407,7 @@ export function BioLinkPanel() {
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm">{s.label}</span>
                               <span className="block truncate text-xs text-muted-foreground">
-                                {s.kind === "landing_page" ? "Landing page" : "Formulário"} · {s.url}
+                                {s.kind === "landing_page" ? "Landing page" : s.kind === "whatsapp" ? "Simulador WhatsApp" : "Formulário"} · {s.url}
                               </span>
                             </span>
                           </button>
@@ -428,7 +428,7 @@ export function BioLinkPanel() {
                       <div key={item.id} className="space-y-2 rounded-lg border border-border p-3">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">
-                            {item.kind === "landing_page" ? "LP" : "Form"}
+                            {item.kind === "landing_page" ? "LP" : item.kind === "whatsapp" ? "WhatsApp" : "Form"}
                           </Badge>
                           <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.url}</span>
                           <Button variant="ghost" size="icon" onClick={() => moveItem(idx, -1)}>
