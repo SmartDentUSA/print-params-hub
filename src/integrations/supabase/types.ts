@@ -26247,6 +26247,7 @@ export type Database = {
       }
       smartops_form_landing_pages: {
         Row: {
+          bio_cover: Json | null
           content: Json
           content_version: number
           created_at: string
@@ -26265,6 +26266,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bio_cover?: Json | null
           content?: Json
           content_version?: number
           created_at?: string
@@ -26283,6 +26285,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bio_cover?: Json | null
           content?: Json
           content_version?: number
           created_at?: string
