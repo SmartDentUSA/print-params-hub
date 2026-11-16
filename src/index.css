@@ -51,7 +51,8 @@
   text-align: left;
 }
 .countdown-cover .cc-inner { display: grid; gap: 16px; padding: 18px 16px; }
-.countdown-cover .cc-logo { height: 26px; width: auto; }
+.countdown-cover .cc-logo, .countdown-cover .cc-wordmark { mix-blend-mode: screen; }
+.countdown-cover .cc-logo { height: 30px; width: auto; }
 .countdown-cover .cc-wordmark { margin-top: 10px; height: 46px; width: auto; }
 .countdown-cover .cc-headline { margin-top: 10px; font-family: 'Host Grotesk', 'Poppins', sans-serif; font-weight: 800; font-size: 26px; line-height: 1.05; letter-spacing: -0.02em; }
 .countdown-cover .cc-hot { display: block; background: linear-gradient(180deg, hsl(var(--cc-accent-soft)), hsl(var(--cc-accent)) 60%); -webkit-background-clip: text; background-clip: text; color: transparent; }
