@@ -13,6 +13,8 @@ export interface BioItem {
   form_id?: string | null;
   /** Capa viva da landing (ex.: cronômetro por fases); tem prioridade sobre a imagem. */
   cover?: CountdownCover | null;
+  /** false = card mostra só o link de acesso, sem o botão WhatsApp. */
+  show_whatsapp?: boolean | null;
 }
 
 export interface BioSocialLinks {

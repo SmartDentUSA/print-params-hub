@@ -458,6 +458,13 @@ export function BioLinkPanel() {
                             onChange={(e) => updateItem(item.id, { image_url: e.target.value })}
                           />
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={item.show_whatsapp !== false}
+                            onCheckedChange={(v) => updateItem(item.id, { show_whatsapp: v })}
+                          />
+                          <Label className="text-xs">Mostrar botão "Falar com um Especialista" (desligue para deixar só o link de acesso)</Label>
+                        </div>
                       </div>
                     ))}
                   </div>
