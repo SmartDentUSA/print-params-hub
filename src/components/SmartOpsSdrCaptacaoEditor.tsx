@@ -370,7 +370,8 @@ function SdrCaptacaoEditorInner({
       });
       return;
     }
-    toast.success(`Configurações salvas! ${savedRow && Array.isArray((savedRow as any).capture_buttons) ? `${(savedRow as any).capture_buttons.length} botão(ões) no formulário.` : ""}`);
+    const savedButtons = Array.isArray((savedRow as any).capture_buttons) ? (savedRow as any).capture_buttons.length : 0;
+    toast.success(`Configurações salvas! ${savedButtons} botão(ões) no formulário.`);
     onSaved(savedRow);
   };
 

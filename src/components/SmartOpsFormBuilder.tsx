@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import AttendanceChannelMetrics from "@/components/lia/AttendanceChannelMetrics";
 import { useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -210,6 +210,8 @@ export function SmartOpsFormBuilder() {
   const [landingBySlug, setLandingBySlug] = useState<Record<string, boolean>>({});
   const [generatingShort, setGeneratingShort] = useState<Record<string, ShortLinkTarget | null>>({});
   const [editingForm, setEditingForm] = useState<SmartOpsForm | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const handleEditorDirty = useCallback((d: boolean) => setEditorDirty(d), []);
   const [landingPageForm, setLandingPageForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -791,7 +793,12 @@ export function SmartOpsFormBuilder() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setEditingForm(null); fetchForms(); }}>
+          <Button variant="outline" size="sm" onClick={() => {
+            if (editorDirty && !window.confirm("Há botões ou configurações não salvos neste formulário. Sair sem salvar?")) return;
+            setEditorDirty(false);
+            setEditingForm(null);
+            fetchForms();
+          }}>
             ← Voltar
           </Button>
           <h3 className="font-semibold text-lg">{editingForm.name}</h3>
@@ -802,7 +809,7 @@ export function SmartOpsFormBuilder() {
         {editingForm.form_purpose === "sdr_captacao" ? (
           <div className="space-y-4">
             <AttendanceChannelMetrics formId={editingForm.id} />
-            <SmartOpsSdrCaptacaoEditor form={editingForm} />
+            <SmartOpsSdrCaptacaoEditor form={editingForm as any} onDirtyChange={handleEditorDirty} />
           </div>
         ) : editingForm.form_purpose === "feira_evento" ? (
           <>
