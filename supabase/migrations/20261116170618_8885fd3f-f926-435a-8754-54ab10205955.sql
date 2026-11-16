@@ -1,0 +1,2 @@
+ALTER TABLE public.campaign_send_log DROP CONSTRAINT campaign_send_log_status_check;
+ALTER TABLE public.campaign_send_log ADD CONSTRAINT campaign_send_log_status_check CHECK (status = ANY (ARRAY['aguardando','queued','scheduled','sending','sent','delivered','opened','clicked','bounced','failed','skipped','completed']::text[]));
