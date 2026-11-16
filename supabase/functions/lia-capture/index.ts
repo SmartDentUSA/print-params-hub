@@ -9,6 +9,7 @@ import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 import { buildKnownAnswers, filterPending, hasAnswer, normLabel } from "./qualification.ts";
 import { syncFormNote } from "../_shared/form-note-sync.ts";
 import { COMMERCIAL_TYPES, resolveFormProduct } from "../_shared/form-product.ts";
+import { normalizeClickOrigin } from "../_shared/click-origin.ts";
 import { composeConversation, priceFree } from "./conversation.ts";
 import { aiComplete } from "../_shared/ai-router.ts";
 import { searchKnowledge } from "../_shared/lia-rag.ts";
