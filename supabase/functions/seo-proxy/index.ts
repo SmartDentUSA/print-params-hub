@@ -1067,7 +1067,7 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   <link rel="canonical" href="${baseUrl}/" />
   ${buildHreflang({ pt: `${baseUrl}/`, en: `${baseUrl}/en`, es: `${baseUrl}/es` })}
   <meta property="og:title" content="Hub de Fluxo Digital e Parâmetros 3D | Smart Dent" />
-  <meta property="og:description" content="Domine o fluxo digital odontológico: de parâmetros de impressão validados a estratégias de escaneamento e design." />
+  <meta property="og:description" content="Resinas, impressoras 3D e scanners odontológicos com parâmetros testados, guias clínicos e protocolos prontos para usar." />
   <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
   <meta property="og:type" content="website" />
   ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/` })}

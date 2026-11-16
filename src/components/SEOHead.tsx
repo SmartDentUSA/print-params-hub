@@ -176,7 +176,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
   
   // Generate dynamic title and description
   let title = 'Hub de Fluxo Digital e Parâmetros 3D | Smart Dent';
-  let description = 'Central Smart Dent de Fluxo Digital: parâmetros de impressão 3D, guias clínicos e protocolos de alta performance para odontologia.';
+  let description = 'Resinas, impressoras 3D e scanners odontológicos com parâmetros testados, guias clínicos e protocolos prontos para usar.';
   let canonical = baseUrl;
   let ogImage = companyData?.logo_url || 'https://smartdent.com.br/logo-og.png';
   
