@@ -42,7 +42,9 @@ interface EventProductButton {
  * evento associado, consultores que aparecem na lista do formulário e
  * categorias do catálogo habilitadas para o evento.
  */
-export function FeiraEventoConfig({ formId }: { formId: string }) {
+export function FeiraEventoConfig({ formId, onDirtyChange }: { formId: string; onDirtyChange?: (dirty: boolean) => void }) {
+  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [events, setEvents] = useState<EventOption[]>([]);
@@ -61,7 +63,7 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
       const [{ data: form }, { data: evs }, { data: catalogProducts }] = await Promise.all([
         (supabase as any)
           .from("smartops_forms")
-          .select("event_id, event_consultant_ids, event_categories, event_product_buttons")
+          .select("event_id, event_consultant_ids, event_categories, event_product_buttons, updated_at")
           .eq("id", formId)
           .maybeSingle(),
         (supabase as any)
@@ -90,9 +92,26 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
           ? (form.event_product_buttons as EventProductButton[]).slice(0, 10)
           : [],
       );
+      setLoadedUpdatedAt((form?.updated_at as string) ?? null);
+      setSavedSnapshot(null);
       setLoading(false);
     })();
   }, [formId]);
+
+  const currentSnapshot = JSON.stringify({ eventId, consultants, categories, productButtons });
+  // Primeiro snapshot após carregar = estado salvo.
+  useEffect(() => {
+    if (!loading && savedSnapshot === null) setSavedSnapshot(currentSnapshot);
+  }, [loading, savedSnapshot, currentSnapshot]);
+  const dirty = savedSnapshot !== null && currentSnapshot !== savedSnapshot;
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   const filteredMembers = useMemo(() => {
     const q = memberSearch.trim().toLowerCase();
@@ -130,7 +149,7 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
       return;
     }
     setSaving(true);
-    const { error } = await (supabase as any)
+    let query = (supabase as any)
       .from("smartops_forms")
       .update({
         event_id: eventId || null,
@@ -142,11 +161,20 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
         })),
       })
       .eq("id", formId);
+    // Não grava por cima de um salvamento feito em outra aba/tela depois da abertura.
+    if (loadedUpdatedAt) query = query.eq("updated_at", loadedUpdatedAt);
+    const { data: saved, error } = await query.select("updated_at");
     setSaving(false);
     if (error) {
       toast.error(`Erro ao salvar: ${error.message}`);
       return;
     }
+    if (!saved?.length) {
+      toast.error("Este formulário foi salvo em outra aba ou tela depois que você o abriu. Nada foi gravado para não apagar a outra alteração; recarregue a página.", { duration: 12000 });
+      return;
+    }
+    setLoadedUpdatedAt(saved[0].updated_at ?? null);
+    setSavedSnapshot(currentSnapshot);
     toast.success("Configuração do evento salva!");
   };
 

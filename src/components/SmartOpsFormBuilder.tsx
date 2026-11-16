@@ -565,7 +565,11 @@ export function SmartOpsFormBuilder() {
   };
 
 
-  const openEditMeta = (form: SmartOpsForm) => {
+  // Abre sempre a versão atual do banco: o item da lista pode estar velho e,
+  // salvo por cima, desfaria o que foi gravado no editor do formulário.
+  const openEditMeta = async (listForm: SmartOpsForm) => {
+    const { data: fresh } = await supabase.from("smartops_forms" as any).select("*").eq("id", listForm.id).maybeSingle();
+    const form = ((fresh as unknown as SmartOpsForm) ?? listForm);
     setMetaName(form.name);
     setMetaSlug(form.slug || "");
     setMetaTitle(form.title || "");
@@ -642,7 +646,7 @@ export function SmartOpsFormBuilder() {
       }
     }
     const slugChanged = nextSlug !== editingMeta.slug;
-    const { error } = await supabase.from("smartops_forms" as any)
+    const { data: saved, error } = await supabase.from("smartops_forms" as any)
       .update({
         name: metaName.trim(),
         slug: nextSlug,
@@ -694,8 +698,14 @@ export function SmartOpsFormBuilder() {
         forced_seller_team_member_id: metaForcedSeller || null,
 
       } as any)
-      .eq("id", editingMeta.id);
+      .eq("id", editingMeta.id)
+      .eq("updated_at", (editingMeta as any).updated_at)
+      .select("id");
     if (error) { toast.error(error.message); return; }
+    if (!saved?.length) {
+      toast.error("Este formulário foi salvo em outra tela ou aba depois que você abriu esta janela. Nada foi gravado para não desfazer a outra alteração; feche e abra de novo.", { duration: 12000 });
+      return;
+    }
     toast.success("Formulário atualizado!");
     setEditingMeta(null);
     fetchForms();
@@ -813,7 +823,7 @@ export function SmartOpsFormBuilder() {
           </div>
         ) : editingForm.form_purpose === "feira_evento" ? (
           <>
-            <FeiraEventoConfig formId={editingForm.id} />
+            <FeiraEventoConfig formId={editingForm.id} onDirtyChange={handleEditorDirty} />
             <SmartOpsFormEditor formId={editingForm.id} />
           </>
         ) : editingForm.form_purpose === "credenciamento" ? (
