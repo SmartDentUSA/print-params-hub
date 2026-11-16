@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarClock, FlaskConical, ImageIcon, Link2, Send, Upload } from "lucide-react";
-import { META_NEW_NUMBER_DAILY_LIMIT, fmtSaoPaulo, planBroadcast, saoPauloLocalToIso } from "@/lib/waBroadcastSchedule";
+import { ArrowLeft, CalendarClock, Coins, FlaskConical, ImageIcon, Link2, Plus, Send, Upload } from "lucide-react";
+import { META_NEW_NUMBER_DAILY_LIMIT, estimateCost, fillTokens, fmtSaoPaulo, planBroadcast, saoPauloLocalToIso } from "@/lib/waBroadcastSchedule";
+import { CampaignLinkPicker } from "@/components/smartops/CampaignLinkPicker";
+import { BUTTON_LINK_SECTIONS } from "@/lib/social/groupLinkSections";
 
 export type WaAccount = { accountId: string; profileId: string; name: string | null; phone: string | null };
 type HeaderType = "NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT" | "LOCATION";
@@ -23,6 +25,9 @@ const HEADER_LABEL: Record<HeaderType, string> = { NONE: "Sem cabeçalho", TEXT:
 type VarSpec = { source: "field" | "literal"; value: string; fallback: string };
 /** Igual ao limite do servidor (zernio-wa-broadcast/plan.ts). */
 const MAX_TEST_PHONES = 5;
+/** Estimativa inicial do custo de uma mensagem de marketing no Brasil (editável na tela). */
+const DEFAULT_COST_PER_MESSAGE = "0.35";
+const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export const SYSTEM_FIELDS: { key: string; label: string }[] = [
   { key: "primeiro_nome", label: "Primeiro nome" },
@@ -72,6 +77,9 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
   const [buttonLinks, setButtonLinks] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
   const [testPhonesText, setTestPhonesText] = useState("");
+  const [perDayText, setPerDayText] = useState(String(META_NEW_NUMBER_DAILY_LIMIT));
+  const [costText, setCostText] = useState(DEFAULT_COST_PER_MESSAGE);
+  const literalRefs = useRef<(HTMLInputElement | null)[]>([]);
   // ID da campanha gerado antes do envio: a imagem fica em whatsapp/{id}/ e a campanha nasce com esse id.
   const [draftCampaignId] = useState(() => crypto.randomUUID());
 
@@ -82,7 +90,22 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
   const perHourValid = perHour == null || (Number.isInteger(perHour) && perHour >= 1 && perHour <= 10000);
   const scheduledAtIso = scheduleLocal ? saoPauloLocalToIso(scheduleLocal) : null;
   const scheduleValid = !scheduleLocal || (!!scheduledAtIso && new Date(scheduledAtIso).getTime() > Date.now() + 60_000);
-  const plan = planBroadcast({ leads: audienceCount, perHour: perHourValid ? perHour : null, scheduledAtIso, now: new Date() });
+  const perDay = perDayText.trim() ? Number(perDayText) : null;
+  const perDayValid = perDay == null || (Number.isInteger(perDay) && perDay >= 1 && perDay <= 100000);
+  const costPerMessage = costText.trim() ? Number(costText.replace(",", ".")) : null;
+  const costValid = costPerMessage == null || (Number.isFinite(costPerMessage) && costPerMessage >= 0 && costPerMessage <= 100);
+  const plan = planBroadcast({ leads: audienceCount, perHour: perHourValid ? perHour : null, perDay: perDayValid ? perDay : null, scheduledAtIso, now: new Date() });
+  const tooFar = plan.lastAt.getTime() > Date.now() + 60 * 86_400_000;
+  const totalCost = costValid && costPerMessage != null ? estimateCost(audienceCount, costPerMessage) : null;
+  const batchesByDay = useMemo(() => {
+    const m = new Map<string, { day: string; count: number; times: string[] }>();
+    for (const b of plan.batches) {
+      const [day, time] = fmtSaoPaulo(b.at).split(" ");
+      const g = m.get(day) ?? { day, count: 0, times: [] };
+      g.count += b.count; g.times.push(time); m.set(day, g);
+    }
+    return [...m.values()];
+  }, [plan]);
   const mediaValid = !needsMedia || /^https:\/\//i.test(headerMediaUrl.trim());
   const buttonErrors = (tpl?.buttons ?? []).map((b, i) => {
     const link = (buttonLinks[String(i)] ?? "").trim();
@@ -137,8 +160,14 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
     return () => { alive = false; };
   }, []);
 
+  // Campo do sistema dentro do texto livre: valor do lead da prévia; sem lead de prévia, mostra [Rótulo].
+  const tokenValue = (k: string) => {
+    const f = SYSTEM_FIELDS.find((x) => x.key === k);
+    if (!f) return null;
+    return sample ? sample[k] ?? "" : `[${f.label}]`;
+  };
   const valueFor = (v: VarSpec) => {
-    const raw = v.source === "literal" ? v.value : sample?.[v.value] ?? "";
+    const raw = v.source === "literal" ? fillTokens(v.value, tokenValue) : sample?.[v.value] ?? "";
     return raw || v.fallback || "";
   };
 
@@ -154,14 +183,27 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
 
   const contentReady = !!account && !!tpl && !!campaignName.trim() && headerType !== "LOCATION" &&
     mediaValid && buttonsValid && vars.every((v) => (v.source === "literal" ? v.value.trim() : v.fallback.trim()));
-  const canSend = contentReady && audienceCount > 0 && perHourValid && scheduleValid;
+  const canSend = contentReady && audienceCount > 0 && perHourValid && scheduleValid && perDayValid && costValid && !tooFar;
   const perActive = !!perHour && perHourValid;
-  const endAt = new Date(plan.lastAt.getTime() + (perActive ? 3_600_000 : 0));
-  const summary = perActive
-    ? `${audienceCount} leads, ${perHour} por hora = ${plan.slots} ${plan.slots === 1 ? "bloco" : "blocos"} (${plan.durationHours} ${plan.durationHours === 1 ? "hora" : "horas"}), começa ${fmtSaoPaulo(plan.startAt)} e termina por volta de ${fmtSaoPaulo(endAt)}`
+  const endAtHour = new Date(plan.lastAt.getTime() + 3_600_000);
+  const endAt = perActive ? endAtHour : plan.lastAt;
+  const limits = [perActive ? `${perHour} por hora` : null, plan.days > 1 ? `máximo ${perDay} por dia` : null].filter(Boolean).join(" e ");
+  const summary = plan.slots > 1
+    ? `${audienceCount} leads, ${limits} = ${plan.slots} ${plan.slots === 1 ? "lote" : "lotes"}${plan.days > 1 ? ` em ${plan.days} dias` : ""}, começa ${fmtSaoPaulo(plan.startAt)} e termina por volta de ${fmtSaoPaulo(endAt)}`
     : `${audienceCount} leads, tudo de uma vez, ${plan.scheduled ? `em ${fmtSaoPaulo(plan.startAt)}` : "agora"}`;
 
   const update = (i: number, patch: Partial<VarSpec>) => setVars(vars.map((o, j) => (j === i ? { ...o, ...patch } : o)));
+  const insertToken = (i: number, key: string) => {
+    const el = literalRefs.current[i];
+    const cur = vars[i]?.value ?? "";
+    const at = el?.selectionStart ?? cur.length;
+    const end = el?.selectionEnd ?? at;
+    const before = cur.slice(0, at), after = cur.slice(end);
+    const token = `${before && !/\s$/.test(before) ? " " : ""}{${key}}${after && !/^[\s,.!?;:]/.test(after) ? " " : ""}`;
+    update(i, { value: (before + token + after).slice(0, 1000) });
+    requestAnimationFrame(() => { el?.focus(); const pos = before.length + token.length; el?.setSelectionRange(pos, pos); });
+  };
+  const setLink = (k: string, v: string) => setButtonLinks((prev) => ({ ...prev, [k]: v }));
   const cleanButtonLinks = () => Object.fromEntries(Object.entries(buttonLinks).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
 
   const testPhones = testPhonesText.split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
@@ -193,7 +235,7 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
   const send = async () => {
     if (!canSend) return;
     if (!confirm(plan.scheduled
-      ? `Agendar o modelo "${tpl!.name}" para até ${audienceCount} leads?\n\n${summary}`
+      ? `Agendar o modelo "${tpl!.name}" para até ${audienceCount} leads?\n\n${summary}${totalCost != null ? `\nCusto estimado: ${brl(totalCost)}` : ""}`
       : `Enviar o modelo "${tpl!.name}" para até ${audienceCount} leads?`)) return;
     setSending(true);
     const t = toast.loading(plan.scheduled ? "Preparando público e agendando..." : "Preparando público e enviando...");
@@ -206,6 +248,8 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
         ...(needsMedia ? { headerMediaUrl: headerMediaUrl.trim() } : {}),
         ...(perHour && perHourValid ? { perHour } : {}),
         ...(scheduledAtIso ? { scheduledAt: scheduledAtIso } : {}),
+        ...(perDay && perDayValid ? { perDay } : {}),
+        ...(costPerMessage != null && costValid ? { costPerMessage } : {}),
       });
       const ignored = r.skipped ? ` (${r.skipped} ignorados)` : "";
       toast.success(r.scheduled
@@ -265,13 +309,24 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {SYSTEM_FIELDS.map((f) => <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>)}
-                        <SelectItem value="__literal__">Texto fixo</SelectItem>
+                        <SelectItem value="__literal__">Texto livre (frases + campos)</SelectItem>
                       </SelectContent>
                     </Select>
                     {v.source === "literal" ? (
                       <div>
-                        <Input value={v.value} maxLength={1000} onChange={(e) => update(i, { value: e.target.value })} placeholder={label ? `${label} (igual para todos)` : "Texto igual para todos"} />
-                        <p className="mt-0.5 text-right text-[11px] text-muted-foreground">{v.value.length} caracteres</p>
+                        <Input ref={(el) => { literalRefs.current[i] = el; }} value={v.value} maxLength={1000}
+                          onChange={(e) => update(i, { value: e.target.value })}
+                          placeholder={label ? `${label}: escreva a frase e insira campos do sistema` : "Escreva a frase e insira campos do sistema"} />
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          <span className="text-[11px] text-muted-foreground">Inserir campo:</span>
+                          {SYSTEM_FIELDS.map((f) => (
+                            <button key={f.key} type="button" onClick={() => insertToken(i, f.key)}
+                              className="inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted">
+                              <Plus className="w-3 h-3" />{f.label}
+                            </button>
+                          ))}
+                          <span className="ml-auto text-[11px] text-muted-foreground">{v.value.length} caracteres</span>
+                        </div>
                       </div>
                     ) : (
                       <Input value={v.fallback} onChange={(e) => update(i, { fallback: e.target.value })} placeholder="Se o campo estiver vazio, usar..." />
@@ -280,7 +335,9 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
                 </div>
               );
             })}
-            <p className="text-xs text-muted-foreground">Campos do sistema exigem um valor padrão para leads sem a informação.</p>
+            <p className="text-xs text-muted-foreground">
+              Campo do sistema sozinho exige um valor padrão para leads sem a informação. No texto livre, campo vazio some da frase (o primeiro nome vira "colega").
+            </p>
           </div>
         )}
 
@@ -326,14 +383,20 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
                     <span className="text-xs text-muted-foreground">{b.type === "URL" ? "botão de link" : b.type === "QUICK_REPLY" ? "resposta rápida" : b.type === "PHONE_NUMBER" ? "ligação" : b.type.toLowerCase()}</span>
                   </div>
                   {b.type === "URL" && b.urlHasVariable && (
-                    <Input value={buttonLinks[k] ?? ""} onChange={(e) => setButtonLinks({ ...buttonLinks, [k]: e.target.value })} placeholder={`Link do botão (começando com ${urlPrefix(b.url)})`} />
+                    <div className="flex gap-2">
+                      <Input value={buttonLinks[k] ?? ""} onChange={(e) => setLink(k, e.target.value)} placeholder={`Link do botão (começando com ${urlPrefix(b.url)})`} />
+                      <CampaignLinkPicker channel="whatsapp" sections={BUTTON_LINK_SECTIONS} onInsert={(t) => setLink(k, t.trim())} />
+                    </div>
                   )}
                   {b.type === "URL" && !b.urlHasVariable && (
                     <p className="text-xs text-muted-foreground">Link fixo aprovado na Meta: {b.url}. Ele não pode ser trocado neste envio.</p>
                   )}
                   {b.type === "QUICK_REPLY" && (
                     <>
-                      <Input value={buttonLinks[k] ?? ""} onChange={(e) => setButtonLinks({ ...buttonLinks, [k]: e.target.value })} placeholder="Link enviado quando o lead clicar (opcional)" />
+                      <div className="flex gap-2">
+                        <Input value={buttonLinks[k] ?? ""} onChange={(e) => setLink(k, e.target.value)} placeholder="Escolha em Links ou cole uma URL https:// (opcional)" />
+                        <CampaignLinkPicker channel="whatsapp" sections={BUTTON_LINK_SECTIONS} onInsert={(t) => setLink(k, t.trim())} />
+                      </div>
                       <p className="text-[11px] text-muted-foreground">Resposta rápida não abre link direto. O link só será enviado na resposta automática (em breve).</p>
                     </>
                   )}
@@ -366,7 +429,18 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
 
         {tpl && (
           <div className="space-y-3 rounded-md border p-3">
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-4">
+              <div>
+                <Label className="text-xs">Máximo por dia (limite da Meta)</Label>
+                <Input type="number" min={1} max={100000} value={perDayText} onChange={(e) => setPerDayText(e.target.value)} placeholder="Vazio = sem limite" />
+                {!perDayValid && <p className="text-xs text-destructive mt-1">Use um número inteiro entre 1 e 100.000.</p>}
+                <p className="text-[11px] text-muted-foreground mt-1">Número novo começa com {META_NEW_NUMBER_DAILY_LIMIT} a cada 24 h; aumente quando a Meta liberar.</p>
+              </div>
+              <div>
+                <Label className="text-xs">Custo por mensagem (R$)</Label>
+                <Input inputMode="decimal" value={costText} onChange={(e) => setCostText(e.target.value)} placeholder="0,35" />
+                {!costValid && <p className="text-xs text-destructive mt-1">Valor inválido.</p>}
+              </div>
               <div>
                 <Label className="text-xs">Envios por hora</Label>
                 <Input type="number" min={1} max={10000} value={perHourText} onChange={(e) => setPerHourText(e.target.value)} placeholder="Vazio = sem limite" />
@@ -382,13 +456,34 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
             <div className="rounded-md bg-muted/40 p-2 text-sm">
               <CalendarClock className="mr-1 inline w-4 h-4" /> {summary}
               {tpl && <span className="block text-xs text-muted-foreground mt-1">Modelo {tpl.name}{needsMedia ? ` · ${headerMediaUrl.trim() ? "imagem escolhida" : "sem imagem"}` : ""}</span>}
+              {totalCost != null && (
+                <span className="mt-1 flex items-center gap-1 font-medium">
+                  <Coins className="w-4 h-4" /> Custo estimado: {brl(totalCost)}
+                  <span className="text-xs font-normal text-muted-foreground">({audienceCount} mensagens × {brl(costPerMessage!)})</span>
+                </span>
+              )}
             </div>
+            {plan.slots > 1 && (
+              <div className="rounded-md border">
+                <p className="border-b px-2 py-1 text-xs font-medium">Lotes de envio</p>
+                <ul className="max-h-48 divide-y overflow-y-auto text-xs">
+                  {batchesByDay.map((d) => (
+                    <li key={d.day} className="flex items-start justify-between gap-2 px-2 py-1">
+                      <span className="font-medium">{d.day}</span>
+                      <span className="flex-1 text-muted-foreground">{d.times.join(", ")}</span>
+                      <span>{d.count} {d.count === 1 ? "mensagem" : "mensagens"}{totalCost != null ? ` · ${brl(estimateCost(d.count, costPerMessage!))}` : ""}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {tooFar && <p className="text-xs text-destructive">Com esse limite o último lote passaria de 60 dias. Aumente o máximo por dia ou divida o público.</p>}
             {plan.movedByWindow && (
               <p className="text-xs text-muted-foreground">Envios só saem entre 07:30 e 19:00 (Brasília); blocos fora desse horário passam para o início do dia seguinte.</p>
             )}
-            {audienceCount > META_NEW_NUMBER_DAILY_LIMIT && (
+            {audienceCount > META_NEW_NUMBER_DAILY_LIMIT && (!perDay || perDay > META_NEW_NUMBER_DAILY_LIMIT) && (
               <p className="text-xs text-destructive">
-                Atenção: o número +55 16 3419-4735 começa com limite de {META_NEW_NUMBER_DAILY_LIMIT} contatos por dia na Meta; acima disso os envios param sem aviso.
+                Atenção: o número +55 16 3419-4735 começa com limite de {META_NEW_NUMBER_DAILY_LIMIT} contatos por dia na Meta; acima disso os envios param sem aviso. Deixe "Máximo por dia" em {META_NEW_NUMBER_DAILY_LIMIT} até a Meta liberar mais.
               </p>
             )}
           </div>

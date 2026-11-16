@@ -58,3 +58,6 @@ export function sectionsToFetch(sections: LinkSectionKey[]): SectionsToFetch {
     groups: has("groups"),
   };
 }
+
+/** Lists offered for the WhatsApp official template buttons (everything except WhatsApp group invites). */
+export const BUTTON_LINK_SECTIONS: LinkSectionKey[] = ["landing", "simulator", "forms", "chat", "courses", "manual", "disparopro"];

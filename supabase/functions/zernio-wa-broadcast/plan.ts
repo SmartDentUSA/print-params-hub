@@ -100,26 +100,64 @@ export function pushIntoWindow(d: Date, windowStart?: string | null, windowEnd?:
 export type SlotPlan<T> = { at: string | null; leads: T[] };
 
 /**
- * Divide os leads em lotes por hora no TOTAL do disparo (nunca mais que perHour por hora,
- * qualquer que seja a variação das variáveis).
- * - sem perHour e sem scheduledAt: um lote imediato (at = null);
+ * Divide os leads em lotes no TOTAL do disparo (nunca mais que perHour por hora nem mais que perDay
+ * a cada 24 h, qualquer que seja a variação das variáveis).
+ * - sem perHour, sem scheduledAt e público dentro do limite diário: um lote imediato (at = null);
  * - só scheduledAt: um lote agendado nesse horário;
- * - com perHour: lote k uma hora depois do anterior (início = scheduledAt ou agora + 2 min).
+ * - com perHour: lote k uma hora depois do anterior (início = scheduledAt ou agora + 2 min);
+ * - com perDay: ao atingir o limite, o próximo lote só sai 24 h depois do início daquele período
+ *   (o limite da Meta conta contatos únicos em 24 h corridas, não por dia do calendário).
  * Lotes agendados respeitam a janela de envio: fora dela, vão para o início da próxima.
  */
-export function planSlots<T>(leads: T[], opts: { perHour?: number | null; scheduledAt?: string | null; now: Date; windowStart?: string | null; windowEnd?: string | null }): SlotPlan<T>[] {
+export function planSlots<T>(leads: T[], opts: { perHour?: number | null; perDay?: number | null; scheduledAt?: string | null; now: Date; windowStart?: string | null; windowEnd?: string | null }): SlotPlan<T>[] {
   const per = opts.perHour && opts.perHour > 0 ? Math.floor(opts.perHour) : null;
-  if (!per && !opts.scheduledAt) return [{ at: null, leads }];
+  const day = opts.perDay && opts.perDay > 0 ? Math.floor(opts.perDay) : null;
+  const splitByDay = !!day && leads.length > day;
+  if (!per && !opts.scheduledAt && !splitByDay) return [{ at: null, leads }];
   const win = (d: Date) => pushIntoWindow(d, opts.windowStart, opts.windowEnd);
   const start = win(opts.scheduledAt ? new Date(opts.scheduledAt) : new Date(opts.now.getTime() + 2 * 60_000));
-  if (!per) return [{ at: start.toISOString(), leads }];
+  if (!per && !splitByDay) return [{ at: start.toISOString(), leads }];
   const slots: SlotPlan<T>[] = [];
-  let at = start;
-  for (let i = 0; i < leads.length; i += per) {
-    if (i > 0) at = win(new Date(at.getTime() + 3_600_000));
-    slots.push({ at: at.toISOString(), leads: leads.slice(i, i + per) });
+  let at = start, periodStart = start, used = 0;
+  for (let i = 0; i < leads.length;) {
+    if (day && used >= day) {
+      at = win(new Date(Math.max(at.getTime(), periodStart.getTime() + 86_400_000)));
+      periodStart = at; used = 0;
+    } else if (day && at.getTime() >= periodStart.getTime() + 86_400_000) {
+      periodStart = at; used = 0;
+    }
+    const size = Math.min(per ?? Infinity, day ? day - used : Infinity, leads.length - i);
+    slots.push({ at: at.toISOString(), leads: leads.slice(i, i + size) });
+    i += size; used += size;
+    if (i < leads.length && per) at = win(new Date(at.getTime() + 3_600_000));
   }
   return slots;
+}
+
+/** Campos do sistema que podem entrar no meio de um texto livre: "{primeiro_nome}". */
+export const TOKEN_DEFAULTS: Record<string, string> = { primeiro_nome: 'colega' };
+
+/** Troca {campo} pelo valor do lead (campo vazio → padrão do campo ou nada) e limpa espaços duplos. */
+export function fillTokens(text: string, valueOf: (key: string) => string | null): string {
+  const out = String(text ?? '').replace(/\{([a-z_]+)\}/g, (m, key: string) => {
+    const v = valueOf(key);
+    if (v == null) return m; // não é campo do sistema: fica como foi digitado
+    return v || TOKEN_DEFAULTS[key] || '';
+  });
+  return out.replace(/ {2,}/g, ' ').replace(/ +([,.!?;:])/g, '$1').trim();
+}
+
+/** Valida o limite diário e o custo por mensagem vindos do navegador. */
+export function validateDailyAndCost(perDay: unknown, cost: unknown): string | null {
+  if (perDay != null && perDay !== '') {
+    const n = Number(perDay);
+    if (!Number.isInteger(n) || n < 1 || n > 100000) return 'Máximo por dia deve ser um número inteiro entre 1 e 100.000';
+  }
+  if (cost != null && cost !== '') {
+    const c = Number(cost);
+    if (!Number.isFinite(c) || c < 0 || c > 100) return 'Custo por mensagem inválido';
+  }
+  return null;
 }
 
 /** Valida perHour/scheduledAt vindos do navegador. Retorna mensagem de erro ou null. */

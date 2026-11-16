@@ -7,7 +7,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import {
   MAX_TEST_PHONES, MEDIA_HEADERS, TEST_LEAD_ID, broadcastKeepsHeaderMedia, checkHeaderImage, isPublicHttpsUrl,
-  phoneVariants, planSlots, resolveButtons, templateMeta, validateSchedule,
+  fillTokens, phoneVariants, planSlots, resolveButtons, templateMeta, validateDailyAndCost, validateSchedule,
 } from './plan.ts';
 
 const ZERNIO = 'https://zernio.com/api/v1';
@@ -67,7 +67,10 @@ const FIELDS: Record<string, (l: any) => string> = {
 };
 const LEAD_COLS = 'nome,email,empresa_nome,cidade,empresa_cidade,uf,empresa_uf,especialidade,produto_interesse,proprietario_lead_crm,form_name,lojaintegrada_cupom_desconto';
 function resolveVar(v: VarSpec, l: any): string {
-  const raw = v.source === 'literal' ? String(v.value ?? '') : FIELDS[v.value](l);
+  // Texto livre aceita campos do sistema no meio da frase: "Oi {primeiro_nome}, ...".
+  const raw = v.source === 'literal'
+    ? fillTokens(String(v.value ?? ''), (k) => (FIELDS[k] ? FIELDS[k](l) : null))
+    : FIELDS[v.value](l);
   const out = raw || String(v.fallback ?? '').trim();
   return (out || '-').replace(/[\n\t]+/g, ' ').replace(/ {4,}/g, '   ').slice(0, 1000);
 }
@@ -139,9 +142,11 @@ Deno.serve(async (req) => {
       const perHour = isTest || p.perHour == null || p.perHour === '' ? null : Number(p.perHour);
       const scheduledAt = !isTest && p.scheduledAt ? new Date(String(p.scheduledAt)).toISOString() : null;
       if (!isTest) {
-        const schedErr = validateSchedule(p.perHour, p.scheduledAt, nowDate);
+        const schedErr = validateSchedule(p.perHour, p.scheduledAt, nowDate) ?? validateDailyAndCost(p.perDay, p.costPerMessage);
         if (schedErr) return json({ error: schedErr }, 400);
       }
+      const perDay = isTest || p.perDay == null || p.perDay === '' ? null : Number(p.perDay);
+      const costPerMessage = isTest || p.costPerMessage == null || p.costPerMessage === '' ? null : Number(p.costPerMessage);
       const campaignId = !isTest && UUID_RE.test(String(p.campaignId ?? '')) ? String(p.campaignId) : null;
 
       // Cabeçalho e botões lidos do template aprovado na Meta (não do navegador): com mídia, exige a imagem
@@ -195,7 +200,11 @@ Deno.serve(async (req) => {
       // Zernio só aceita valor fixo por broadcast → agrupa por combinação de variáveis (dentro de cada lote).
       // Lotes por hora sobre o TOTAL, dentro da janela de envio da campanha; dentro de cada lote, um broadcast
       // por combinação de variáveis.
-      const slots = planSlots(valid, { perHour, scheduledAt, now: nowDate, windowStart: SEND_WINDOW[0], windowEnd: SEND_WINDOW[1] }).map((sl) => {
+      const planned = planSlots(valid, { perHour, perDay, scheduledAt, now: nowDate, windowStart: SEND_WINDOW[0], windowEnd: SEND_WINDOW[1] });
+      const lastPlanned = planned[planned.length - 1]?.at;
+      if (lastPlanned && new Date(lastPlanned).getTime() > nowDate.getTime() + 60 * 86_400_000)
+        return json({ error: 'Com esse limite por dia o último lote passaria de 60 dias. Aumente o máximo por dia ou divida o público.' }, 400);
+      const slots = planned.map((sl) => {
         const groups = new Map<string, { values: string[]; leads: any[] }>();
         for (const l of sl.leads) {
           const values = vmap.map((v) => resolveVar(v, l));
@@ -263,11 +272,13 @@ Deno.serve(async (req) => {
       }
 
       const isScheduled = slots.some((sl) => sl.at);
+      const estimatedCost = costPerMessage != null ? Math.round(valid.length * costPerMessage * 100) / 100 : null;
       const startAt = slots[0]?.at ?? null;
       const baseResults = {
         provider: 'zernio_cloud_api', account_id: accountId, template: templateName, language, variable_map: vmap,
         header_type: meta.headerType, header_media_url: mediaHeader ? headerMediaUrl : null,
-        per_hour: perHour, scheduled_at: startAt, button_links: btn.stored,
+        per_hour: perHour, per_day: perDay, scheduled_at: startAt, button_links: btn.stored,
+        cost_per_message: costPerMessage, estimated_cost: estimatedCost,
       };
 
       if (campaignId) {
@@ -279,7 +290,7 @@ Deno.serve(async (req) => {
         nome: name, descricao: description ?? null, canal: 'whatsapp_oficial', status: isScheduled ? 'scheduled' : 'sending',
         mensagem_template: `template:${templateName}`, total_leads: valid.length,
         send_window_start: SEND_WINDOW[0], send_window_end: SEND_WINDOW[1],
-        metadata: { button_links: btn.stored },
+        metadata: { button_links: btn.stored, per_day: perDay, cost_per_message: costPerMessage, estimated_cost: estimatedCost },
         ...(isScheduled ? { scheduled_at: startAt } : { started_at: nowDate.toISOString() }),
         created_by: u.user.id,
       }).select('id').maybeSingle();
