@@ -1065,9 +1065,10 @@ Retorne JSON no formato:
       return h;
     };
     const sanitizedHtml = sanitizeHtml(parsed.html_body || "");
-    const sanitizedText = (parsed.plain_text || "")
-      .replaceAll("{{link_wa_vendedor}}", fallbackUrl)
-      .replace(hasSimulatorCta ? /$^/ : /Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, hasSimulatorCta ? "" : (ctaLabel(cta_principal) || ""));
+    let sanitizedText = (parsed.plain_text || "").replaceAll("{{link_wa_vendedor}}", fallbackUrl);
+    if (!hasSimulatorCta) {
+      sanitizedText = sanitizedText.replace(/Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, ctaLabel(cta_principal) || "");
+    }
 
     return new Response(JSON.stringify({
       success: true,
