@@ -29,7 +29,8 @@ test("oferece as landing pages publicadas com o link curto marcado como e-mail",
     { short_code: "v7pmii", form_slug: "black26", default_target: "landing_page" },
     { short_code: "lp9999", form_slug: "chatsite", default_target: "landing_page" },
     { short_code: "9k8sn6", form_slug: "black26", default_target: "whatsapp" },
-  ], forms, new Set(["black26"]));
+  ], forms, new Map([["black26", "lp-black26"]]));
   assert.deepEqual(opts.map(o => o.url), ["https://s.smartdent.com.br/v7pmii?o=email"]);
   assert.equal(opts[0].tipo, "landing");
+  assert.equal(opts[0].id, "lp-black26");
 });
