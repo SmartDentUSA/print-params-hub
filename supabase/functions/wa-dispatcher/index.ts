@@ -17,6 +17,12 @@ import {
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const MAX_PER_RUN      = 5
+// Execuções do cron se sobrepõem (cada uma dura mais de 1 min). A ordem dos fluxos
+// é garantida no banco (claim_pending_wa_messages); aqui só limitamos o tempo de cada
+// execução para não ser encerrada no meio de um envio.
+const CLAIM_BUDGET_MS   = 45_000   // depois disso não reserva nova rodada
+const PROCESS_BUDGET_MS = 100_000  // depois disso não inicia item; devolve os não iniciados
+const STUCK_SENDING_MS  = 10 * 60_000
 
 function canonicalJson(v: unknown): string {
   if (v === null || typeof v !== 'object') return JSON.stringify(v)
@@ -63,16 +69,29 @@ serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
   const results: { id: string; status: string; error?: string }[] = []
   let processedCount = 0
+  const startedAt = Date.now()
+  const elapsed = () => Date.now() - startedAt
 
   try {
+    await sweepStuckSending(supabase)
+
+    let lastDelayMs = 0
+    for (let round = 0; ; round++) {
+    if (round > 0) {
+      if (elapsed() > CLAIM_BUDGET_MS) break
+      // espaçamento entre rodadas: a próxima mensagem do mesmo grupo sai só depois do delay
+      await sleep(lastDelayMs + Math.floor(Math.random() * 5000))
+      if (elapsed() > CLAIM_BUDGET_MS) break
+    }
     // ATOMIC CLAIM: marca como 'sending' via FOR UPDATE SKIP LOCKED para impedir
     // que invocações concorrentes do cron disparem a mesma mensagem múltiplas vezes.
+    // Fluxos: o banco entrega no máximo 1 item por campanha+grupo, sempre o de menor sequence_no.
     const { data: claimed, error } = await supabase.rpc('claim_pending_wa_messages', { p_limit: MAX_PER_RUN })
     if (error) throw error
     // UPDATE ... RETURNING não garante ordem: envia por horário e depois pela posição do nó.
     const claimedRows = ((claimed ?? []) as any[]).sort((a, b) =>
       String(a.scheduled_at).localeCompare(String(b.scheduled_at)) || ((a.node_index ?? 1e9) - (b.node_index ?? 1e9)))
-    if (!claimedRows.length) return Response.json({ ok: true, processed: 0 }, { headers: corsHeaders })
+    if (!claimedRows.length) break
 
     // Carrega config das campanhas e filtra apenas as ativas (preservando o antigo wa_campaigns.status='active' do JOIN).
     const campaignIds = Array.from(new Set(claimedRows.map(r => r.campaign_id).filter(Boolean)))
@@ -88,12 +107,12 @@ serve(async (req) => {
       const c = campByIdMap.get(row.campaign_id)
       if (!c || c.status !== 'active') {
         // devolve para 'pending' para ser retomada quando/se a campanha voltar a ativa
-        await supabase.from('wa_message_queue').update({ status: 'pending' }).eq('id', row.id)
+        await supabase.from('wa_message_queue').update({ status: 'pending', claimed_at: null }).eq('id', row.id)
         continue
       }
       pending.push({ ...row, wa_campaigns: c })
     }
-    if (!pending.length) return Response.json({ ok: true, processed: 0 }, { headers: corsHeaders })
+    if (!pending.length) break
 
     const jids = Array.from(new Set(pending.map((p: any) => p.group_jid)))
     const { data: groupRows } = await supabase.from('wa_groups').select('group_jid, instance_name, session_health').in('group_jid', jids)
@@ -110,9 +129,17 @@ serve(async (req) => {
       }
     }
 
-    for (const item of pending) {
+    let stopRun = false
+    for (const [idx, item] of pending.entries()) {
+      if (elapsed() > PROCESS_BUDGET_MS) {
+        // Nenhuma tentativa foi feita com estes itens: devolver é seguro (não duplica).
+        await releaseUnstarted(supabase, pending.slice(idx).map((p: any) => p.id))
+        stopRun = true
+        break
+      }
       const camp    = item.wa_campaigns as { delay_seconds: number; daily_limit: number }
       const delayMs = Math.max((camp.delay_seconds ?? 15) * 1000, 10_000)
+      lastDelayMs = Math.max(lastDelayMs, delayMs)
       const jitter  = Math.floor(Math.random() * 5000)
       const instance   = instanceByJid.get(item.group_jid) ?? undefined
       const tm          = instance ? tmByInstance.get(instance) : undefined
@@ -346,7 +373,9 @@ serve(async (req) => {
         results.push({ id: item.id, status: blockedBySession ? 'blocked_session' : (isFinal ? 'failed' : 'retrying'), error: msg })
         console.error(`[v66eg] ERRO [${item.node_type}]: ${msg}`)
       }
-      if (pending.indexOf(item) < pending.length - 1) await sleep(delayMs + jitter)
+      if (idx < pending.length - 1) await sleep(delayMs + jitter)
+    }
+    if (stopRun) break
     }
     return Response.json({ ok: true, processed: results.length, results }, { headers: corsHeaders })
   } catch (err) {
@@ -355,6 +384,33 @@ serve(async (req) => {
   }
 })
 
+// Item em 'sending' há mais de 10 min (execução encerrada no meio do envio):
+// confere wa_send_log. Com envio registrado → 'sent'; sem registro → 'failed' com
+// motivo explícito, sem reenvio automático (evita duplicidade no grupo).
+// Só considera itens reservados com claimed_at; itens antigos sem essa marca não são tocados.
+async function sweepStuckSending(sb: SupabaseClient) {
+  const cutoff = new Date(Date.now() - STUCK_SENDING_MS).toISOString()
+  const { data: stuck, error } = await sb.from('wa_message_queue')
+    .select('id').eq('status', 'sending').not('claimed_at', 'is', null).lt('claimed_at', cutoff).limit(50)
+  if (error) { console.error('[v66eg] sweep select failed', error); return }
+  for (const s of stuck ?? []) {
+    const { data: ok } = await sb.from('wa_send_log').select('sent_at, evo_message_id')
+      .eq('queue_id', s.id).eq('success', true).order('sent_at', { ascending: false }).limit(1).maybeSingle()
+    if (ok) {
+      await sb.from('wa_message_queue').update({ status: 'sent', sent_at: ok.sent_at, evo_message_id: ok.evo_message_id, delivery_status: 'sent_to_server' })
+        .eq('id', s.id).eq('status', 'sending')
+      console.log(`[v66eg] sweep: ${s.id} tinha envio registrado → sent`)
+    } else {
+      await sb.from('wa_message_queue').update({ status: 'failed', error_message: 'Travado em envio por mais de 10 min sem registro em wa_send_log; não reenviado automaticamente para evitar duplicidade.' })
+        .eq('id', s.id).eq('status', 'sending')
+      console.warn(`[v66eg] sweep: ${s.id} sem registro de envio → failed`)
+    }
+  }
+}
+async function releaseUnstarted(sb: SupabaseClient, ids: string[]) {
+  if (!ids.length) return
+  await sb.from('wa_message_queue').update({ status: 'pending', claimed_at: null }).in('id', ids).eq('status', 'sending')
+}
 async function checkDailyLimit(sb: SupabaseClient, cid: string, limit: number) { return sb.from('wa_message_queue').select('id', { count: 'exact', head: true }).eq('campaign_id', cid).eq('status', 'sent').gte('sent_at', spStartOfDay().toISOString()).then(({ count }) => (count ?? 0) < limit) }
 async function setStatus(sb: SupabaseClient, id: string, status: string, msg?: string) { await sb.from('wa_message_queue').update({ status, ...(msg ? { error_message: msg } : {}) }).eq('id', id) }
 async function advanceCampaign(sb: SupabaseClient, cid: string, sentIdx: number) {

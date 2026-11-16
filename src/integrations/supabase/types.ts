@@ -32804,6 +32804,7 @@ export type Database = {
         Row: {
           blocked_provider: string | null
           campaign_id: string
+          claimed_at: string | null
           content_json: Json
           created_at: string
           delivery_attempts: number
@@ -32827,6 +32828,7 @@ export type Database = {
         Insert: {
           blocked_provider?: string | null
           campaign_id: string
+          claimed_at?: string | null
           content_json?: Json
           created_at?: string
           delivery_attempts?: number
@@ -32850,6 +32852,7 @@ export type Database = {
         Update: {
           blocked_provider?: string | null
           campaign_id?: string
+          claimed_at?: string | null
           content_json?: Json
           created_at?: string
           delivery_attempts?: number
@@ -38544,6 +38547,7 @@ export type Database = {
         Returns: {
           blocked_provider: string | null
           campaign_id: string
+          claimed_at: string | null
           content_json: Json
           created_at: string
           delivery_attempts: number
