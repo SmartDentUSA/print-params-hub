@@ -38974,6 +38974,7 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_event_extra_stats: { Args: { p_event_id: string }; Returns: Json }
       fn_event_form_answer: {
         Args: { p_form_data: Json; p_labels: string[] }
         Returns: string
