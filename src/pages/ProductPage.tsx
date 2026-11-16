@@ -208,7 +208,7 @@ const ProductPage = () => {
         "@type": "Offer",
         "priceCurrency": product.currency || "BRL",
         "price": product.promo_price ?? product.price,
-        "url": product.cta_1_url || canonicalUrl
+        "url": canonicalUrl // cta_1_url tem 404 em 29 produtos; canonical_url validado na loja
       }
     })
   };
