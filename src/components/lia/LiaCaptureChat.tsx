@@ -12,7 +12,7 @@ import { linkLeadToPageSession } from '@/hooks/usePageTracking';
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string | null; label: string; options: string[]; field_type?: string };
 type CommercialCampaign = { question: string; options: string[]; group_message: string | null; redirect_ms: number };
-type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null; commercial_campaign?: CommercialCampaign | null };
+type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null; commercial_campaign?: CommercialCampaign | null; commercial_preset?: { label: string; product_catalog_id: string | null; product_name: string | null } | null };
 type Msg = { from: "lia" | "user"; text: string; createdAt?: number; question?: Question };
 type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string; hook?: string | null };
 type Step = "phone" | "email" | "name" | "interest" | "creating" | "qualify" | "done";
@@ -40,9 +40,17 @@ async function call(body: Record<string, unknown>) {
   return data;
 }
 
-export default function LiaCaptureChat({ formId, campaign, product }: { formId: string | null; campaign: string | null; product: string | null }) {
+export default function LiaCaptureChat({ formId, campaign, product, productId = null, presetInterest = null, simulator = null }: {
+  formId: string | null;
+  campaign: string | null;
+  product: string | null;
+  /** Item da landing com produto já escolhido (o servidor valida e devolve `commercial_preset`). */
+  productId?: string | null;
+  presetInterest?: string | null;
+  simulator?: string | null;
+}) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const storeKey = `lia_capture_v2_${formId ?? ""}_${campaign ?? ""}_${product ?? ""}`;
+  const storeKey = `lia_capture_v2_${formId ?? ""}_${campaign ?? ""}_${product ?? ""}${productId || presetInterest || simulator ? `_${productId ?? ""}_${presetInterest ?? ""}_${simulator ?? ""}` : ""}`;
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [openingMedia, setOpeningMedia] = useState<LandingAttendanceMedia | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -104,11 +112,11 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
 
   useEffect(() => {
     let cancelled = false;
-    call({ action: "context", form_id: formId, campaign, product }).then(async (c: Ctx) => {
+    call({ action: "context", form_id: formId, campaign, product, product_catalog_id: productId, preset_interest: presetInterest }).then(async (c: Ctx) => {
       if (cancelled) return;
       setCtx(c);
       trackAttendanceView(c.form_id);
-      trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "view", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product });
+      trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "view", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product, simulator_id: simulator });
       const saved = sessionStorage.getItem(storeKey);
       if (saved) {
         try {
@@ -139,10 +147,10 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
       }
       setMsgs([{ from: "lia", text: c.greeting || "Olá!", createdAt: Date.now() }]);
       await say(c.opening);
-      trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "open", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product });
+      trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "open", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product, simulator_id: simulator });
     }).catch(() => { if (!cancelled) setMsgs([{ from: "lia", text: "Não consegui iniciar o atendimento agora. Tente novamente em instantes." }]); });
     return () => { cancelled = true; };
-  }, [formId, campaign, product, storeKey]);
+  }, [formId, campaign, product, productId, presetInterest, simulator, storeKey]);
 
   useEffect(() => {
     if (!ctx) return;
@@ -262,6 +270,12 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const proceed = async (identity: typeof data, firstName?: string | null) => {
     if (!ctx) return;
     const iq = interestQuestion(ctx);
+    // Produto já escolhido no item da landing: registra direto, sem perguntar de novo.
+    if (iq && !interest && ctx.commercial_preset?.label) {
+      setInterest(ctx.commercial_preset.label);
+      await register(identity, firstName, ctx.commercial_preset.label);
+      return;
+    }
     if (iq && !interest) {
       firstNameRef.current = firstName ?? null;
       if (firstName) await say(`Maravilha, ${firstName}!`);
@@ -276,6 +290,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     if (!ctx) return;
     const r = await call({
       action: "create", form_id: ctx.form_id, campaign: ctx.campaign, product: chosen ?? ctx.product, interest: chosen,
+      product_catalog_id: chosen && chosen === ctx.commercial_preset?.label ? ctx.commercial_preset.product_catalog_id : undefined,
+      simulator: simulator ?? undefined,
       name: identity.name, email: identity.email, phone: identity.phone,
       session_id: sessionStorage.getItem("dra_lia_session"),
       utm_source: params.get("utm_source"), utm_medium: params.get("utm_medium"), utm_campaign: params.get("utm_campaign"),

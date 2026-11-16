@@ -41,6 +41,8 @@ export function trackAttendanceEvent(e: {
   campaign_slug?: string | null;
   product_name?: string | null;
   lead_id?: string | null;
+  /** Simulador de WhatsApp que originou o evento (ex.: item da landing). */
+  simulator_id?: string | null;
 }) {
   void (supabase as any).from("attendance_channel_events").insert({
     channel: e.channel,
@@ -49,15 +51,30 @@ export function trackAttendanceEvent(e: {
     campaign_slug: e.campaign_slug ?? null,
     product_name: e.product_name ?? null,
     lead_id: e.lead_id ?? null,
+    ...(e.simulator_id ? { simulator_id: e.simulator_id.slice(0, 80) } : {}),
     session_id: sessionId(),
     page_path: window.location.pathname.slice(0, 300),
   }).then(() => {}, () => {});
 }
 
-export function buildLiaUrl(opts: { formId?: string | null; campaign?: string | null; product?: string | null; base?: string }) {
+export function buildLiaUrl(opts: {
+  formId?: string | null;
+  campaign?: string | null;
+  product?: string | null;
+  /** Produto do catálogo já escolhido (validado no servidor). */
+  productId?: string | null;
+  /** Botão do formulário já escolhido (validado no servidor). */
+  interest?: string | null;
+  /** Identificador do simulador no comparativo por canal. */
+  simulator?: string | null;
+  base?: string;
+}) {
   const u = new URL("/embed/dra-lia", opts.base ?? window.location.origin);
   if (opts.formId) u.searchParams.set("form", opts.formId);
   if (opts.campaign) u.searchParams.set("c", opts.campaign);
   if (opts.product) u.searchParams.set("p", opts.product);
+  if (opts.productId) u.searchParams.set("pid", opts.productId);
+  if (opts.interest) u.searchParams.set("i", opts.interest);
+  if (opts.simulator) u.searchParams.set("sim", opts.simulator);
   return u.toString();
 }

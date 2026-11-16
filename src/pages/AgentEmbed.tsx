@@ -8,6 +8,9 @@ export default function AgentEmbed() {
   const formId = sp.get("form");
   const campaign = sp.get("c");
   const product = sp.get("p");
+  const productId = sp.get("pid");
+  const presetInterest = sp.get("i");
+  const simulator = sp.get("sim");
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,7 +31,7 @@ export default function AgentEmbed() {
   if (formId || campaign || product) {
     return (
       <div ref={viewportRef} className="lia-viewport w-full flex flex-col">
-        <LiaCaptureChat formId={formId} campaign={campaign} product={product} />
+        <LiaCaptureChat formId={formId} campaign={campaign} product={product} productId={productId} presetInterest={presetInterest} simulator={simulator} />
       </div>
     );
   }
