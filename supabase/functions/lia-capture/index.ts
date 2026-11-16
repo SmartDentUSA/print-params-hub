@@ -18,7 +18,7 @@ import { cleanPersonName } from "../_shared/piperun-field-map.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
-import { campaignButtons, campaignDisplayName, campaignMessageName, DEFAULT_INTEREST_QUESTION, GROUP_REDIRECT_MS, isCommercialCampaignForm, matchInterest } from "./commercial-campaign.ts";
+import { campaignButtons, campaignDisplayName, campaignMessageName, DEFAULT_INTEREST_QUESTION, GROUP_REDIRECT_MS, isCommercialCampaignForm, matchInterest, presetInterest, type PresetInterest } from "./commercial-campaign.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -78,6 +78,7 @@ async function resolveContext(body: any) {
   let groupUrl: string | null = null;
   let commercial: { question: string; options: string[]; group_message: string | null; redirect_ms: number; display_name: string; promotional_table_id: string | null; promotional_table_name: string | null } | null = null;
   let commercialButtons: ReturnType<typeof campaignButtons> = [];
+  let commercialPreset: PresetInterest | null = null;
   if (campaignSlug) {
     const { data: c } = await sb.from("campaigns").select("nome, lia_opening_message, lia_product_name").ilike("lia_slug", campaignSlug).maybeSingle();
     if (c) {
@@ -107,6 +108,19 @@ async function resolveContext(body: any) {
         // A campanha herda o evento da tabela promocional quando o formulário não tem um próprio.
         if (!formEventId && (t as any)?.event_id) formEventId = String((t as any).event_id);
       }
+      // Item da landing já escolhido: produto do catálogo (pid) ou botão do formulário; só vale se for válido.
+      const presetId = isUuid(body.product_catalog_id) ? String(body.product_catalog_id) : null;
+      let presetCatalog: { id: string; name: string } | null = null;
+      if (presetId && !commercialButtons.some((b) => b.product_catalog_id === presetId)) {
+        const { data: pc, error: pcErr } = await sb.from("system_a_catalog").select("id, name")
+          .eq("id", presetId).eq("active", true).in("category", COMMERCIAL_TYPES).maybeSingle();
+        if (pcErr) console.warn("[lia-capture] preset product unavailable", pcErr.code);
+        if (pc?.name) presetCatalog = { id: pc.id, name: String(pc.name).trim() };
+      }
+      commercialPreset = commercialButtons.length
+        ? presetInterest(commercialButtons, { product_catalog_id: presetId, interest: body.preset_interest }, presetCatalog)
+        : null;
+      if (commercialPreset) product = commercialPreset.product_name || commercialPreset.label;
       if (commercialButtons.length) commercial = {
         question: str((f as any)?.capture_buttons_question, 200) || DEFAULT_INTEREST_QUESTION,
         options: commercialButtons.map((b) => b.label),
@@ -190,7 +204,7 @@ async function resolveContext(body: any) {
   });
   const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const greeting = hour < 12 ? "Bom dia!" : hour < 18 ? "Boa tarde!" : "Boa noite!";
-  return { form_id: formId, form_purpose: formPurpose, event_id: formEventId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, whatsapp_group_url: groupUrl, commercial_campaign: commercial, commercial_buttons: commercialButtons, qualification_form_id: qFormId, fields };
+  return { form_id: formId, form_purpose: formPurpose, event_id: formEventId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, whatsapp_group_url: groupUrl, commercial_campaign: commercial, commercial_buttons: commercialButtons, commercial_preset: commercialPreset, qualification_form_id: qFormId, fields };
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
@@ -356,7 +370,8 @@ Deno.serve(async (req) => {
       if (!nome || !phone || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Nome, e-mail e telefone válidos são obrigatórios." }, 400);
       const base = await resolveContext(body);
       // Campanha comercial: o botão escolhido precisa ser um dos botões do formulário.
-      const chosen = base.commercial_campaign ? matchInterest(base.commercial_buttons, body.interest) : null;
+      const preset = base.commercial_preset && matchInterest([base.commercial_preset], body.interest) ? base.commercial_preset : null;
+      const chosen = base.commercial_campaign ? (matchInterest(base.commercial_buttons, body.interest) ?? preset) : null;
       if (base.commercial_campaign && !chosen) return json({ error: "Escolha uma das opções da promoção." }, 400);
       const ctx = chosen ? await resolveContext({ ...body, product: chosen.label, product_catalog_id: chosen.product_catalog_id }) : base;
       const payload: Record<string, unknown> = {
@@ -392,7 +407,7 @@ Deno.serve(async (req) => {
       if (!r.ok || !isUuid(leadId)) return json({ error: "Não foi possível registrar o atendimento." }, 502);
       await sb.from("attendance_channel_events").insert({
         channel: "whatsapp_lia", event_type: "lead", form_id: ctx.form_id, campaign_slug: ctx.campaign,
-        product_name: ctx.product || null, lead_id: leadId, session_id: str(body.session_id, 120) || null,
+        product_name: ctx.product || null, lead_id: leadId, session_id: str(body.session_id, 120) || null, simulator_id: str(body.simulator, 80) || null,
       });
       if (chosen) {
         // Escolha registrada na timeline do lead (mesmo formato das respostas de formulário).

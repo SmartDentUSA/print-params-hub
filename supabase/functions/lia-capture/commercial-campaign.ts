@@ -55,3 +55,20 @@ export function matchInterest<T extends { label: string }>(buttons: T[], value: 
   if (!v) return null;
   return buttons.find((b) => norm(b.label) === v) ?? null;
 }
+
+export type PresetInterest = { label: string; product_catalog_id: string | null; product_name: string | null };
+
+/** Produto já escolhido fora da conversa (item da landing): botão do formulário pelo produto/rótulo ou produto ativo do catálogo. */
+export function presetInterest(
+  buttons: PresetInterest[],
+  input: { product_catalog_id?: string | null; interest?: unknown },
+  catalog: { id: string; name: string } | null,
+): PresetInterest | null {
+  const id = input.product_catalog_id || null;
+  if (id) {
+    const button = buttons.find((b) => b.product_catalog_id === id);
+    if (button) return button;
+    return catalog?.id === id && catalog.name ? { label: catalog.name, product_catalog_id: catalog.id, product_name: catalog.name } : null;
+  }
+  return matchInterest(buttons, input.interest);
+}
