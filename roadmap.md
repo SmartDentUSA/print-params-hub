@@ -107,3 +107,4 @@
 
 - [x] Tabelas promocionais: base de % = Preço tabela (Unit) da Smart Dent (Loja Oficial); BlackFriday 16–20 = 25%, 21–25 = 15%, 26–30 = 10% recalculadas (versão anterior no histórico). Falta republicar os PDFs pelo botão Salvar tabela.
 - [ ] `smart-ops-promo-coupons-sync` aceita chamadas sem login (modos que gravam na Loja Integrada) — aguardando autorização para proteger.
+- [ ] Landing BLACK26 (s.smartdent.com.br/v7pmii): substituir pela página enviada; cada botão de WhatsApp abre o simulador com o produto do item já preenchido (origem # - [BLACK26] - Campanha ativa); botão genérico pergunta o produto pelos botões; comparativo por canal (90 dias) mostra todos os simuladores da landing.
