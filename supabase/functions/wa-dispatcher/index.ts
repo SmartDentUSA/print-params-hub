@@ -69,7 +69,9 @@ serve(async (req) => {
     // que invocações concorrentes do cron disparem a mesma mensagem múltiplas vezes.
     const { data: claimed, error } = await supabase.rpc('claim_pending_wa_messages', { p_limit: MAX_PER_RUN })
     if (error) throw error
-    const claimedRows = (claimed ?? []) as any[]
+    // UPDATE ... RETURNING não garante ordem: envia por horário e depois pela posição do nó.
+    const claimedRows = ((claimed ?? []) as any[]).sort((a, b) =>
+      String(a.scheduled_at).localeCompare(String(b.scheduled_at)) || ((a.node_index ?? 1e9) - (b.node_index ?? 1e9)))
     if (!claimedRows.length) return Response.json({ ok: true, processed: 0 }, { headers: corsHeaders })
 
     // Carrega config das campanhas e filtra apenas as ativas (preservando o antigo wa_campaigns.status='active' do JOIN).
@@ -374,6 +376,8 @@ async function advanceCampaign(sb: SupabaseClient, cid: string, sentIdx: number)
   }
   const nxt = flow[next]
   if (nxt.type === 'wait') {
+    // Espera com data exata (wa-campaign-builder): o scheduled_at já gravado é a fonte da verdade.
+    if (nxt.mode === 'absolute') { await sb.from('wa_campaigns').update({ current_node_index: next }).eq('id', cid); return }
     const days = (nxt.days as number) ?? 1; const [hh, mm] = ((nxt.time as string) ?? '09:00').split(':').map(Number)
     let at = spDateTimeToUtc(addDaysSp(new Date(), days), hh, mm)
     if (nxt.weekdays_only) { const d = spWeekday(at); if (d === 0) at = addDaysSp(at, 1); else if (d === 6) at = addDaysSp(at, 2) }
