@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,7 @@ interface SdrForm {
   brand_color_h: number | null;
   brand_color_s: number | null;
   brand_color_l: number | null;
+  updated_at?: string | null;
 }
 
 const fmtDate = (d: string) => d.slice(0, 10).split("-").reverse().join("/");
@@ -128,7 +129,48 @@ interface VideoOption {
   embed_url: string | null;
 }
 
-export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
+interface EditorProps {
+  form: SdrForm;
+  /** Avisado quando há alterações da Seção B ainda não salvas (para confirmar antes de sair). */
+  onDirtyChange?: (dirty: boolean) => void;
+}
+
+/**
+ * Sempre edita a versão atual do banco (nunca o objeto da lista, que pode estar velho)
+ * e recarrega depois de salvar, para que um salvamento posterior não apague botões novos.
+ */
+export function SmartOpsSdrCaptacaoEditor({ form, onDirtyChange }: EditorProps) {
+  const [row, setRow] = useState<SdrForm | null>(null);
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.from("smartops_forms" as any).select("*").eq("id", form.id).maybeSingle();
+    if (error || !data) {
+      toast.error("Não foi possível carregar a versão atual do formulário.");
+      setRow(form);
+      return;
+    }
+    setRow(data as unknown as SdrForm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.id]);
+  useEffect(() => { setRow(null); void load(); }, [load]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+  if (!row) return <p className="text-sm text-muted-foreground">Carregando a versão atual do formulário…</p>;
+  return (
+    <SdrCaptacaoEditorInner
+      key={row.updated_at ?? row.id}
+      form={row}
+      onSaved={setRow}
+      onReload={load}
+      onDirtyChange={onDirtyChange}
+    />
+  );
+}
+
+function SdrCaptacaoEditorInner({
+  form,
+  onSaved,
+  onReload,
+  onDirtyChange,
+}: EditorProps & { onSaved: (row: SdrForm) => void; onReload: () => void }) {
   // Seção B state
   const [name, setName] = useState(form.name ?? "");
   const [slug, setSlug] = useState(form.slug ?? "");
@@ -211,6 +253,44 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
       });
   }, []);
 
+  // Campos gravados pelo "Salvar configurações" (sem a cor, calculada no salvamento).
+  const buildCorePayload = () => ({
+    name: name.trim() || form.name,
+    slug: slug.trim() || form.slug,
+    title: title || null,
+    subtitle: subtitle || null,
+    description: description || null,
+    success_message: successMessage || null,
+    success_redirect_url: successRedirectUrl || null,
+    hero_image_url: heroImageUrl || null,
+    hero_image_alt: heroImageAlt || null,
+    campaign_identifier: campaignIdentifier || null,
+    product_catalog_id: productCatalogId === "__none__" ? null : (productCatalogId || null),
+    workflow_stage_target: workflowStageTarget === "__none__" ? null : (workflowStageTarget || null),
+    capture_buttons_enabled: captureButtonsEnabled,
+    capture_buttons_question: buttonsQuestion.trim() || null,
+    capture_group_message: groupMessage.trim() || null,
+    promotional_table_id: isCampaign && promotionalTableId !== "__none__" ? promotionalTableId : null,
+    ...(isCampaign ? { is_commercial_campaign: true } : {}),
+    capture_buttons: captureButtons
+      .map((b) => ({ ...b, label: (b.label || "").trim() }))
+      .filter((b) => b.label),
+    media_type: mediaType,
+    video_id: mediaType === "video" ? (videoId || null) : null,
+    video_thumbnail_url: mediaType === "video" ? (videoThumbnailUrl || null) : null,
+    video_embed_url: mediaType === "video" ? (videoEmbedUrl || null) : null,
+  });
+  const currentSnapshot = JSON.stringify({ p: buildCorePayload(), raw: captureButtons });
+  const [savedSnapshot] = useState(currentSnapshot);
+  const dirty = currentSnapshot !== savedSnapshot;
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
   const handleHeroUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Selecione um arquivo de imagem válido.");
@@ -264,41 +344,35 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
       setBrandColor(colorResult);
     }
 
-    const { error } = await supabase
+    // Só grava se ninguém salvou este formulário depois que ele foi aberto aqui
+    // (outra aba/tela); senão uma versão velha apagaria botões novos.
+    let query = supabase
       .from("smartops_forms" as any)
       .update({
-        name: name.trim() || form.name,
-        slug: slug.trim() || form.slug,
-        title: title || null,
-        subtitle: subtitle || null,
-        description: description || null,
-        success_message: successMessage || null,
-        success_redirect_url: successRedirectUrl || null,
-        hero_image_url: heroImageUrl || null,
-        hero_image_alt: heroImageAlt || null,
-        campaign_identifier: campaignIdentifier || null,
-        product_catalog_id: productCatalogId === "__none__" ? null : (productCatalogId || null),
-        workflow_stage_target: workflowStageTarget === "__none__" ? null : (workflowStageTarget || null),
-        capture_buttons_enabled: captureButtonsEnabled,
-        capture_buttons_question: buttonsQuestion.trim() || null,
-        capture_group_message: groupMessage.trim() || null,
-        promotional_table_id: isCampaign && promotionalTableId !== "__none__" ? promotionalTableId : null,
-        ...(isCampaign ? { is_commercial_campaign: true } : {}),
-        capture_buttons: captureButtons
-          .map((b) => ({ ...b, label: (b.label || "").trim() }))
-          .filter((b) => b.label),
-        media_type: mediaType,
-        video_id: mediaType === "video" ? (videoId || null) : null,
-        video_thumbnail_url: mediaType === "video" ? (videoThumbnailUrl || null) : null,
-        video_embed_url: mediaType === "video" ? (videoEmbedUrl || null) : null,
+        ...buildCorePayload(),
         brand_color_h: colorResult.h,
         brand_color_s: colorResult.s,
         brand_color_l: colorResult.l,
       } as any)
       .eq("id", form.id);
+    if (form.updated_at) query = query.eq("updated_at", form.updated_at);
+    const { data: saved, error } = await query.select("*");
     setSaving(false);
-    if (error) toast.error(`Erro ao salvar: ${error.message}`);
-    else toast.success("Configurações salvas!");
+    if (error) {
+      toast.error(`Erro ao salvar: ${error.message}`);
+      return;
+    }
+    const savedRow = Array.isArray(saved) ? (saved[0] as unknown as SdrForm | undefined) : undefined;
+    if (!savedRow) {
+      toast.error("Este formulário foi salvo em outra aba ou tela depois que você o abriu. Nada foi gravado para não apagar a outra alteração.", {
+        duration: 12000,
+        action: { label: "Recarregar", onClick: () => onReload() },
+      });
+      return;
+    }
+    const savedButtons = Array.isArray((savedRow as any).capture_buttons) ? (savedRow as any).capture_buttons.length : 0;
+    toast.success(`Configurações salvas! ${savedButtons} botão(ões) no formulário.`);
+    onSaved(savedRow);
   };
 
   return (
@@ -666,6 +740,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
               >
                 + Adicionar outro botão
               </Button>
+              <p className="text-[11px] text-muted-foreground">Botões novos e produtos escolhidos só entram no formulário depois de clicar em "Salvar configurações".</p>
             </div>
           )}
         </div>
@@ -748,9 +823,22 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
           </div>
         </div>
 
-        <Button onClick={handleSaveSectionB} disabled={saving} className="w-full md:w-auto">
-          {saving ? "Salvando..." : "Salvar configurações"}
-        </Button>
+        <div
+          className={
+            dirty
+              ? "sticky bottom-3 z-20 flex flex-col gap-2 rounded-lg border border-primary/40 bg-background/95 p-3 shadow-lg backdrop-blur md:flex-row md:items-center"
+              : "flex"
+          }
+        >
+          {dirty && (
+            <p className="flex-1 text-sm font-medium text-foreground">
+              Alterações não salvas: os botões e configurações só valem no formulário depois de salvar.
+            </p>
+          )}
+          <Button onClick={handleSaveSectionB} disabled={saving} className="w-full md:w-auto">
+            {saving ? "Salvando..." : "Salvar configurações"}
+          </Button>
+        </div>
       </section>
 
       {/* ─────────────────────────────────── SEÇÃO C ─────────────────────────── */}

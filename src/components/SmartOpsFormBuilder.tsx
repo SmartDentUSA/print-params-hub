@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import AttendanceChannelMetrics from "@/components/lia/AttendanceChannelMetrics";
 import { useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -210,6 +210,8 @@ export function SmartOpsFormBuilder() {
   const [landingBySlug, setLandingBySlug] = useState<Record<string, boolean>>({});
   const [generatingShort, setGeneratingShort] = useState<Record<string, ShortLinkTarget | null>>({});
   const [editingForm, setEditingForm] = useState<SmartOpsForm | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const handleEditorDirty = useCallback((d: boolean) => setEditorDirty(d), []);
   const [landingPageForm, setLandingPageForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -563,7 +565,11 @@ export function SmartOpsFormBuilder() {
   };
 
 
-  const openEditMeta = (form: SmartOpsForm) => {
+  // Abre sempre a versão atual do banco: o item da lista pode estar velho e,
+  // salvo por cima, desfaria o que foi gravado no editor do formulário.
+  const openEditMeta = async (listForm: SmartOpsForm) => {
+    const { data: fresh } = await supabase.from("smartops_forms" as any).select("*").eq("id", listForm.id).maybeSingle();
+    const form = ((fresh as unknown as SmartOpsForm) ?? listForm);
     setMetaName(form.name);
     setMetaSlug(form.slug || "");
     setMetaTitle(form.title || "");
@@ -640,7 +646,7 @@ export function SmartOpsFormBuilder() {
       }
     }
     const slugChanged = nextSlug !== editingMeta.slug;
-    const { error } = await supabase.from("smartops_forms" as any)
+    const { data: saved, error } = await supabase.from("smartops_forms" as any)
       .update({
         name: metaName.trim(),
         slug: nextSlug,
@@ -692,8 +698,14 @@ export function SmartOpsFormBuilder() {
         forced_seller_team_member_id: metaForcedSeller || null,
 
       } as any)
-      .eq("id", editingMeta.id);
+      .eq("id", editingMeta.id)
+      .eq("updated_at", (editingMeta as any).updated_at)
+      .select("id");
     if (error) { toast.error(error.message); return; }
+    if (!saved?.length) {
+      toast.error("Este formulário foi salvo em outra tela ou aba depois que você abriu esta janela. Nada foi gravado para não desfazer a outra alteração; feche e abra de novo.", { duration: 12000 });
+      return;
+    }
     toast.success("Formulário atualizado!");
     setEditingMeta(null);
     fetchForms();
@@ -791,7 +803,12 @@ export function SmartOpsFormBuilder() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setEditingForm(null); fetchForms(); }}>
+          <Button variant="outline" size="sm" onClick={() => {
+            if (editorDirty && !window.confirm("Há botões ou configurações não salvos neste formulário. Sair sem salvar?")) return;
+            setEditorDirty(false);
+            setEditingForm(null);
+            fetchForms();
+          }}>
             ← Voltar
           </Button>
           <h3 className="font-semibold text-lg">{editingForm.name}</h3>
@@ -802,11 +819,11 @@ export function SmartOpsFormBuilder() {
         {editingForm.form_purpose === "sdr_captacao" ? (
           <div className="space-y-4">
             <AttendanceChannelMetrics formId={editingForm.id} />
-            <SmartOpsSdrCaptacaoEditor form={editingForm} />
+            <SmartOpsSdrCaptacaoEditor form={editingForm as any} onDirtyChange={handleEditorDirty} />
           </div>
         ) : editingForm.form_purpose === "feira_evento" ? (
           <>
-            <FeiraEventoConfig formId={editingForm.id} />
+            <FeiraEventoConfig formId={editingForm.id} onDirtyChange={handleEditorDirty} />
             <SmartOpsFormEditor formId={editingForm.id} />
           </>
         ) : editingForm.form_purpose === "credenciamento" ? (
@@ -1103,7 +1120,12 @@ export function SmartOpsFormBuilder() {
                     {showHeroStudio && (
                       <FormHeroImageStudio
                         formId={editingMeta.id}
-                        onApplied={(url) => setMetaHeroImageUrl(url)}
+                        onApplied={async (url) => {
+                          setMetaHeroImageUrl(url);
+                          // A imagem já foi gravada: acompanha a nova versão para o "Salvar" desta janela não ser recusado.
+                          const { data: fresh } = await supabase.from("smartops_forms" as any).select("updated_at").eq("id", editingMeta.id).maybeSingle();
+                          if (fresh) setEditingMeta((cur) => (cur ? ({ ...cur, updated_at: (fresh as any).updated_at } as any) : cur));
+                        }}
                       />
                     )}
                   </div>
