@@ -19,6 +19,7 @@ export const CATALOG_SIDEBAR_FILTERS: CatalogFilterDef[] = [
   { key: 'caracterizacao',     label: 'Finalização',          chip: 'CARACTERIZAÇÃO' },
   { key: 'cimentos',           label: 'Cimentos',             subMatch: (s) => /^6\.2\b|CIMENTOS/i.test(s) },
   { key: 'resinas_diretas',    label: 'Resinas diretas',      subMatch: (s) => /^6\.3\b|RESINAS COMPOSTAS/i.test(s) },
+  { key: 'fresagem',           label: 'Fresagem',             subMatch: (s) => /^7\./.test(s) },
   { key: 'adesivos',           label: 'Adesivos',             nameContains: 'atos smart ortho' },
 ];
 
