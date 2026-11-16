@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fmtSaoPaulo, planBroadcast, saoPauloLocalToIso } from "./waBroadcastSchedule.ts";
+import { fmtSaoPaulo, planBroadcast, saoPauloLocalToIso } from "./waBroadcastSchedule";
 
 test("horário digitado é de São Paulo (UTC-3)", () => {
   assert.equal(saoPauloLocalToIso("2026-11-20T09:00"), "2026-11-20T12:00:00.000Z");
