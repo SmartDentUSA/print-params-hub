@@ -1451,6 +1451,7 @@ export type Database = {
           page_path: string | null
           product_name: string | null
           session_id: string | null
+          simulator_id: string | null
         }
         Insert: {
           campaign_slug?: string | null
@@ -1463,6 +1464,7 @@ export type Database = {
           page_path?: string | null
           product_name?: string | null
           session_id?: string | null
+          simulator_id?: string | null
         }
         Update: {
           campaign_slug?: string | null
@@ -1475,6 +1477,7 @@ export type Database = {
           page_path?: string | null
           product_name?: string | null
           session_id?: string | null
+          simulator_id?: string | null
         }
         Relationships: []
       }
@@ -26247,6 +26250,8 @@ export type Database = {
           content: Json
           content_version: number
           created_at: string
+          custom_html: string | null
+          custom_simulators: Json | null
           editor_state: Json
           form_id: string
           generated_html: string | null
@@ -26263,6 +26268,8 @@ export type Database = {
           content?: Json
           content_version?: number
           created_at?: string
+          custom_html?: string | null
+          custom_simulators?: Json | null
           editor_state?: Json
           form_id: string
           generated_html?: string | null
@@ -26279,6 +26286,8 @@ export type Database = {
           content?: Json
           content_version?: number
           created_at?: string
+          custom_html?: string | null
+          custom_simulators?: Json | null
           editor_state?: Json
           form_id?: string
           generated_html?: string | null
@@ -38625,6 +38634,16 @@ export type Database = {
           conversions: number
           leads: number
           revenue: number
+          views: number
+        }[]
+      }
+      fn_attendance_simulator_metrics: {
+        Args: { _form_id: string; _since?: string }
+        Returns: {
+          conversions: number
+          leads: number
+          revenue: number
+          simulator_id: string
           views: number
         }[]
       }
