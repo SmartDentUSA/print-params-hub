@@ -18,6 +18,9 @@ import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsMappingFieldsEditor } from "./SmartOpsMappingFieldsEditor";
 import { WORKFLOW_CELLS } from "./SmartOpsMappingFieldsEditor";
 import { SmartOpsFormFlowPreview } from "./SmartOpsFormFlowPreview";
+import { CatalogProductCombobox } from "./smartops/forms/CatalogProductCombobox";
+import { buildCatalogProductOptions, type CatalogProductOption, type CatalogRow } from "@/lib/catalogProductOptions";
+import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import { DEFAULT_GROUP_MESSAGE, DEFAULT_INTEREST_QUESTION, isCommercialCampaignForm, isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
 
 export interface CaptureButton {
@@ -118,11 +121,6 @@ async function extractDominantHue(
   });
 }
 
-interface CatalogOption {
-  id: string;
-  name: string;
-}
-
 interface VideoOption {
   id: string;
   title: string;
@@ -166,7 +164,8 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
       : null
   );
 
-  const [catalogOptions, setCatalogOptions] = useState<CatalogOption[]>([]);
+  const [catalogOptions, setCatalogOptions] = useState<CatalogProductOption[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [videoOptions, setVideoOptions] = useState<VideoOption[]>([]);
   const [videoSearch, setVideoSearch] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -185,13 +184,24 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   }, [isCampaign]);
 
   useEffect(() => {
-    supabase
-      .from("system_a_catalog" as any)
-      .select("id, name")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setCatalogOptions(data as unknown as CatalogOption[]);
-      });
+    // Só produtos comerciais ativos (o catálogo também guarda clientes/depoimentos,
+    // categorias e dados da empresa). Vínculos já salvos fora do filtro continuam visíveis.
+    const linkedIds = Array.from(new Set([
+      form.product_catalog_id,
+      ...(Array.isArray((form as any).capture_buttons) ? (form as any).capture_buttons.map((b: CaptureButton) => b.product_catalog_id) : []),
+    ].filter(Boolean))) as string[];
+    (async () => {
+      const cols = "id, name, category, active, product_category";
+      const [{ data: rows }, { data: linked }] = await Promise.all([
+        supabase.from("system_a_catalog" as any).select(cols)
+          .in("category", [...PRODUCT_CATALOG_ENTITY_TYPES]).eq("active", true).order("name").limit(2000),
+        linkedIds.length
+          ? supabase.from("system_a_catalog" as any).select(cols).in("id", linkedIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      setCatalogOptions(buildCatalogProductOptions((rows ?? []) as unknown as CatalogRow[], (linked ?? []) as unknown as CatalogRow[]));
+      setCatalogLoading(false);
+    })();
     supabase
       .from("knowledge_videos" as any)
       .select("id, title, thumbnail_url, embed_url")
@@ -558,17 +568,12 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
           {/* Produto de interesse (admin) */}
           <div>
             <Label className="text-xs font-medium">Produto de interesse (admin)</Label>
-            <Select value={productCatalogId} onValueChange={setProductCatalogId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o produto..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">— Nenhum —</SelectItem>
-                {catalogOptions.map((opt) => (
-                  <SelectItem key={opt.id} value={opt.id}>{opt.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CatalogProductCombobox
+              value={productCatalogId === "__none__" ? null : productCatalogId || null}
+              options={catalogOptions}
+              loading={catalogLoading}
+              onChange={(id) => setProductCatalogId(id ?? "__none__")}
+            />
           </div>
 
           {/* Etapa SDR/Interesse no Workflow 7×3 */}
@@ -637,21 +642,13 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                       </div>
                       <div>
                         <Label className="text-xs">Produto de interesse</Label>
-                        <Select
-                          value={b.product_catalog_id || "__none__"}
-                          onValueChange={(v) => {
-                            const opt = catalogOptions.find((o) => o.id === v);
-                            upd({ product_catalog_id: v === "__none__" ? null : v, product_name: opt?.name ?? null });
-                          }}
-                        >
-                          <SelectTrigger><SelectValue placeholder="Produto" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">— Nenhum —</SelectItem>
-                            {catalogOptions.map((opt) => (
-                              <SelectItem key={opt.id} value={opt.id}>{opt.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <CatalogProductCombobox
+                          value={b.product_catalog_id || null}
+                          options={catalogOptions}
+                          loading={catalogLoading}
+                          placeholder="Produto"
+                          onChange={(id, productName) => upd({ product_catalog_id: id, product_name: productName })}
+                        />
                       </div>
                       <div>
                         <Label className="text-xs">Nome do botão no formulário</Label>

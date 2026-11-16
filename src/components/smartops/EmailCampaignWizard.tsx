@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,6 +121,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
       const { data } = await (supabase as any)
         .from("system_a_catalog")
         .select("id, name, product_category, active, visible_in_ui, display_order")
+        .in("category", [...PRODUCT_CATALOG_ENTITY_TYPES])
         .or("active.eq.true,visible_in_ui.eq.true")
         .order("display_order", { ascending: true, nullsFirst: false })
         .order("name", { ascending: true })

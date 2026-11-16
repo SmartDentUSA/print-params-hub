@@ -1,4 +1,5 @@
 // Leituras e chamadas do navegador usadas pelos passos a passo do Social Publisher.
+import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 // Mesmas fontes das telas: catálogo/resinas, IA de legenda, envio de mídia,
 // instâncias e grupos de Post Grupos e lives ativas. A gravação é sempre no servidor.
 import { supabase } from "@/integrations/supabase/client";
@@ -33,7 +34,7 @@ const like = (q: string) => `%${q.replace(/[%_,()]/g, " ").trim()}%`;
 export const socialPostDeps: SocialPostDeps = {
   async searchProducts(q) {
     const [{ data: cat }, { data: res }] = await Promise.all([
-      supabase.from("system_a_catalog").select("id,name,category,slug").eq("active", true).ilike("name", like(q)).order("name").limit(10),
+      supabase.from("system_a_catalog").select("id,name,category,slug").in("category", [...PRODUCT_CATALOG_ENTITY_TYPES]).eq("active", true).ilike("name", like(q)).order("name").limit(10),
       supabase.from("resins").select("id,name,manufacturer,slug,type").eq("active", true).or(`name.ilike.${like(q)},manufacturer.ilike.${like(q)}`).order("name").limit(10),
     ]);
     const out: SocialProduct[] = [
