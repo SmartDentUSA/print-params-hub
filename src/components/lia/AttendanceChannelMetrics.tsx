@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
@@ -56,8 +56,8 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                 <tr><th className="py-1">Canal</th><th>Visualizações</th><th>Leads gerados</th><th>Taxa de lead</th><th>Conversões</th><th>Conversão</th><th>Valor das conversões</th></tr>
               </thead>
               <tbody>
-                {rows.map((r) => (<>
-                  <tr key={r.channel} className="border-t border-border">
+                {rows.map((r) => (<Fragment key={r.channel}>
+                  <tr className="border-t border-border">
                     <td className="py-1.5 font-medium">{LABEL[r.channel] ?? r.channel}</td>
                     <td>{r.views}</td>
                     <td>{r.leads}</td>
@@ -77,7 +77,7 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                       <td className="text-xs">{brl(s.revenue)}</td>
                     </tr>
                   ))}
-                </>))}
+                </Fragment>))}
               </tbody>
             </table>
             <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. {sims.length ? "Abaixo do WhatsApp, cada simulador da landing (geral e por produto) com seu identificador; a contagem por simulador começa a partir de hoje. " : ""}{formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
