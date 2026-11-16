@@ -28,6 +28,59 @@
   filter: brightness(1.05);
 }
 
+/* Capa viva da Bio (cronômetro por fases) — paleta da campanha escura das landings. */
+.countdown-cover {
+  --cc-bg: 230 22% 6%;
+  --cc-card: 228 24% 11%;
+  --cc-cell: 230 25% 5%;
+  --cc-line: 228 14% 22%;
+  --cc-text: 0 0% 100%;
+  --cc-muted: 225 10% 68%;
+  --cc-accent: 20 89% 61%;
+  --cc-accent-soft: 21 95% 77%;
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  color: hsl(var(--cc-text));
+  background:
+    radial-gradient(60% 80% at 85% 20%, hsl(var(--cc-accent) / 0.12), transparent 60%),
+    repeating-linear-gradient(90deg, hsl(var(--cc-text) / 0.025) 0 1px, transparent 1px 4px),
+    hsl(var(--cc-bg));
+  font-family: 'Poppins', system-ui, sans-serif;
+  text-align: left;
+}
+.countdown-cover .cc-inner { display: grid; gap: 16px; padding: 18px 16px; }
+.countdown-cover .cc-logo, .countdown-cover .cc-wordmark { mix-blend-mode: lighten; -webkit-mask-image: radial-gradient(ellipse at center, #000 62%, transparent 100%); mask-image: radial-gradient(ellipse at center, #000 62%, transparent 100%); }
+.countdown-cover .cc-logo { height: 30px; width: auto; }
+.countdown-cover .cc-wordmark { margin-top: 10px; height: 46px; width: auto; }
+.countdown-cover .cc-headline { margin-top: 10px; font-family: 'Host Grotesk', 'Poppins', sans-serif; font-weight: 800; font-size: 26px; line-height: 1.05; letter-spacing: -0.02em; }
+.countdown-cover .cc-hot { display: block; background: linear-gradient(180deg, hsl(var(--cc-accent-soft)), hsl(var(--cc-accent)) 60%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.countdown-cover .cc-lead { margin-top: 8px; font-size: 12px; line-height: 1.45; color: hsl(var(--cc-muted)); }
+.countdown-cover .cc-clock { border-radius: 18px; padding: 14px; background: hsl(var(--cc-card) / 0.92); border: 1px solid hsl(var(--cc-line)); box-shadow: inset 1px 1px 0 hsl(var(--cc-accent) / 0.55), 0 20px 40px -24px hsl(var(--cc-bg)); }
+.countdown-cover .cc-kicker { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: hsl(var(--cc-muted)); }
+.countdown-cover .cc-title { margin-top: 4px; font-family: 'Host Grotesk', 'Poppins', sans-serif; font-weight: 800; font-size: 19px; }
+.countdown-cover .cc-title em { font-style: normal; color: hsl(var(--cc-accent)); }
+.countdown-cover .cc-cells { margin-top: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.countdown-cover .cc-cell { display: flex; flex-direction: column; align-items: center; padding: 8px 0 6px; border-radius: 12px; background: hsl(var(--cc-cell)); border: 1px solid hsl(var(--cc-line)); }
+.countdown-cover .cc-cell b { font-family: 'Host Grotesk', 'Poppins', sans-serif; font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.countdown-cover .cc-cell small { font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: hsl(var(--cc-muted)); }
+.countdown-cover .cc-steps { margin-top: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.countdown-cover .cc-step { display: flex; flex-direction: column; align-items: center; padding: 8px 2px; border-radius: 12px; border: 1px solid hsl(var(--cc-line)); background: hsl(var(--cc-cell) / 0.6); }
+.countdown-cover .cc-step strong { font-family: 'Host Grotesk', 'Poppins', sans-serif; font-size: 18px; font-weight: 800; line-height: 1; }
+.countdown-cover .cc-step sup { font-size: 0.55em; }
+.countdown-cover .cc-step span { margin-top: 3px; font-size: 9px; font-weight: 700; }
+.countdown-cover .cc-step small { margin-top: 3px; font-size: 8px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: hsl(var(--cc-muted)); }
+.countdown-cover .cc-step.is-active { border-color: hsl(var(--cc-accent) / 0.7); background: linear-gradient(180deg, hsl(var(--cc-accent) / 0.22), hsl(var(--cc-accent) / 0.05)); }
+.countdown-cover .cc-step.is-active strong, .countdown-cover .cc-step.is-active small { color: hsl(var(--cc-accent)); }
+.countdown-cover .cc-step.is-past { opacity: 0.4; }
+@container (min-width: 520px) {
+  .countdown-cover .cc-inner { grid-template-columns: 1.05fr 1fr; align-items: center; gap: 20px; padding: 22px 22px; }
+  .countdown-cover .cc-wordmark { height: 52px; }
+  .countdown-cover .cc-headline { font-size: 28px; }
+  .countdown-cover .cc-lead { font-size: 11px; }
+}
+
 @layer base {
   :root {
     /* Catalog shade illustrations; availability is read from product variants. */

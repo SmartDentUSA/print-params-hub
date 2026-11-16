@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { parseCountdownCover, type CountdownCover } from "@/lib/lp/countdownCover";
 
 export interface BioItem {
   id: string;
@@ -10,6 +11,8 @@ export interface BioItem {
   url: string;
   button_text?: string | null;
   form_id?: string | null;
+  /** Capa viva da landing (ex.: cronômetro por fases); tem prioridade sobre a imagem. */
+  cover?: CountdownCover | null;
 }
 
 export interface BioSocialLinks {
@@ -63,7 +66,7 @@ async function fetchBioSourceOptions(): Promise<BioSourceOption[]> {
 
   const { data: lps } = await (supabase as any)
     .from("smartops_form_landing_pages")
-    .select("id, form_id, hero_image_url, status")
+    .select("id, form_id, hero_image_url, status, bio_cover")
     .eq("status", "published");
 
   const lpByForm = new Map<string, any>();
@@ -107,6 +110,7 @@ async function fetchBioSourceOptions(): Promise<BioSourceOption[]> {
         label,
         description,
         image_url: lp.hero_image_url ?? f.hero_image_url ?? null,
+        cover: parseCountdownCover(lp.bio_cover),
         url: lpShort,
       });
     }
@@ -142,6 +146,7 @@ function hydratePageItems(page: BioPage, sources: BioSourceOption[]): BioPage {
         label: item.label || liveSource.label,
         description: item.description ?? liveSource.description,
         image_url: liveSource.image_url ?? item.image_url ?? null,
+        cover: liveSource.cover ?? null,
         url: liveSource.url,
       };
     }),
@@ -220,6 +225,7 @@ export interface BioSourceOption {
   label: string;
   description: string | null;
   image_url: string | null;
+  cover?: CountdownCover | null;
   url: string;
 }
 

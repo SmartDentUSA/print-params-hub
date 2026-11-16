@@ -7,6 +7,7 @@ import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AttendanceDialog } from "@/components/lia/AttendanceDialog";
+import { CountdownCover } from "@/components/lp/CountdownCover";
 import { WhatsAppGlyph } from "@/components/lp/PremiumLandingTemplate";
 import { buildLiaUrl, trackAttendanceEvent } from "@/lib/attendanceChannel";
 import catalogoBanner from "@/assets/catalogo-produtos-banner.webp";
@@ -46,9 +47,11 @@ function BioCard({ item, onWhatsApp, onTrack }: { item: BioItem; onWhatsApp: (it
       <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" aria-label={item.label} onClick={() => onTrack("card_click", item.id)}>
       <div
         className="relative w-full overflow-hidden bg-muted"
-        style={imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
+        style={!item.cover && imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
       >
-        {item.image_url ? (
+        {item.cover ? (
+          <CountdownCover cover={item.cover} />
+        ) : item.image_url ? (
           <img
             src={item.image_url}
             alt={item.label}
