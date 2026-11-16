@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ export function CourseProductPicker({ selectedIds, selectedNames, onChange }: Pr
       const { data } = await (supabase as any)
         .from("system_a_catalog")
         .select("id, name, category")
+        .in("category", [...PRODUCT_CATALOG_ENTITY_TYPES])
         .eq("active", true)
         .eq("approved", true)
         .order("name");

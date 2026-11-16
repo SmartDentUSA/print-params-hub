@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,7 @@ export function WaContentNodeSelector({ open, onClose, onSelect }: Props) {
           let q = sb
             .from("system_a_catalog")
             .select("id, name, category, description, updated_at")
+            .in("category", [...PRODUCT_CATALOG_ENTITY_TYPES])
             .eq("active", true)
             .order("updated_at", { ascending: false })
             .limit(50);
