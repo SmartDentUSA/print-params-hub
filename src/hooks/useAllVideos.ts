@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 import { supabase } from '@/integrations/supabase/client';
 
 export type VideoContentType = 
@@ -102,6 +103,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
       const { data: prodsData } = await supabase
         .from('system_a_catalog')
         .select('id, name')
+        .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
         .eq('active', true)
         .eq('approved', true)
         .order('name');

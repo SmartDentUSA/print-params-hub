@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -69,9 +70,11 @@ export function FormHeroImageStudio({
       const { data: cat } = await (supabase as any)
         .from("system_a_catalog")
         .select("id, name, image_url, og_image_url, product_category")
+        .in("category", [...PRODUCT_CATALOG_ENTITY_TYPES])
+        .eq("active", true)
         .not("image_url", "is", null)
         .order("name")
-        .limit(600);
+        .limit(2000);
       setCatalog((cat ?? []) as CatalogRow[]);
     })();
   }, [fixedFormId]);

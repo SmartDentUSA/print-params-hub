@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -165,6 +166,7 @@ export function useVideoOpportunities() {
       const { data, error } = await supabase
         .from('system_a_catalog')
         .select('id, name, category')
+        .in('category', [...PRODUCT_CATALOG_ENTITY_TYPES])
         .eq('active', true)
         .eq('approved', true)
         .order('name')
