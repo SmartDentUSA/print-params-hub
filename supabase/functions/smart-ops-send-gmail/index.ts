@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { forceCtaDestination } from "./cta.ts";
+import { applyEcommerceFilters } from "../_shared/campaign-ecommerce-filters.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,6 +114,8 @@ function applyCampaignFilters(q: any, f: Record<string, any>): any {
   // Legacy shortcuts (kept for backward compat with older callers)
   if (f.etapa_funil)  q = q.eq("etapa_funil", f.etapa_funil);
   if (f.temperatura && f.temperatura_lead == null) q = q.eq("temperatura", f.temperatura);
+  // E-commerce (Loja Integrada) — mesma regra da tela de campanhas
+  q = applyEcommerceFilters(q, f);
   return q;
 }
 

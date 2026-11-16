@@ -27,6 +27,11 @@ import { Save, Bookmark, Trash2 } from "lucide-react";
 import { SmartOpsWaGroupCampaigns } from "@/components/smartops/wa-groups/SmartOpsWaGroupCampaigns";
 import { MetaFormMappingsPanel } from "@/components/smartops/meta-forms/MetaFormMappingsPanel";
 import { EmailCampaignWizard } from "@/components/smartops/EmailCampaignWizard";
+import { EcommerceSegmentFields } from "@/components/smartops/EcommerceSegmentFields";
+import {
+  EMPTY_ECOMMERCE_FORM, applyEcommerceFilters, ecommerceFiltersToForm, ecommerceFormToFilters,
+  type EcommerceFormState,
+} from "@/lib/campaignEcommerceFilters";
 
 // ── Types ──
 interface ContentItem {
@@ -509,6 +514,7 @@ function CreateCampaign({
   const [aceitaContato, setAceitaContato] = useState("all");  // do_not_contact
   const [ltvMin, setLtvMin] = useState("");                   // ltv_total >=
   const [scoreMin, setScoreMin] = useState("");               // intelligence_score_total >=
+  const [ecom, setEcom] = useState<EcommerceFormState>(EMPTY_ECOMMERCE_FORM); // Loja Integrada
   const [leadCount, setLeadCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
 
@@ -609,6 +615,7 @@ function CreateCampaign({
     if (aceitaContato !== "all") f.aceita_contato = aceitaContato;
     const ltvNum = parseFloat(ltvMin); if (!isNaN(ltvNum) && ltvNum > 0) f.ltv_min = ltvNum;
     const scoreNum = parseFloat(scoreMin); if (!isNaN(scoreNum) && scoreNum > 0) f.score_min = scoreNum;
+    Object.assign(f, ecommerceFormToFilters(ecom));
     return f;
   }, [
     produtoInteresse, temperatura, stageName, especialidade, areaAtuacao, uf, proprietario, realStatus,
@@ -617,7 +624,7 @@ function CreateCampaign({
     marcaScanner, marcaImpressora, temFresadora, temCad,
     imprimeModelos, imprimePlacas, imprimeGuias, imprimeResinasLd,
     reuniaoAgendada, inadimplente, recompraAlert, sdrCompleto,
-    temEmail, temTelefone, aceitaContato, ltvMin, scoreMin,
+    temEmail, temTelefone, aceitaContato, ltvMin, scoreMin, ecom,
   ]);
 
   // Apply a saved segment's filters into state
@@ -660,6 +667,7 @@ function CreateCampaign({
     setAceitaContato(f.aceita_contato ?? "all");
     setLtvMin(f.ltv_min != null ? String(f.ltv_min) : "");
     setScoreMin(f.score_min != null ? String(f.score_min) : "");
+    setEcom(ecommerceFiltersToForm(f));
   };
 
   // Build a query against lia_attendances applying current filters (returns base query)
@@ -728,6 +736,8 @@ function CreateCampaign({
     // ── Score / LTV ──────────────────────────────────────────────────────────
     if (f.ltv_min != null)   q = q.gte("ltv_total", Number(f.ltv_min));
     if (f.score_min != null) q = q.gte("intelligence_score_total", Number(f.score_min));
+    // ── E-commerce (Loja Integrada) ──────────────────────────────────────────
+    q = applyEcommerceFilters(q, f);
     return q;
   };
 
@@ -1979,6 +1989,9 @@ function CreateCampaign({
                 </div>
               </div>
             </div>
+
+            {/* ── Grupo 5: E-commerce (Loja Integrada) ───────────────── */}
+            <EcommerceSegmentFields value={ecom} onChange={setEcom} />
 
             <div className="flex items-center gap-3 p-4 border rounded-lg bg-accent/5">
               <Users className="w-5 h-5 text-primary" />
