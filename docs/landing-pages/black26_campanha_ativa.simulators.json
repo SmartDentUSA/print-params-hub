@@ -1,1 +1,106 @@
-[{"id": "geral", "label": "Atendimento geral (produto escolhido nos botões)"}, {"id": "bite-splint-flex", "label": "Resina 3D Smart Print Bio Bite Splint +Flex", "product_catalog_id": "10f52620-8138-4ce9-a5c7-1cb79e59d917"}, {"id": "bite-splint-clear", "label": "Resina 3D Smart Print Bio Bite Splint Clear", "product_catalog_id": "c16ffa34-2dda-4ea1-aaee-265a22757f1a"}, {"id": "vitality-classic", "label": "Resina 3D Smart Print Bio Vitality Classic", "product_catalog_id": "fc3b3928-ac28-46c5-a7f0-6ede5ff7230c"}, {"id": "vitality-ht", "label": "Resina 3D Smart Print Bio Vitality HT", "product_catalog_id": "93297f94-ca83-4c9f-af1f-1b9a5bb372e0"}, {"id": "model-plus", "label": "Resina 3D Smart Print Model Plus", "product_catalog_id": "37f8fc8e-d9c6-4c04-84d6-0b0e2dd78529"}, {"id": "nanoclean-pod", "label": "NanoClean PoD™ Smart Dent", "product_catalog_id": "19bc59de-a1f0-4994-b5ab-4c1a2464b7e0"}, {"id": "glazeon-splint", "label": "GlazeON Splint Smart Dent", "product_catalog_id": "0e1e3597-0d7a-4570-94b8-ba3d7e62d6a8"}, {"id": "kit-smartgum", "label": "Kit Completo SmartGum Smart Dent", "product_catalog_id": "ca5fe32d-73cf-467b-9971-90ff60b1d6f9"}, {"id": "kit-smartmake", "label": "Kit Completo SmartMake Smart Dent", "product_catalog_id": "5fcb0cb6-20cd-43ab-902d-f806ca7dfb84"}, {"id": "smartmake-avulsos", "label": "SmartMake · itens avulsos (17 itens)", "button": "Caracterização"}, {"id": "kit-unikk-veneer", "label": "Kit Cimento UNIKK Veneer Smart Dent", "product_catalog_id": "733c2079-e8f2-4e1b-aefa-84ff7f9d4377"}, {"id": "unikk-veneer-itens", "label": "UNIKK Veneer · cimentos e pastas de prova", "button": "Cimentos e adesivos"}, {"id": "atos-resinas", "label": "Resinas Atos · composta direta (20 cores)", "button": "Resina direta"}, {"id": "atos-ortho-academic", "label": "ATOS Smart Ortho · Unichroma · Academic", "button": "Resina direta"}, {"id": "elegoo-mars-5-ultra", "label": "Impressora 3D ELEGOO Mars 5 Ultra", "product_catalog_id": "e3e1e4cd-10c7-48b0-aee4-4cf4fd4d96f7"}, {"id": "combo-chairside-ai-pro", "label": "Combo Chairside Smart A.I. Pro", "product_catalog_id": "d108f817-6f5a-44df-8944-8a5fc13f2adb"}]
+[
+  {
+    "id": "geral",
+    "label": "Atendimento geral (produto escolhido nos botões)"
+  },
+  {
+    "id": "bite-splint-flex",
+    "label": "Resina 3D Smart Print Bio Bite Splint +Flex",
+    "product_catalog_id": "10f52620-8138-4ce9-a5c7-1cb79e59d917"
+  },
+  {
+    "id": "bite-splint-clear",
+    "label": "Resina 3D Smart Print Bio Bite Splint Clear",
+    "product_catalog_id": "c16ffa34-2dda-4ea1-aaee-265a22757f1a"
+  },
+  {
+    "id": "vitality-classic",
+    "label": "Resina 3D Smart Print Bio Vitality Classic",
+    "product_catalog_id": "fc3b3928-ac28-46c5-a7f0-6ede5ff7230c"
+  },
+  {
+    "id": "vitality-ht",
+    "label": "Resina 3D Smart Print Bio Vitality HT",
+    "product_catalog_id": "93297f94-ca83-4c9f-af1f-1b9a5bb372e0"
+  },
+  {
+    "id": "model-plus",
+    "label": "Resina 3D Smart Print Model Plus",
+    "product_catalog_id": "37f8fc8e-d9c6-4c04-84d6-0b0e2dd78529"
+  },
+  {
+    "id": "nanoclean-pod",
+    "label": "NanoClean PoD™ Smart Dent",
+    "product_catalog_id": "19bc59de-a1f0-4994-b5ab-4c1a2464b7e0"
+  },
+  {
+    "id": "glazeon-splint",
+    "label": "GlazeON Splint Smart Dent",
+    "product_catalog_id": "0e1e3597-0d7a-4570-94b8-ba3d7e62d6a8"
+  },
+  {
+    "id": "kit-smartgum",
+    "label": "Kit Completo SmartGum Smart Dent",
+    "product_catalog_id": "ca5fe32d-73cf-467b-9971-90ff60b1d6f9"
+  },
+  {
+    "id": "kit-smartmake",
+    "label": "Kit Completo SmartMake Smart Dent",
+    "product_catalog_id": "5fcb0cb6-20cd-43ab-902d-f806ca7dfb84"
+  },
+  {
+    "id": "smartmake-avulsos",
+    "label": "SmartMake · itens avulsos (17 itens)",
+    "button": "Caracterização"
+  },
+  {
+    "id": "kit-unikk-veneer",
+    "label": "Kit Cimento UNIKK Veneer Smart Dent",
+    "product_catalog_id": "733c2079-e8f2-4e1b-aefa-84ff7f9d4377"
+  },
+  {
+    "id": "unikk-veneer-itens",
+    "label": "UNIKK Veneer · cimentos e pastas de prova",
+    "button": "Cimentos e adesivos"
+  },
+  {
+    "id": "atos-resinas",
+    "label": "Resinas Atos · composta direta (20 cores)",
+    "button": "Resina direta"
+  },
+  {
+    "id": "atos-ortho-academic",
+    "label": "ATOS Smart Ortho · Unichroma · Academic",
+    "button": "Resina direta"
+  },
+  {
+    "id": "elegoo-mars-5-ultra",
+    "label": "Impressora 3D ELEGOO Mars 5 Ultra",
+    "product_catalog_id": "e3e1e4cd-10c7-48b0-aee4-4cf4fd4d96f7"
+  },
+  {
+    "id": "combo-chairside-ai-pro",
+    "label": "Combo Chairside Smart A.I. Pro",
+    "product_catalog_id": "d108f817-6f5a-44df-8944-8a5fc13f2adb"
+  },
+  {
+    "id": "exoplan-rms",
+    "label": "Exoplan RMS · Ativação + 1 kg Clear Guide de brinde",
+    "product_catalog_id": "ff1150fa-a289-40f6-a6c6-69d44aaad4fa"
+  },
+  {
+    "id": "exocad-rms",
+    "label": "exocad RMS · Ativação + resina Vitality de brinde",
+    "product_catalog_id": "1821453d-fcdf-46b4-968a-63ae16119dab"
+  },
+  {
+    "id": "combo-bite-glazeon",
+    "label": "Combo Bite Splint +Flex 1 kg + GlazeON de brinde",
+    "product_catalog_id": "10f52620-8138-4ce9-a5c7-1cb79e59d917"
+  },
+  {
+    "id": "combo-vitality-nanoclean",
+    "label": "Combo 3 Vitality + NanoClean PoD de brinde",
+    "button": "Resinas"
+  }
+]
