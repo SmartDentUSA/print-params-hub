@@ -388,6 +388,7 @@ Deno.serve(async (req) => {
         utm_source: str(body.utm_source, 120) || (ctx.campaign ? "lia_campaign" : "landing_page"),
         utm_medium: str(body.utm_medium, 120) || "whatsapp_lia",
         utm_campaign: str(body.utm_campaign, 120) || ctx.campaign || undefined,
+        ...(normalizeClickOrigin(body.utm_term) ? { utm_term: normalizeClickOrigin(body.utm_term) } : {}),
         form_responses: [
           { label: "Nome completo", value: nome },
           { label: "Seu e-mail", value: email },
@@ -408,6 +409,7 @@ Deno.serve(async (req) => {
       await sb.from("attendance_channel_events").insert({
         channel: "whatsapp_lia", event_type: "lead", form_id: ctx.form_id, campaign_slug: ctx.campaign,
         product_name: ctx.product || null, lead_id: leadId, session_id: str(body.session_id, 120) || null, simulator_id: str(body.simulator, 80) || null,
+        origin_channel: normalizeClickOrigin(body.utm_term),
       });
       if (chosen) {
         // Escolha registrada na timeline do lead (mesmo formato das respostas de formulário).

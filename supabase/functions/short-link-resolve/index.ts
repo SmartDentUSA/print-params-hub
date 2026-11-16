@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { whatsappSimulatorPath } from "./paths.ts";
+import { pagePath, whatsappSimulatorPath } from "./paths.ts";
+import { normalizeClickOrigin } from "../_shared/click-origin.ts";
 
 const FALLBACK_HOME = "https://www.smartdent.com.br/";
 const APP_BASE = "https://www.smartdent.com.br";
@@ -37,6 +38,8 @@ Deno.serve(async (req) => {
       url.pathname.split("/").filter(Boolean).pop() ||
       "";
     code = code.trim().toLowerCase();
+    // Origem do clique (e-mail, SMS, WhatsApp, grupos, Bio): ?o=<origem> no link curto.
+    const origin = normalizeClickOrigin(url.searchParams.get("o"));
 
     if (!code || code === "short-link-resolve" || !/^[a-z0-9]{4,8}$/.test(code)) {
       return Response.redirect(FALLBACK_HOME, 302);
@@ -67,11 +70,9 @@ Deno.serve(async (req) => {
         .eq("slug", link.form_slug)
         .maybeSingle();
       if (!form?.id) return Response.redirect(FALLBACK_HOME, 302);
-      path = whatsappSimulatorPath(form.id, code);
+      path = whatsappSimulatorPath(form.id, code, origin);
     } else {
-      path = link.default_target === "landing_page"
-        ? `/lp/${link.form_slug}`
-        : `/f/${link.form_slug}`;
+      path = pagePath(link.default_target === "landing_page" ? "landing_page" : "form", link.form_slug, code, origin);
     }
 
     // Fire-and-forget: increment counter + register visitor in the same pipeline
@@ -99,7 +100,7 @@ Deno.serve(async (req) => {
         if (isWhatsapp) return;
         await supabase.from("lead_page_views").insert({
           session_id: sessionId,
-          page_path: path,
+          page_path: path.split("?")[0],
           page_title: null,
           page_type: link.default_target === "landing_page" ? "landing_page" : "form",
           referrer: req.headers.get("referer") || null,
@@ -113,6 +114,7 @@ Deno.serve(async (req) => {
             short_code: code,
             form_slug: link.form_slug,
             action: "view",
+            origin,
           },
         });
       } catch (err) {
