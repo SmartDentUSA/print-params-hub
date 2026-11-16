@@ -369,6 +369,7 @@ export function SmartOpsFormBuilder() {
     const { data } = await (supabase as any)
       .from("smartops_form_landing_pages")
       .select("form_id")
+      .eq("status", "published")
       .in("form_id", ids);
     const bySlug: Record<string, boolean> = {};
     const idToSlug = new Map(forms.map((f) => [f.id, f.slug]));
@@ -1799,7 +1800,14 @@ export function SmartOpsFormBuilder() {
 
       <LandingPageBuilderModal
         open={!!landingPageForm}
-        onOpenChange={(v) => { if (!v) setLandingPageForm(null); }}
+        onOpenChange={(v) => {
+          if (!v) {
+            setLandingPageForm(null);
+            // Publicar a landing page cria o link curto no banco; recarrega para exibir no card.
+            fetchLandingPages(forms.map((f) => f.id));
+            fetchShortLinks(forms.map((f) => f.slug).filter(Boolean));
+          }
+        }}
         form={landingPageForm}
       />
     </div>
