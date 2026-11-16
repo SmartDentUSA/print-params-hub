@@ -9,7 +9,6 @@ import logoFda from '@/assets/logo-fda.png';
 import logoIso from '@/assets/logo-iso.png';
 import logoUnc from '@/assets/logo-unc.png';
 import logoUsp from '@/assets/logo-usp.png';
-import resinasLinha from '@/assets/resinas-linha.png.asset.json';
 import logoSmartDent from '@/assets/smartdent-logo-light.png.asset.json';
 import { resolveAssetUrl } from '@/utils/assetUrl';
 
@@ -40,7 +39,7 @@ const SOL_ICONS = [Beaker, Layers, ScanLine, Printer, Sparkles, FlaskConical];
 const CAT_IMG = 'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products';
 const PROD_IMG = 'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products';
 const SOL_IMGS = [
-  resolveAssetUrl(resinasLinha.url),
+  '/institucional/resinas-linha-bancada.webp',
   `${PROD_IMG}/9ca9fd62-7282-409f-b633-d9f25ea2cb5d-1770349119603.webp`,
   `${CAT_IMG}/scanner-intraoral-medit-i600-2.png`,
   `${PROD_IMG}/c3f880d0-3841-4bda-8f62-757594eff6dd-1764283866699.webp`,
