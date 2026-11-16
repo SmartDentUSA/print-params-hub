@@ -13206,6 +13206,7 @@ export type Database = {
           lojaintegrada_pedido_id: number | null
           lojaintegrada_peso_real: number | null
           lojaintegrada_primeira_compra: string | null
+          lojaintegrada_produtos_comprados: string[] | null
           lojaintegrada_raw_payload: Json | null
           lojaintegrada_referencia: string | null
           lojaintegrada_sexo: string | null
@@ -13842,6 +13843,7 @@ export type Database = {
           lojaintegrada_pedido_id?: number | null
           lojaintegrada_peso_real?: number | null
           lojaintegrada_primeira_compra?: string | null
+          lojaintegrada_produtos_comprados?: string[] | null
           lojaintegrada_raw_payload?: Json | null
           lojaintegrada_referencia?: string | null
           lojaintegrada_sexo?: string | null
@@ -14478,6 +14480,7 @@ export type Database = {
           lojaintegrada_pedido_id?: number | null
           lojaintegrada_peso_real?: number | null
           lojaintegrada_primeira_compra?: string | null
+          lojaintegrada_produtos_comprados?: string[] | null
           lojaintegrada_raw_payload?: Json | null
           lojaintegrada_referencia?: string | null
           lojaintegrada_sexo?: string | null
@@ -39412,6 +39415,10 @@ export type Database = {
           pedidos_processados: number
         }[]
       }
+      fn_li_refresh_lead_products: {
+        Args: { p_lead_ids: string[] }
+        Returns: number
+      }
       fn_li_resolve_order_items: {
         Args: { p_apenas_pendentes?: boolean }
         Returns: {
@@ -40424,6 +40431,7 @@ export type Database = {
           lojaintegrada_pedido_id: number | null
           lojaintegrada_peso_real: number | null
           lojaintegrada_primeira_compra: string | null
+          lojaintegrada_produtos_comprados: string[] | null
           lojaintegrada_raw_payload: Json | null
           lojaintegrada_referencia: string | null
           lojaintegrada_sexo: string | null
