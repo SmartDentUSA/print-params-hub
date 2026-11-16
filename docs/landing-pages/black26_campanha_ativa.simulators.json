@@ -4,6 +4,34 @@
     "label": "Atendimento geral (produto escolhido nos botões)"
   },
   {
+    "id": "geral-barra-topo",
+    "label": "Atendimento geral · barra do topo"
+  },
+  {
+    "id": "geral-cabecalho",
+    "label": "Atendimento geral · cabeçalho"
+  },
+  {
+    "id": "geral-abertura",
+    "label": "Atendimento geral · abertura da página"
+  },
+  {
+    "id": "geral-cronometro",
+    "label": "Atendimento geral · cronômetro da abertura"
+  },
+  {
+    "id": "geral-chamada-final",
+    "label": "Atendimento geral · chamada final"
+  },
+  {
+    "id": "geral-botao-flutuante",
+    "label": "Atendimento geral · botão flutuante"
+  },
+  {
+    "id": "geral-barra-inferior",
+    "label": "Atendimento geral · barra inferior (celular)"
+  },
+  {
     "id": "bite-splint-flex",
     "label": "Resina 3D Smart Print Bio Bite Splint +Flex",
     "product_catalog_id": "10f52620-8138-4ce9-a5c7-1cb79e59d917"
@@ -70,7 +98,27 @@
   },
   {
     "id": "atos-ortho-academic",
-    "label": "ATOS Smart Ortho · Unichroma · Academic",
+    "label": "ATOS Smart Ortho · Unichroma · Academic (card antigo)",
+    "button": "Resina direta"
+  },
+  {
+    "id": "atos-smart-ortho",
+    "label": "ATOS Smart Ortho",
+    "product_catalog_id": "d9abfa4e-4069-4d07-81f5-7b95ea8c52a9"
+  },
+  {
+    "id": "atos-unichroma",
+    "label": "Atos Unichroma",
+    "product_catalog_id": "8838dc65-709d-4ed7-baa0-155b47708f48"
+  },
+  {
+    "id": "atos-academic-kit",
+    "label": "Kit Resina Atos Academic · 6 cores",
+    "product_catalog_id": "88dd8797-7ac4-43aa-99e0-d2a83cca4bf0"
+  },
+  {
+    "id": "atos-academic-cores",
+    "label": "Resina Atos Academic · cores avulsas (10 cores)",
     "button": "Resina direta"
   },
   {
