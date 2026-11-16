@@ -17,8 +17,9 @@ import { EmailRichEditor } from "./EmailRichEditor";
 import { EmailHtmlEditor } from "./EmailHtmlEditor";
 import { parseSections, serializeSections, toggleSection, type EmailSection } from "./emailSections";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { buildSimulatorCtaOptions } from "@/lib/emailCtaOptions";
 
-type CtaType = "landing" | "form" | "custom";
+type CtaType = "landing" | "form" | "whatsapp" | "custom";
 interface CtaOption { id: string; label: string; url: string; tipo: CtaType }
 interface Cta { tipo: CtaType; id?: string; url: string; label: string }
 
@@ -46,7 +47,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [produtoId, setProdutoId] = useState<string>("");
   const [productSearch, setProductSearch] = useState("");
   const [ctaOptions, setCtaOptions] = useState<Record<CtaType, CtaOption[]>>({
-    landing: [], form: [], custom: [],
+    landing: [], form: [], whatsapp: [], custom: [],
   });
   const [ctaPrincipal, setCtaPrincipal] = useState<Cta | null>(null);
   const [ctasSecundarios, setCtasSecundarios] = useState<Cta[]>([]);
@@ -130,11 +131,28 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
     })();
   }, []);
 
+  // ── Simuladores de WhatsApp (links encurtados oficiais, valem para qualquer produto) ──
+  useEffect(() => {
+    (async () => {
+      const sb = supabase as any;
+      const { data: rows } = await sb
+        .from("smartops_short_links")
+        .select("short_code, form_slug, default_target")
+        .eq("default_target", "whatsapp");
+      const slugs = [...new Set(((rows || []) as any[]).map(r => r.form_slug).filter(Boolean))];
+      const { data: forms } = slugs.length
+        ? await sb.from("smartops_forms").select("slug, name").in("slug", slugs)
+        : { data: [] as any[] };
+      const whatsapp = buildSimulatorCtaOptions(rows || [], forms || []);
+      setCtaOptions(prev => ({ ...prev, whatsapp }));
+    })();
+  }, []);
+
   // ── Load CTA option lists — restricted to the selected product's LP + Form ──
   useEffect(() => {
     (async () => {
       if (!produtoId) {
-        setCtaOptions({ landing: [], form: [], custom: [] });
+        setCtaOptions(prev => ({ ...prev, landing: [], form: [], custom: [] }));
         setCtaPrincipal(null);
         setCtasSecundarios([]);
         return;
@@ -207,17 +225,17 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         })
         .filter(Boolean) as CtaOption[];
 
-      setCtaOptions({ landing, form, custom: [] });
+      setCtaOptions(prev => ({ ...prev, landing, form, custom: [] }));
 
-      // E-mail sempre converte no formulário oficial. A landing page continua
-      // disponível somente como fonte visual/copy para a geração do conteúdo.
+      // Padrão: formulário oficial do produto. O simulador de WhatsApp pode ser
+      // escolhido manualmente. A landing page continua só como fonte visual/copy.
       const first = form[0] || null;
       setCtaPrincipal(first ? { tipo: first.tipo, id: first.id, url: first.url, label: first.label } : null);
       setCtasSecundarios([]);
     })();
   }, [produtoId]);
 
-  const allCtas = useMemo(() => [...ctaOptions.form], [ctaOptions]);
+  const allCtas = useMemo(() => [...ctaOptions.form, ...ctaOptions.whatsapp], [ctaOptions]);
 
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
@@ -234,7 +252,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
 
   async function handleGenerate(mode: "all" | "subject" = "all") {
     if (!produtoId) return toast.error("Escolha um produto primeiro");
-    if (!ctaPrincipal) return toast.error("Este produto não tem formulário oficial com URL encurtada. Cadastre o link antes de gerar o e-mail.");
+    if (!ctaPrincipal) return toast.error("Escolha o botão do e-mail: formulário oficial do produto ou simulador de WhatsApp.");
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("smart-ops-generate-email-ai", {
@@ -570,12 +588,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
               >
                 <SelectTrigger><SelectValue placeholder="Escolha o destino principal" /></SelectTrigger>
                 <SelectContent className="max-h-96">
-                  {(["form"] as CtaType[]).flatMap(t => {
+                  {(["form", "whatsapp"] as CtaType[]).flatMap(t => {
                     const list = ctaOptions[t];
                     if (!list.length) return [];
                     return [
                       <div key={`h-${t}`} className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase">
-                        Formulário oficial do produto
+                        {t === "whatsapp" ? "Simuladores WhatsApp" : "Formulário oficial do produto"}
                       </div>,
                       ...list.map(o => (
                         <SelectItem key={`${o.tipo}-${o.id}`} value={`${o.tipo}::${o.id}`}>{o.label}</SelectItem>
@@ -585,7 +603,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                   {!allCtas.length && (
                     <div className="px-2 py-4 text-xs text-muted-foreground text-center">
                       {produtoId
-                        ? "Este produto não tem formulário oficial com URL encurtada."
+                        ? "Nenhum formulário oficial ou simulador de WhatsApp com URL encurtada."
                         : "Selecione um produto primeiro."}
                     </div>
                   )}

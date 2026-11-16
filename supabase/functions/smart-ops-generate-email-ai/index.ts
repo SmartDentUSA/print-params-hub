@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface CtaRef {
-  tipo: "landing" | "form" | "custom";
+  tipo: "landing" | "form" | "whatsapp" | "custom";
   id?: string;
   url?: string;
   label?: string;
@@ -862,11 +862,15 @@ Deno.serve(async (req) => {
     const ctaLabel = (c?: CtaRef) => c?.label || ({
       landing: "Acessar landing page do produto",
       form: "Preencher formulário do produto",
+      whatsapp: "Falar no WhatsApp",
       custom: "Saiba mais",
     } as Record<string, string>)[c?.tipo || "custom"];
 
     const ctaLine = (c: CtaRef) => `- [${c.tipo}] ${ctaLabel(c)} → ${c.url || "{{url}}"}`;
 
+    // Simulador de WhatsApp escolhido como botão: o link é a URL encurtada oficial
+    // (s.smartdent.com.br), então o texto pode convidar a conversar no WhatsApp.
+    const hasSimulatorCta = [cta_principal, ...(ctas_secundarios || [])].some(c => c?.tipo === "whatsapp");
     const allowedUrls = [cta_principal?.url, ...(ctas_secundarios || []).map(c => c.url)]
       .filter((u): u is string => !!u);
 
@@ -963,7 +967,9 @@ SEÇÕES OBRIGATÓRIAS (para o editor visual do usuário):
 REGRAS DE LINKS (CRÍTICAS — QUEBRAM O E-MAIL SE VIOLADAS):
 - Todo \`<a href="...">\` do HTML DEVE usar EXATAMENTE uma das URLs listadas abaixo em "CALLS-TO-ACTION". Não invente URLs, não use encurtadores, não use utm.
 - PROIBIDO qualquer link para: WhatsApp, wa.me, api.whatsapp.com, mailto:, telefone (tel:), redes sociais (instagram/facebook/youtube/linkedin/tiktok), base de conhecimento (/base-conhecimento/...), blog, ou qualquer outro domínio/rota.
-- PROIBIDO escrever "Falar no WhatsApp", "Fale pelo WhatsApp", "WhatsApp do vendedor" ou variações. Não existe CTA de WhatsApp neste e-mail.
+${hasSimulatorCta
+  ? '- O CTA marcado [whatsapp] abre o simulador de atendimento no WhatsApp da Smart Dent: o botão pode dizer "Falar no WhatsApp" ou similar, mas o href DEVE ser exatamente a URL listada (nunca wa.me). Não mencione "WhatsApp do vendedor".'
+  : '- PROIBIDO escrever "Falar no WhatsApp", "Fale pelo WhatsApp", "WhatsApp do vendedor" ou variações. Não existe CTA de WhatsApp neste e-mail.'}
 - URLs permitidas neste e-mail:\n${allowedUrls.map(u => `  • ${u}`).join("\n") || "  (nenhuma — abortar)"}
 
 SAÍDA: apenas JSON válido, sem markdown, sem texto extra.`;
@@ -1055,13 +1061,14 @@ Retorne JSON no formato:
         `href='${allowedSet.has(url) ? url : fallbackUrl}'`
       );
       // Neutralize any residual "Falar no WhatsApp"-style text
-      h = h.replace(/Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, ctaLabel(cta_principal));
+      if (!hasSimulatorCta) h = h.replace(/Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, ctaLabel(cta_principal));
       return h;
     };
     const sanitizedHtml = sanitizeHtml(parsed.html_body || "");
-    const sanitizedText = (parsed.plain_text || "")
-      .replaceAll("{{link_wa_vendedor}}", fallbackUrl)
-      .replace(/Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, ctaLabel(cta_principal) || "");
+    let sanitizedText = (parsed.plain_text || "").replaceAll("{{link_wa_vendedor}}", fallbackUrl);
+    if (!hasSimulatorCta) {
+      sanitizedText = sanitizedText.replace(/Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, ctaLabel(cta_principal) || "");
+    }
 
     return new Response(JSON.stringify({
       success: true,
