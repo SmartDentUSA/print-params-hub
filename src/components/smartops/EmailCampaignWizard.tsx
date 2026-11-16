@@ -19,6 +19,7 @@ import { EmailHtmlEditor } from "./EmailHtmlEditor";
 import { parseSections, serializeSections, toggleSection, type EmailSection } from "./emailSections";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildSimulatorCtaOptions } from "@/lib/emailCtaOptions";
+import { withClickOrigin } from "@/lib/clickOrigin";
 
 type CtaType = "landing" | "form" | "whatsapp" | "custom";
 interface CtaOption { id: string; label: string; url: string; tipo: CtaType }
