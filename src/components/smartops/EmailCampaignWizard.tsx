@@ -145,7 +145,8 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
       const { data: forms } = slugs.length
         ? await sb.from("smartops_forms").select("slug, name").in("slug", slugs)
         : { data: [] as any[] };
-      const whatsapp = buildSimulatorCtaOptions(rows || [], forms || []);
+      // Origem do clique: links curtos do e-mail levam ?o=email.
+      const whatsapp = buildSimulatorCtaOptions(rows || [], forms || []).map(o => ({ ...o, url: withClickOrigin(o.url, "email") }));
       setCtaOptions(prev => ({ ...prev, whatsapp }));
     })();
   }, []);
@@ -210,7 +211,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             id: p.id,
             tipo: "landing" as const,
             label: `Landing: ${formNameById[p.form_id] || fSlug || p.id}`,
-            url: `${shortBase}/${code}`,
+            url: withClickOrigin(`${shortBase}/${code}`, "email"),
           };
         })
         .filter(Boolean) as CtaOption[];
@@ -222,7 +223,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             id: f.id,
             tipo: "form" as const,
             label: `Formulário: ${f.name || f.slug}`,
-            url: `${shortBase}/${code}`,
+            url: withClickOrigin(`${shortBase}/${code}`, "email"),
           };
         })
         .filter(Boolean) as CtaOption[];
