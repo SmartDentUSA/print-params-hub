@@ -52,7 +52,7 @@ describe("segmentação E-commerce das campanhas", () => {
   test("nunca comprou exclui quem tem pedido, pedidos pagos ou valor gasto", () => {
     const { q, calls } = recorder();
     applyEcommerceFilters(q, { ecom_cliente: "no" }, NOW);
-    expect(calls).toEqual([
+    assert.deepEqual(calls, [
       ["is", "lojaintegrada_ultimo_pedido_data", null],
       ["or", "lojaintegrada_total_pedidos_pagos.is.null,lojaintegrada_total_pedidos_pagos.eq.0"],
       ["or", "lojaintegrada_ltv.is.null,lojaintegrada_ltv.eq.0"],
