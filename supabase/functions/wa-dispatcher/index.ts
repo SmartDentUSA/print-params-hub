@@ -374,6 +374,8 @@ async function advanceCampaign(sb: SupabaseClient, cid: string, sentIdx: number)
   }
   const nxt = flow[next]
   if (nxt.type === 'wait') {
+    // Espera com data exata (wa-campaign-builder): o scheduled_at já gravado é a fonte da verdade.
+    if (nxt.mode === 'absolute') { await sb.from('wa_campaigns').update({ current_node_index: next }).eq('id', cid); return }
     const days = (nxt.days as number) ?? 1; const [hh, mm] = ((nxt.time as string) ?? '09:00').split(':').map(Number)
     let at = spDateTimeToUtc(addDaysSp(new Date(), days), hh, mm)
     if (nxt.weekdays_only) { const d = spWeekday(at); if (d === 0) at = addDaysSp(at, 1); else if (d === 6) at = addDaysSp(at, 2) }
