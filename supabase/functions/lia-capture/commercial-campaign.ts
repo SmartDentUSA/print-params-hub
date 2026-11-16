@@ -30,6 +30,15 @@ export function campaignDisplayName(name: unknown, title?: unknown) {
   return cleaned || "campanha";
 }
 
+/** Nome da campanha na conversa: sem o período de dias ("BlackFriday 16 a 20" → "BlackFriday"). */
+export function campaignMessageName(name: unknown) {
+  const raw = String(name ?? "").replace(/\s+/g, " ").trim();
+  const cleaned = raw
+    .replace(/\s*[-–—]?\s*\d{1,2}(?:\/\d{1,2})?\s*(?:a|à|ate|até|-|–|—)\s*\d{1,2}(?:\/\d{1,2}(?:\/\d{2,4})?)?\s*$/i, "")
+    .trim();
+  return cleaned || raw;
+}
+
 export function campaignButtons(enabled: unknown, buttons: unknown): { label: string; product_catalog_id: string | null; product_name: string | null }[] {
   if (!enabled || !Array.isArray(buttons)) return [];
   return (buttons as CaptureButton[])
