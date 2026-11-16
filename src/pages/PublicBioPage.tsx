@@ -14,6 +14,7 @@ import catalogoBanner from "@/assets/catalogo-produtos-banner.webp";
 import parametrizeBanner from "@/assets/parametrize-printer-banner.webp";
 import { supabase } from "@/integrations/supabase/client";
 import { recordBioEvent, type BioEvent } from "@/lib/bioTracking";
+import { bioItemShowsWhatsApp } from "@/lib/bioItems";
 
 function trackBio(pageId: string | undefined, eventType: BioEvent, itemId?: string) {
   void recordBioEvent(
@@ -83,9 +84,11 @@ function BioCard({ item, onWhatsApp, onTrack }: { item: BioItem; onWhatsApp: (it
               {item.button_text || "Acessar"}<ArrowRight className="h-3.5 w-3.5 shrink-0" />
             </a>
           </Button>
-          <Button className="bio-whatsapp-button h-auto min-h-10 rounded-full px-5 py-2 text-xs" onClick={() => onWhatsApp(item)} aria-label={`Falar com um Especialista — ${item.label}`}>
-            <WhatsAppGlyph className="h-5 w-5 shrink-0" />Falar com um Especialista
-          </Button>
+          {bioItemShowsWhatsApp(item) && (
+            <Button className="bio-whatsapp-button h-auto min-h-10 rounded-full px-5 py-2 text-xs" onClick={() => onWhatsApp(item)} aria-label={`Falar com um Especialista — ${item.label}`}>
+              <WhatsAppGlyph className="h-5 w-5 shrink-0" />Falar com um Especialista
+            </Button>
+          )}
         </div>
       </div>
     </article>
