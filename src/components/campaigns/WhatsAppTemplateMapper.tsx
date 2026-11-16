@@ -21,6 +21,8 @@ const urlPrefix = (u?: string) => String(u ?? "").split(/\{\{\d+\}\}/)[0];
 const MEDIA_HEADERS: HeaderType[] = ["IMAGE", "VIDEO", "DOCUMENT"];
 const HEADER_LABEL: Record<HeaderType, string> = { NONE: "Sem cabeçalho", TEXT: "Texto", IMAGE: "Imagem", VIDEO: "Vídeo", DOCUMENT: "Documento", LOCATION: "Localização" };
 type VarSpec = { source: "field" | "literal"; value: string; fallback: string };
+/** Igual ao limite do servidor (zernio-wa-broadcast/plan.ts). */
+const MAX_TEST_PHONES = 5;
 
 export const SYSTEM_FIELDS: { key: string; label: string }[] = [
   { key: "primeiro_nome", label: "Primeiro nome" },
@@ -69,6 +71,7 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
   const [scheduleLocal, setScheduleLocal] = useState("");
   const [buttonLinks, setButtonLinks] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
+  const [testPhonesText, setTestPhonesText] = useState("");
   // ID da campanha gerado antes do envio: a imagem fica em whatsapp/{id}/ e a campanha nasce com esse id.
   const [draftCampaignId] = useState(() => crypto.randomUUID());
 
@@ -161,9 +164,14 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
   const update = (i: number, patch: Partial<VarSpec>) => setVars(vars.map((o, j) => (j === i ? { ...o, ...patch } : o)));
   const cleanButtonLinks = () => Object.fromEntries(Object.entries(buttonLinks).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
 
+  const testPhones = testPhonesText.split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
+  const testPhoneErrors = testPhones.filter((x) => { const d = x.replace(/\D/g, ""); return !(d.length >= 10 && d.length <= 13); });
+  const testPhonesValid = testPhones.length <= MAX_TEST_PHONES && testPhoneErrors.length === 0;
+
   const sendTest = async () => {
-    if (!contentReady) return;
-    if (!confirm(`Enviar o modelo "${tpl!.name}" só para o lead de teste (Danilo Henrique)?`)) return;
+    if (!contentReady || !testPhonesValid) return;
+    const who = testPhones.length ? testPhones.join(", ") : "o lead de teste (Danilo Henrique)";
+    if (!confirm(`Enviar o modelo "${tpl!.name}" só para ${who}?\n\nIsso não dispara a campanha.`)) return;
     setTesting(true);
     const t = toast.loading("Enviando teste...");
     try {
@@ -171,9 +179,11 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
         action: "test", accountId: account!.accountId, profileId: account!.profileId,
         templateName: tpl!.name, language: tpl!.language, name: campaignName.trim(),
         variableMap: vars, buttonLinks: cleanButtonLinks(),
+        ...(testPhones.length ? { testPhones } : {}),
         ...(needsMedia ? { headerMediaUrl: headerMediaUrl.trim() } : {}),
       });
-      toast.success(`Teste enviado para ${r.lead ?? "o lead de teste"}. Confira a imagem e o texto no celular.`, { id: t });
+      const dest = r.phones?.length && testPhones.length ? r.phones.join(", ") : r.lead ?? "o lead de teste";
+      toast.success(`Teste enviado para ${dest}. Confira a imagem e o texto no celular.`, { id: t });
       (r.warnings ?? []).forEach((w: string) => toast.warning(w));
     } catch (e: any) {
       toast.error(e.message, { id: t });
@@ -384,13 +394,30 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
           </div>
         )}
 
+        {tpl && (
+          <div className="space-y-2 rounded-md border border-dashed p-3">
+            <Label className="flex items-center gap-1"><FlaskConical className="w-4 h-4" /> Testar envio</Label>
+            <p className="text-xs text-muted-foreground">
+              Digite o WhatsApp com DDD (até {MAX_TEST_PHONES}, separados por vírgula). O teste usa este mesmo modelo, imagem e textos, não dispara a campanha e esta configuração continua aberta.
+              Vazio = envia para o lead de teste Danilo Henrique.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input value={testPhonesText} onChange={(e) => setTestPhonesText(e.target.value)} inputMode="tel"
+                placeholder="Ex.: 16 99999-9999, 31 98888-7777" className="sm:flex-1" />
+              <Button type="button" variant="outline" onClick={sendTest} disabled={!contentReady || !testPhonesValid || testing || sending}>
+                <Send className="w-4 h-4 mr-1" /> {testing ? "Enviando teste..." : "Enviar teste"}
+              </Button>
+            </div>
+            {testPhones.length > MAX_TEST_PHONES && <p className="text-xs text-destructive">Use no máximo {MAX_TEST_PHONES} números.</p>}
+            {testPhoneErrors.length > 0 && <p className="text-xs text-destructive">Número inválido: {testPhoneErrors.join(", ")}. Use DDD + número.</p>}
+            {!contentReady && <p className="text-[11px] text-muted-foreground">Preencha nome da campanha, variáveis{needsMedia ? ", imagem" : ""} e botões para liberar o teste.</p>}
+            <p className="text-[11px] text-muted-foreground">Campos do lead (ex.: primeiro nome) usam os dados do cadastro com esse telefone; se não houver, usam o valor padrão.</p>
+          </div>
+        )}
+
         <div className="flex justify-between">
           <Button variant="outline" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
           <div className="flex flex-wrap gap-2 justify-end">
-          <Button variant="outline" onClick={sendTest} disabled={!contentReady || testing || sending}
-            title="Envia este modelo só para o lead de teste Danilo Henrique">
-            <FlaskConical className="w-4 h-4 mr-1" /> {testing ? "Enviando teste..." : "Enviar teste"}
-          </Button>
           <Button onClick={send} disabled={!canSend || sending || testing}>
             {plan.scheduled ? <CalendarClock className="w-4 h-4 mr-1" /> : <Send className="w-4 h-4 mr-1" />}
             {sending ? (plan.scheduled ? "Agendando..." : "Enviando...") : plan.scheduled ? "Agendar campanha" : `Disparar para ${audienceCount} leads`}

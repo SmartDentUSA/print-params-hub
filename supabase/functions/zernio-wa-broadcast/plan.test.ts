@@ -1,5 +1,5 @@
 import { assertEquals } from 'jsr:@std/assert@1';
-import { broadcastKeepsHeaderMedia, checkHeaderImage, planSlots, pushIntoWindow, resolveButtons, templateMeta, validateSchedule } from './plan.ts';
+import { MAX_TEST_PHONES, broadcastKeepsHeaderMedia, phoneVariants, checkHeaderImage, planSlots, pushIntoWindow, resolveButtons, templateMeta, validateSchedule } from './plan.ts';
 
 const now = new Date('2026-11-20T12:00:00Z');
 const leads = Array.from({ length: 1000 }, (_, i) => i);
@@ -95,4 +95,14 @@ Deno.test('template devolve rodapé e tipo dos botões', () => {
 Deno.test('só aceita o broadcast se a Zernio guardou a imagem da campanha', () => {
   assertEquals(broadcastKeepsHeaderMedia({ template: { headerMedia: { link: 'https://a.com/i.jpg' } } }, 'https://a.com/i.jpg'), true);
   assertEquals(broadcastKeepsHeaderMedia({ broadcast: { template: { name: 'x' } } }, 'https://a.com/i.jpg'), false);
+});
+
+Deno.test('teste aceita no máximo 5 números digitados', () => {
+  assertEquals(MAX_TEST_PHONES, 5);
+});
+
+Deno.test('phoneVariants acha o celular com e sem o 9º dígito', () => {
+  assertEquals(phoneVariants('5516997501531'), ['5516997501531', '551697501531']);
+  assertEquals(phoneVariants('551697501531'), ['551697501531', '5516997501531']);
+  assertEquals(phoneVariants('551634194735'), ['551634194735']);
 });

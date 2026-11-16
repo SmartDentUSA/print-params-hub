@@ -1,13 +1,13 @@
 // zernio-wa-broadcast — Disparo em massa pelo WhatsApp oficial (Cloud API via Zernio).
 // Ações (staff-only): accounts | templates | send | test | sample | status
-// test = mesmo template só para o lead fixo de teste (TEST_LEAD_ID), sem criar campanha.
+// test = mesmo template para até MAX_TEST_PHONES números digitados (ou o lead fixo TEST_LEAD_ID), sem criar campanha.
 // Fora da janela de 24h a Meta só aceita modelo APROVADO; por isso o envio exige template.
 // Não toca Evolution/WaLeads nem deals; só cria campaign_sessions + campaign_send_log.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import {
-  MEDIA_HEADERS, TEST_LEAD_ID, broadcastKeepsHeaderMedia, checkHeaderImage, isPublicHttpsUrl,
-  planSlots, resolveButtons, templateMeta, validateSchedule,
+  MAX_TEST_PHONES, MEDIA_HEADERS, TEST_LEAD_ID, broadcastKeepsHeaderMedia, checkHeaderImage, isPublicHttpsUrl,
+  phoneVariants, planSlots, resolveButtons, templateMeta, validateSchedule,
 } from './plan.ts';
 
 const ZERNIO = 'https://zernio.com/api/v1';
@@ -121,9 +121,18 @@ Deno.serve(async (req) => {
     if (action === 'send' || action === 'test') {
       const isTest = action === 'test';
       const { accountId, profileId, templateName, language, name, variableMap, description } = p;
-      // Teste: sempre e só o lead fixo de teste, sem campanha em massa.
-      const leadIds: string[] = isTest ? [TEST_LEAD_ID] : p.leadIds;
-      if (!accountId || !profileId || !templateName || !language || !name || !Array.isArray(leadIds) || !leadIds.length)
+      // Teste: números digitados na tela (até MAX_TEST_PHONES) ou, sem número, o lead fixo de teste; nunca cria campanha.
+      const rawTestPhones: string[] = isTest && Array.isArray(p.testPhones)
+        ? p.testPhones.map((x: unknown) => String(x ?? '').trim()).filter(Boolean) : [];
+      if (rawTestPhones.length > MAX_TEST_PHONES) return json({ error: `Teste aceita no máximo ${MAX_TEST_PHONES} números` }, 400);
+      const testPhones: string[] = [];
+      for (const raw of rawTestPhones) {
+        const ph = e164(raw);
+        if (!ph) return json({ error: `Número inválido para teste: ${raw}. Use DDD + número, ex.: 16 99999-9999` }, 400);
+        if (!testPhones.includes(ph)) testPhones.push(ph);
+      }
+      const leadIds: string[] = isTest ? (testPhones.length ? [] : [TEST_LEAD_ID]) : p.leadIds;
+      if (!accountId || !profileId || !templateName || !language || !name || !Array.isArray(leadIds) || (!leadIds.length && !testPhones.length))
         return json({ error: 'accountId, profileId, templateName, language, name e leadIds são obrigatórios' }, 400);
       if (leadIds.length > 10000) return json({ error: 'máximo 10.000 leads por disparo' }, 400);
       const nowDate = new Date();
@@ -170,8 +179,16 @@ Deno.serve(async (req) => {
         if (error) throw error;
         leads.push(...(data ?? []));
       }
+      // Números de teste digitados: usa os dados do lead com esse telefone (se existir) só para preencher as variáveis.
+      for (const ph of testPhones) {
+        const { data: match } = await admin.from('lia_attendances')
+          .select(`id,telefone_normalized,telefone_raw,${LEAD_COLS}`)
+          .in('telefone_normalized', phoneVariants(ph).map((d) => `+${d}`)).is('merged_into', null)
+          .order('updated_at', { ascending: false }).limit(1);
+        leads.push({ ...(match?.[0] ?? { nome: null }), forcedPhone: ph });
+      }
       const seen = new Set<string>();
-      const valid = leads.map((l) => ({ ...l, phone: e164(l.telefone_normalized || l.telefone_raw) }))
+      const valid = leads.map((l) => ({ ...l, phone: l.forcedPhone ?? e164(l.telefone_normalized || l.telefone_raw) }))
         .filter((l) => l.phone && !seen.has(l.phone) && seen.add(l.phone));
       if (!valid.length) return json({ error: 'Nenhum lead com telefone válido' }, 400);
 
@@ -226,12 +243,19 @@ Deno.serve(async (req) => {
       };
 
       if (isTest) {
-        const g = slots[0].groups[0];
         try {
-          const bid = await createBroadcast(`TESTE · ${name} · ${nowDate.toISOString().slice(0, 16)}`, g.values);
-          const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST', body: JSON.stringify({ phones: [`+${g.leads[0].phone}`] }) });
-          await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
-          return json({ ok: true, test: true, broadcast_id: bid, added: r.added ?? 0, lead: g.leads[0].nome, warnings: btn.warnings });
+          let added = 0;
+          const ids: string[] = [];
+          for (const g of slots.flatMap((sl) => sl.groups)) {
+            const bid = await createBroadcast(`TESTE · ${name} · ${nowDate.toISOString().slice(0, 16)}`, g.values);
+            const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST', body: JSON.stringify({ phones: g.leads.map((l) => `+${l.phone}`) }) });
+            await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
+            added += Number(r.added ?? 0); ids.push(bid);
+          }
+          return json({
+            ok: true, test: true, broadcast_ids: ids, added,
+            phones: valid.map((l) => `+${l.phone}`), lead: testPhones.length ? null : valid[0]?.nome, warnings: btn.warnings,
+          });
         } catch (e) {
           if (e instanceof MediaNotAccepted) return json({ error: e.message }, 502);
           throw e;

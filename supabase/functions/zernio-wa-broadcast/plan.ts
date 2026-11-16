@@ -145,3 +145,16 @@ export function broadcastKeepsHeaderMedia(broadcast: any, link: string): boolean
   return comps.some((c) => String(c?.type ?? '').toLowerCase() === 'header'
     && (c.parameters ?? []).some((p: any) => p?.image?.link === link || p?.video?.link === link || p?.document?.link === link));
 }
+
+/** Máximo de números digitados num envio de teste (o teste nunca vira campanha). */
+export const MAX_TEST_PHONES = 5;
+
+/** Mesmo celular com e sem o 9º dígito (55 + DDD + número), para achar o lead pelo telefone. */
+export function phoneVariants(e164Digits: string): string[] {
+  const d = String(e164Digits ?? '').replace(/\D/g, '');
+  if (!d.startsWith('55')) return d ? [d] : [];
+  const ddd = d.slice(2, 4), rest = d.slice(4);
+  if (rest.length === 9 && rest.startsWith('9')) return [d, `55${ddd}${rest.slice(1)}`];
+  if (rest.length === 8 && /^[6-9]/.test(rest)) return [d, `55${ddd}9${rest}`];
+  return [d];
+}
