@@ -15,6 +15,7 @@ import parametrizeBanner from "@/assets/parametrize-printer-banner.webp";
 import { supabase } from "@/integrations/supabase/client";
 import { recordBioEvent, type BioEvent } from "@/lib/bioTracking";
 import { bioItemShowsWhatsApp } from "@/lib/bioItems";
+import { withClickOrigin } from "@/lib/clickOrigin";
 
 function trackBio(pageId: string | undefined, eventType: BioEvent, itemId?: string) {
   void recordBioEvent(
@@ -41,11 +42,13 @@ function BioCard({ item, onWhatsApp, onTrack }: { item: BioItem; onWhatsApp: (it
     setImageAspectRatio(null);
   }, [item.image_url]);
 
+  // Links curtos oficiais saem da Bio marcados com a origem "bio" (rastreio por origem).
+  const href = withClickOrigin(item.url, "bio");
   return (
     <article
       className="group flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" aria-label={item.label} onClick={() => onTrack("card_click", item.id)}>
+      <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" aria-label={item.label} onClick={() => onTrack("card_click", item.id)}>
       <div
         className="relative w-full overflow-hidden bg-muted"
         style={!item.cover && imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
@@ -80,7 +83,7 @@ function BioCard({ item, onWhatsApp, onTrack }: { item: BioItem; onWhatsApp: (it
         )}
         <div className="mt-auto flex flex-wrap gap-2">
           <Button asChild size="sm" className="min-w-0 flex-1 text-xs">
-            <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" onClick={() => onTrack("cta_click", item.id)}>
+            <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" onClick={() => onTrack("cta_click", item.id)}>
               {item.button_text || "Acessar"}<ArrowRight className="h-3.5 w-3.5 shrink-0" />
             </a>
           </Button>
