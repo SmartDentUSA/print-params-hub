@@ -69,7 +69,9 @@ serve(async (req) => {
     // que invocações concorrentes do cron disparem a mesma mensagem múltiplas vezes.
     const { data: claimed, error } = await supabase.rpc('claim_pending_wa_messages', { p_limit: MAX_PER_RUN })
     if (error) throw error
-    const claimedRows = (claimed ?? []) as any[]
+    // UPDATE ... RETURNING não garante ordem: envia por horário e depois pela posição do nó.
+    const claimedRows = ((claimed ?? []) as any[]).sort((a, b) =>
+      String(a.scheduled_at).localeCompare(String(b.scheduled_at)) || ((a.node_index ?? 1e9) - (b.node_index ?? 1e9)))
     if (!claimedRows.length) return Response.json({ ok: true, processed: 0 }, { headers: corsHeaders })
 
     // Carrega config das campanhas e filtra apenas as ativas (preservando o antigo wa_campaigns.status='active' do JOIN).
