@@ -6,12 +6,16 @@ import { Loader2 } from "lucide-react";
 import { PremiumLandingTemplate, type LPContent } from "@/components/lp/PremiumLandingTemplate";
 import { trackAttendanceEvent, buildLiaUrl } from "@/lib/attendanceChannel";
 import { AttendanceDialog } from "@/components/lia/AttendanceDialog";
+import { CustomLandingFrame } from "@/components/lp/CustomLandingFrame";
+import { parseSimulators, pickSimulator } from "@/lib/lp/customLanding";
 
 type LandingPage = {
   id: string;
   content: LPContent | null;
   hero_image_url: string | null;
   status: string;
+  custom_html: string | null;
+  custom_simulators: unknown;
   smartops_forms: {
     id: string;
     name: string;
@@ -19,6 +23,7 @@ type LandingPage = {
     title: string | null;
     subtitle: string | null;
     description: string | null;
+    tracking_meta_pixel_id: string | null;
   };
 };
 
@@ -37,11 +42,11 @@ export default function PublicLandingPage() {
       setLoading(true);
       const { data } = await (supabase as any)
         .from("smartops_form_landing_pages")
-        .select("id, content, hero_image_url, status, smartops_forms:form_id(id,name,slug,title,subtitle,description)")
+        .select("id, content, hero_image_url, status, custom_html, custom_simulators, smartops_forms:form_id(id,name,slug,title,subtitle,description,tracking_meta_pixel_id)")
         .eq("status", "published");
 
       const row = Array.isArray(data) ? data.find((r: any) => r.smartops_forms?.slug === slug) : null;
-      if (row && row.content && row.content.hero) setLp(row as LandingPage);
+      if (row && (row.custom_html || (row.content && row.content.hero))) setLp(row as LandingPage);
       else setNotFound(true);
       setLoading(false);
     })();
@@ -49,7 +54,7 @@ export default function PublicLandingPage() {
 
   // Load Inter + Manrope
   useEffect(() => {
-    if (!lp) return;
+    if (!lp || lp.custom_html) return;
     const id = "smartdent-lp-fonts";
     if (!document.getElementById(id)) {
       const link = document.createElement("link");
@@ -88,7 +93,22 @@ export default function PublicLandingPage() {
     void source;
     setLiaOpen(true);
   };
-  const liaUrl = lp ? buildLiaUrl({ formId: lp.smartops_forms.id }) + "&utm_source=landing_page&utm_medium=whatsapp_lia" : "";
+  const [simLiaUrl, setSimLiaUrl] = useState<string | null>(null);
+  const liaUrl = simLiaUrl ?? (lp ? buildLiaUrl({ formId: lp.smartops_forms.id }) + "&utm_source=landing_page&utm_medium=whatsapp_lia" : "");
+  const simulators = useMemo(() => parseSimulators(lp?.custom_simulators), [lp?.custom_simulators]);
+
+  // Landing personalizada: cada item abre o simulador de WhatsApp com o produto dele já preenchido.
+  const openSimulator = (id: string) => {
+    if (!lp) return;
+    const sim = pickSimulator(simulators, id);
+    trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "click", form_id: lp.smartops_forms.id, product_name: sim.label, simulator_id: sim.id });
+    const url = new URL(buildLiaUrl({ formId: lp.smartops_forms.id, productId: sim.product_catalog_id, interest: sim.button, simulator: sim.id }));
+    url.searchParams.set("utm_source", "landing_page");
+    url.searchParams.set("utm_medium", "whatsapp_lia");
+    url.searchParams.set("utm_content", sim.id);
+    setSimLiaUrl(url.toString());
+    setLiaOpen(true);
+  };
 
   const inlineFormUrl = useMemo(
     () =>
@@ -131,6 +151,15 @@ export default function PublicLandingPage() {
       <div className="min-h-screen flex items-center justify-center bg-white">
         <Loader2 className="w-8 h-8 animate-spin text-[#2A0F4C]" />
       </div>
+    );
+  }
+
+  if (lp?.custom_html) {
+    return (
+      <>
+        <CustomLandingFrame html={lp.custom_html} tracking={{ metaPixelId: lp.smartops_forms.tracking_meta_pixel_id }} onWhatsApp={openSimulator} />
+        <AttendanceDialog open={liaOpen} onOpenChange={(o) => { setLiaOpen(o); if (!o) setSimLiaUrl(null); }} url={liaUrl} />
+      </>
     );
   }
 
