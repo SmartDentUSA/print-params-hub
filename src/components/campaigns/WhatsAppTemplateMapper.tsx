@@ -157,7 +157,6 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
   const summary = perActive
     ? `${audienceCount} leads, ${perHour} por hora = ${plan.slots} ${plan.slots === 1 ? "bloco" : "blocos"} (${plan.durationHours} ${plan.durationHours === 1 ? "hora" : "horas"}), começa ${fmtSaoPaulo(plan.startAt)} e termina por volta de ${fmtSaoPaulo(endAt)}`
     : `${audienceCount} leads, tudo de uma vez, ${plan.scheduled ? `em ${fmtSaoPaulo(plan.startAt)}` : "agora"}`;
-  const bodyMissingMedia = needsMedia && !headerMediaUrl.trim();
 
   const update = (i: number, patch: Partial<VarSpec>) => setVars(vars.map((o, j) => (j === i ? { ...o, ...patch } : o)));
   const cleanButtonLinks = () => Object.fromEntries(Object.entries(buttonLinks).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
