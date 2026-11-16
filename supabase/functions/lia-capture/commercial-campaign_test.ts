@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { campaignButtons, campaignDisplayName, GROUP_REDIRECT_MS, isCommercialCampaignName, matchInterest } from "./commercial-campaign.ts";
+import { campaignButtons, campaignDisplayName, campaignMessageName, GROUP_REDIRECT_MS, isCommercialCampaignName, matchInterest } from "./commercial-campaign.ts";
 
 const buttons = campaignButtons(true, [
   { label: "Resinas" }, { label: "Scanner intraoral", product_catalog_id: "abc", product_name: "Scanner X" },
@@ -31,4 +31,12 @@ Deno.test("renomear o formulário não desfaz a campanha comercial", async () =>
   assertEquals(isCommercialCampaignForm({ is_commercial_campaign: true, name: "# - [BLACK26] - Engajamento" }), true);
   assertEquals(isCommercialCampaignForm({ is_commercial_campaign: false, name: "# - FORMS - exocad" }), false);
   assertEquals(campaignDisplayName("# - [BLACK26] - Engajamento"), "BLACK26 - Engajamento");
+});
+
+Deno.test("campaignMessageName tira o período de dias das tabelas BlackFriday", () => {
+  assertEquals(campaignMessageName("BlackFriday 16 a 20"), "BlackFriday");
+  assertEquals(campaignMessageName("BlackFriday 21 a 25"), "BlackFriday");
+  assertEquals(campaignMessageName("BlackFriday 26 a 30 "), "BlackFriday");
+  assertEquals(campaignMessageName("Política OUT/NOV 26"), "Política OUT/NOV 26");
+  assertEquals(campaignMessageName("Black 26"), "Black 26");
 });
