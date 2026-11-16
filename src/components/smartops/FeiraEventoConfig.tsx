@@ -380,6 +380,9 @@ export function FeiraEventoConfig({ formId, onDirtyChange }: { formId: string; o
           )}
         </div>
 
+        {dirty && (
+          <p className="text-sm font-medium text-destructive">Alterações não salvas: os botões e o evento só valem no formulário depois de salvar.</p>
+        )}
         <Button onClick={save} disabled={saving} className="w-full">
           {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           Salvar configuração do evento

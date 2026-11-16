@@ -1120,7 +1120,12 @@ export function SmartOpsFormBuilder() {
                     {showHeroStudio && (
                       <FormHeroImageStudio
                         formId={editingMeta.id}
-                        onApplied={(url) => setMetaHeroImageUrl(url)}
+                        onApplied={async (url) => {
+                          setMetaHeroImageUrl(url);
+                          // A imagem já foi gravada: acompanha a nova versão para o "Salvar" desta janela não ser recusado.
+                          const { data: fresh } = await supabase.from("smartops_forms" as any).select("updated_at").eq("id", editingMeta.id).maybeSingle();
+                          if (fresh) setEditingMeta((cur) => (cur ? ({ ...cur, updated_at: (fresh as any).updated_at } as any) : cur));
+                        }}
                       />
                     )}
                   </div>
