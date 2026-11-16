@@ -225,6 +225,7 @@ export interface BioSourceOption {
   label: string;
   description: string | null;
   image_url: string | null;
+  cover?: CountdownCover | null;
   url: string;
 }
 
