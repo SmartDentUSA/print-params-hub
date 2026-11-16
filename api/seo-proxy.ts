@@ -10,7 +10,7 @@ export default async function handler(req: Request): Promise<Response> {
   // 'path' is the capture Vercel's `/:path*` rewrite appends; forwarding it makes seo-proxy 404 every inner page.
   for (const [key,value] of url.searchParams) if (key !== 'originalPath' && key !== 'path' && !originalUrl.searchParams.has(key)) originalUrl.searchParams.append(key,value);
   if (isInstitutionalHost(url.hostname) && originalPath === '/') {
-    return new Response(institutionalHomepage(), {
+    return new Response(await institutionalHomepage(), {
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300, s-maxage=300' },
     });
   }

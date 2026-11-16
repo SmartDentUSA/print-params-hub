@@ -1,13 +1,15 @@
 import { institutionalCopy } from '../content/institutional.js';
+import { fetchSchemaProducts, productNode } from './productSchema.js';
 
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[c]!));
 
 /** The homepage crawler response uses the same copy as the visible React page. */
-export function institutionalHomepage(): string {
+export async function institutionalHomepage(): Promise<string> {
   const c = institutionalCopy.pt;
   const origin = 'https://www.smartdent.com.br';
+  const products = await fetchSchemaProducts().catch(() => []); // schema é opcional: falha do catálogo não derruba a home
   const cats = ['resinas_3d', 'softwares_cad', 'scanners', 'impressoras_3d', 'pos_impressao', 'cimentos'];
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -19,7 +21,7 @@ export function institutionalHomepage(): string {
     <link rel="alternate" hreflang="x-default" href="${origin}/">
     <meta property="og:type" content="website"><meta property="og:url" content="${origin}/">
     <meta property="og:title" content="${escape(c.seoTitle)}"><meta property="og:description" content="${escape(c.seoDesc)}">
-    <script type="application/ld+json">${JSON.stringify({'@context':'https://schema.org','@type':'WebPage',url:origin+'/',name:c.seoTitle,description:c.seoDesc,inLanguage:'pt-BR'}).replace(/</g,'\\u003c')}</script>
+    <script type="application/ld+json">${JSON.stringify({'@context':'https://schema.org','@graph':[{'@type':'WebPage',url:origin+'/',name:c.seoTitle,description:c.seoDesc,inLanguage:'pt-BR'},...products.map(pr=>productNode(pr,origin,origin+'/#org'))]}).replace(/</g,'\\u003c')}</script>
     </head><body><main><h1>${escape(`${c.h1a} ${c.h1b} ${c.h1c}`)}</h1>
     <p>${escape(c.lead)}</p><p>${escape(c.tldr)}</p>
     <a href="https://loja.smartdent.com.br">${escape(c.ctaStore)}</a>
