@@ -2,7 +2,7 @@ import { institutionalCopy as C } from '@/content/institutional';
 import { isInstitutionalHost } from '@/utils/institutionalHost';
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award, Globe2, ShoppingCart } from 'lucide-react';
+import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award, Globe2, ShoppingCart, Boxes } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import heroImg from '@/assets/institucional-hero-produtos.jpg';
 import logoFda from '@/assets/logo-fda.png';
@@ -34,7 +34,7 @@ const PATHS: Record<Lang, { kb: string; home: string }> = {
 };
 
 
-const SOL_ICONS = [Beaker, Layers, ScanLine, Printer, Sparkles, FlaskConical];
+const SOL_ICONS = [Beaker, Layers, ScanLine, Printer, Sparkles, FlaskConical, Boxes];
 // Imagens reais de produtos do catálogo (buckets oficiais do Sistema A/B).
 const CAT_IMG = 'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products';
 const PROD_IMG = 'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products';
@@ -49,7 +49,7 @@ const SOL_IMGS = [
 // Categoria correspondente no catálogo da Base de Conhecimento (chaves de catalogSidebarFilters).
 // Países com distribuidor oficial ativo (tabela distributors).
 const DIST_COUNTRIES = ['br', 'cl', 'co', 'cr', 'do', 'pa', 'us', 'uy', 've', 'bo', 'ec', 'sv', 'pe'];
-const SOL_CATS = ['resinas_3d', 'softwares_cad', 'scanners', 'impressoras_3d', 'pos_impressao', 'cimentos'];
+const SOL_CATS = ['resinas_3d', 'softwares_cad', 'scanners', 'impressoras_3d', 'pos_impressao', 'cimentos', 'fresagem'];
 
 const css = `
 .sdi{--ink:#363E56;--ink2:#ffffff;--line:rgba(54,62,86,.12);--txt:#363E56;--mut:#546085;--cy:#363E56;--or:#E56838;--slate:#546085;--ice:#EDF0F7;
@@ -127,8 +127,7 @@ const css = `
 .sdi-card-a a.b svg{flex:none;opacity:.7}.sdi-card-a a.or svg{color:var(--or);opacity:1}.sdi-card-a a.wa svg{color:var(--ink)}
 .sdi-card-a{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.sdi-card.main .sdi-card-a{max-width:420px}.sdi-card:not(.main) .sdi-card-b{padding:26px 22px 22px}
 .sdi-card-a a.b{padding:0 8px;min-width:0;overflow:hidden}.sdi-card-a a.or{grid-column:1/-1}
-.sdi-cards{grid-template-columns:repeat(6,1fr)}.sdi-cards>.sdi-card{grid-column:span 2}.sdi-cards>.sdi-card:nth-child(n+5){grid-column:span 3}
-.sdi-card.main{grid-column:1/-1!important;display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
+.sdi-cards{grid-template-columns:repeat(6,1fr)}.sdi-cards>.sdi-card{grid-column:span 2}.sdi-card.main{grid-column:1/-1!important;display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
 .sdi-card.main .sdi-card-img{height:auto;min-height:340px;background-color:transparent;border-right:1px solid rgba(255,255,255,.7)}.sdi-card.main .sdi-card-b{padding:52px 52px;justify-content:center}
 .sdi-card.main h3{font-size:clamp(22px,2.2vw,32px);letter-spacing:-.02em}.sdi-card.main p{flex:0;font-size:16px}
 .sdi-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;counter-reset:s;border-radius:22px;background:rgba(255,255,255,.55);border:1px solid #fff;backdrop-filter:blur(14px)}

@@ -8,7 +8,7 @@ const escape = (value: string) => value.replace(/[&<>"']/g, c => ({
 export function institutionalHomepage(): string {
   const c = institutionalCopy.pt;
   const origin = 'https://www.smartdent.com.br';
-  const cats = ['resinas_3d', 'softwares_cad', 'scanners', 'impressoras_3d', 'pos_impressao', 'cimentos'];
+  const cats = ['resinas_3d', 'softwares_cad', 'scanners', 'impressoras_3d', 'pos_impressao', 'cimentos', 'fresagem'];
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>${escape(c.seoTitle)}</title><meta name="description" content="${escape(c.seoDesc)}">
