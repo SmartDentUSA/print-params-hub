@@ -49,6 +49,9 @@ type LP = {
   hero_image_url: string | null;
   status: "draft" | "published";
   published_at: string | null;
+  /** Página personalizada enviada (HTML); quando existe, é ela que aparece no endereço público. */
+  custom_html?: string | null;
+  custom_simulators?: unknown;
 };
 
 type ConditionCards = NonNullable<LPContent["conditions"]>["cards"];
@@ -328,6 +331,32 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
             )}
           </DialogDescription>
         </DialogHeader>
+
+        {lp?.custom_html && (
+          <div className="mx-6 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-2 text-sm">
+            <span>
+              Esta landing usa uma <b>página personalizada enviada</b>
+              {Array.isArray(lp.custom_simulators) ? ` com ${(lp.custom_simulators as unknown[]).length} simuladores de WhatsApp` : ""}.
+              As edições abaixo só aparecem no site se você voltar ao modelo padrão.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                if (!lp || !confirm("Voltar ao modelo padrão? A página personalizada deixa de aparecer no endereço público.")) return;
+                const { error } = await supabase
+                  .from("smartops_form_landing_pages" as any)
+                  .update({ custom_html: null, custom_simulators: null })
+                  .eq("id", lp.id);
+                if (error) { toast.error(error.message); return; }
+                setLp({ ...lp, custom_html: null, custom_simulators: null });
+                toast.success("Modelo padrão ativado.");
+              }}
+            >
+              Voltar ao modelo padrão
+            </Button>
+          </div>
+        )}
 
         <Tabs
           value={tab}

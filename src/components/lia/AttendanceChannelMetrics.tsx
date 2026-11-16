@@ -1,14 +1,43 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { parseSimulators, type LandingSimulator } from "@/lib/lp/customLanding";
 
 type Row = { channel: string; views: number; leads: number; conversions: number; revenue: number };
+type SimRow = { simulator_id: string; label: string; views: number; leads: number; conversions: number; revenue: number };
+
+/** Todos os simuladores da landing aparecem (mesmo sem movimento), mais qualquer outro registrado no período. */
+function mergeSimulators(list: LandingSimulator[], data: any[]): SimRow[] {
+  const byId = new Map<string, any>((data ?? []).map((r: any) => [String(r.simulator_id), r]));
+  const rows: SimRow[] = list.map((s) => {
+    const r = byId.get(s.id); byId.delete(s.id);
+    return { simulator_id: s.id, label: s.label, views: +(r?.views ?? 0), leads: +(r?.leads ?? 0), conversions: +(r?.conversions ?? 0), revenue: +(r?.revenue ?? 0) };
+  });
+  for (const [id, r] of byId) rows.push({ simulator_id: id, label: id, views: +r.views, leads: +r.leads, conversions: +r.conversions, revenue: +r.revenue });
+  return rows;
+}
 const LABEL: Record<string, string> = { form: "Formulário", specialist: "Falar com especialista", whatsapp_lia: "WhatsApp (Dra. LIA)" };
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 90, title, formOverride }: { formId?: string | null; campaignSlug?: string | null; days?: number; title?: string; formOverride?: { views: number; leads: number; conversions: number; revenue: number } }) {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [sims, setSims] = useState<SimRow[]>([]);
+  useEffect(() => {
+    setSims([]);
+    if (!formId) return;
+    let cancelled = false;
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    Promise.all([
+      (supabase as any).from("smartops_form_landing_pages").select("custom_simulators").eq("form_id", formId).maybeSingle(),
+      (supabase as any).rpc("fn_attendance_simulator_metrics", { _form_id: formId, _since: since }),
+    ]).then(([lp, m]: any[]) => {
+      if (cancelled) return;
+      const list = parseSimulators(lp?.data?.custom_simulators);
+      if (list.length || (m?.data ?? []).length) setSims(mergeSimulators(list, m?.data ?? []));
+    }, () => {});
+    return () => { cancelled = true; };
+  }, [formId, days]);
   useEffect(() => {
     setRows(null);
     const since = new Date(Date.now() - days * 86400000).toISOString();
@@ -27,8 +56,8 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                 <tr><th className="py-1">Canal</th><th>Visualizações</th><th>Leads gerados</th><th>Taxa de lead</th><th>Conversões</th><th>Conversão</th><th>Valor das conversões</th></tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.channel} className="border-t border-border">
+                {rows.map((r) => (<Fragment key={r.channel}>
+                  <tr className="border-t border-border">
                     <td className="py-1.5 font-medium">{LABEL[r.channel] ?? r.channel}</td>
                     <td>{r.views}</td>
                     <td>{r.leads}</td>
@@ -37,10 +66,21 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                     <td>{r.leads ? `${((r.conversions / r.leads) * 100).toFixed(1)}%` : "—"}</td>
                     <td>{brl(r.revenue)}</td>
                   </tr>
-                ))}
+                  {r.channel === "whatsapp_lia" && sims.map((s) => (
+                    <tr key={`sim-${s.simulator_id}`} className="text-muted-foreground">
+                      <td className="py-1 pl-4 text-xs" title={`Identificador: ${s.simulator_id}`}>↳ {s.label} <span className="opacity-70">({s.simulator_id})</span></td>
+                      <td className="text-xs">{s.views}</td>
+                      <td className="text-xs">{s.leads}</td>
+                      <td className="text-xs">{s.views ? `${((s.leads / s.views) * 100).toFixed(1)}%` : "—"}</td>
+                      <td className="text-xs">{s.conversions}</td>
+                      <td className="text-xs">{s.leads ? `${((s.conversions / s.leads) * 100).toFixed(1)}%` : "—"}</td>
+                      <td className="text-xs">{brl(s.revenue)}</td>
+                    </tr>
+                  ))}
+                </Fragment>))}
               </tbody>
             </table>
-            <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. {formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
+            <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. {sims.length ? "Abaixo do WhatsApp, cada simulador da landing (geral e por produto) com seu identificador; a contagem por simulador começa a partir de hoje. " : ""}{formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
           </div>
         )}
       </CardContent>

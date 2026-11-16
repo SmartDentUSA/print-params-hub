@@ -1,6 +1,6 @@
 // Meta inputs retain their existing ingestion rules.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const COMMERCIAL_TYPES = ["product", "resin", "Resinas", "consumables", "Serviços"];
+export const COMMERCIAL_TYPES = ["product", "resin", "Resinas", "consumables", "Serviços"];
 
 export async function resolveFormProduct(
   db: any,
