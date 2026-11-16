@@ -6,7 +6,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import {
-  MAX_IMAGE_BYTES, MEDIA_HEADERS, TEST_LEAD_ID, broadcastKeepsHeaderMedia, checkHeaderImage, isPublicHttpsUrl,
+  MEDIA_HEADERS, TEST_LEAD_ID, broadcastKeepsHeaderMedia, checkHeaderImage, isPublicHttpsUrl,
   planSlots, resolveButtons, templateMeta, validateSchedule,
 } from './plan.ts';
 
@@ -39,7 +39,6 @@ async function checkRemoteImage(url: string): Promise<string | null> {
     return `Não foi possível abrir o link da imagem (${String((e as Error).message).slice(0, 120)})`;
   }
 }
-void MAX_IMAGE_BYTES;
 
 const idOf = (v: any): string => (!v ? '' : typeof v === 'object' ? (v._id ?? v.id ?? '') : String(v));
 const digits = (p: string | null | undefined) => String(p ?? '').replace(/\D/g, '');

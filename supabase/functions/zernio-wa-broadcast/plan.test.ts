@@ -1,5 +1,5 @@
 import { assertEquals } from 'jsr:@std/assert@1';
-import { planSlots, templateMeta, validateSchedule } from './plan.ts';
+import { broadcastKeepsHeaderMedia, checkHeaderImage, planSlots, pushIntoWindow, resolveButtons, templateMeta, validateSchedule } from './plan.ts';
 
 const now = new Date('2026-11-20T12:00:00Z');
 const leads = Array.from({ length: 1000 }, (_, i) => i);
@@ -43,4 +43,56 @@ Deno.test('agendamento no passado e limite inválido são recusados', () => {
   assertEquals(typeof validateSchedule(null, '2026-11-20T11:00:00Z', now), 'string');
   assertEquals(typeof validateSchedule(0, null, now), 'string');
   assertEquals(validateSchedule(250, '2026-11-20T15:00:00Z', now), null);
+});
+
+Deno.test('100 por hora com 250 leads: 3 lotes agendados de hora em hora', () => {
+  const s = planSlots(leads.slice(0, 250), { perHour: 100, scheduledAt: '2026-11-20T13:00:00Z', now }); // 10:00 em SP
+  assertEquals(s.map((x) => [x.at, x.leads.length]), [
+    ['2026-11-20T13:00:00.000Z', 100], ['2026-11-20T14:00:00.000Z', 100], ['2026-11-20T15:00:00.000Z', 50]]);
+});
+
+Deno.test('janela 07:30–19:00: agendamento às 22:00 de SP vai para 07:30 do dia seguinte', () => {
+  assertEquals(pushIntoWindow(new Date('2026-11-21T01:00:00Z'), '07:30', '19:00').toISOString(), '2026-11-21T10:30:00.000Z');
+  assertEquals(pushIntoWindow(new Date('2026-11-20T08:00:00Z'), '07:30', '19:00').toISOString(), '2026-11-20T10:30:00.000Z'); // 05:00 SP
+  assertEquals(pushIntoWindow(new Date('2026-11-20T15:00:00Z'), '07:30', '19:00').toISOString(), '2026-11-20T15:00:00.000Z');
+});
+
+Deno.test('lote que passaria das 19:00 de SP continua às 07:30 do dia seguinte', () => {
+  const s = planSlots(leads.slice(0, 300), { perHour: 100, scheduledAt: '2026-11-20T20:30:00Z', now, windowStart: '07:30', windowEnd: '19:00' }); // 17:30 SP
+  assertEquals(s.map((x) => x.at), ['2026-11-20T20:30:00.000Z', '2026-11-20T21:30:00.000Z', '2026-11-21T10:30:00.000Z']);
+});
+
+Deno.test('imagem: só JPG/PNG até 5 MB', () => {
+  assertEquals(checkHeaderImage(200, 'image/png', 1_000_000), null);
+  assertEquals(typeof checkHeaderImage(200, 'image/webp', 1_000), 'string');
+  assertEquals(typeof checkHeaderImage(200, 'image/jpeg', 6 * 1024 * 1024), 'string');
+  assertEquals(typeof checkHeaderImage(404, 'image/jpeg', 1_000), 'string');
+});
+
+Deno.test('botões: resposta rápida só guarda o link; URL com variável envia o sufixo; URL fixa ignora', () => {
+  const r = resolveButtons([
+    { type: 'QUICK_REPLY', text: 'Quero saber mais' },
+    { type: 'URL', text: 'Ver oferta', url: 'https://s.smartdent.com.br/{{1}}', urlHasVariable: true },
+    { type: 'URL', text: 'Site', url: 'https://smartdent.com.br', urlHasVariable: false },
+  ], { '0': 'https://s.smartdent.com.br/v7pmii', '1': 'https://s.smartdent.com.br/abc?o=whatsapp', '2': 'https://x.com' });
+  if ('error' in r) throw new Error(r.error);
+  assertEquals(r.stored, { '0': 'https://s.smartdent.com.br/v7pmii', '1': 'https://s.smartdent.com.br/abc?o=whatsapp' });
+  assertEquals(r.components, [{ type: 'button', sub_type: 'url', index: '1', parameters: [{ type: 'text', text: 'abc?o=whatsapp' }] }]);
+  assertEquals(r.warnings.length, 1);
+  const bad = resolveButtons([{ type: 'URL', text: 'Ver oferta', url: 'https://s.smartdent.com.br/{{1}}', urlHasVariable: true }], { '0': 'https://outro.com/x' });
+  assertEquals('error' in bad, true);
+});
+
+Deno.test('template devolve rodapé e tipo dos botões', () => {
+  const m = templateMeta({ components: [
+    { type: 'FOOTER', text: 'Smart Dent • Responda SAIR para não receber mais' },
+    { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Ver', url: 'https://a.com/{{1}}' }] },
+  ] });
+  assertEquals(m.footer, 'Smart Dent • Responda SAIR para não receber mais');
+  assertEquals(m.buttons, [{ type: 'URL', text: 'Ver', url: 'https://a.com/{{1}}', urlHasVariable: true }]);
+});
+
+Deno.test('só aceita o broadcast se a Zernio guardou a imagem da campanha', () => {
+  assertEquals(broadcastKeepsHeaderMedia({ template: { headerMedia: { link: 'https://a.com/i.jpg' } } }, 'https://a.com/i.jpg'), true);
+  assertEquals(broadcastKeepsHeaderMedia({ broadcast: { template: { name: 'x' } } }, 'https://a.com/i.jpg'), false);
 });
