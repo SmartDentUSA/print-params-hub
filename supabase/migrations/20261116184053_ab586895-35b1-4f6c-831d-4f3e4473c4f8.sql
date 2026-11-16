@@ -1,0 +1,2 @@
+ALTER TABLE public.smartops_form_landing_pages ADD COLUMN IF NOT EXISTS bio_cover jsonb;
+COMMENT ON COLUMN public.smartops_form_landing_pages.bio_cover IS 'Capa apresentada no card da Bio (ex.: type=countdown com fases). Apenas apresentação.';
