@@ -1,6 +1,7 @@
 import { institutionalCopy as C } from '@/content/institutional';
 import { isInstitutionalHost } from '@/utils/institutionalHost';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award, Globe2, ShoppingCart } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -168,6 +169,15 @@ export default function KbTabInstitucional() {
   const lang: Lang = (['pt', 'en', 'es'].includes(language) ? language : 'pt') as Lang;
   const c = C[lang];
   const [open, setOpen] = useState<number | null>(0);
+  const [products, setProducts] = useState<any[]>([]);
+  // Produtos reais do catálogo (mesmo filtro da ProductPage) → nós Product no @graph.
+  useEffect(() => {
+    supabase.from('system_a_catalog')
+      .select('name, slug, description, meta_description, image_url, og_image_url, price, promo_price, currency, cta_1_url, extra_data')
+      .eq('category', 'product').eq('active', true).eq('approved', true).eq('visible_in_ui', true)
+      .gt('price', 0).order('name').limit(24) // ponytail: 24 itens no JSON-LD; paginar/priorizar se o catálogo crescer
+      .then(({ data, error }) => { if (error) console.error('institutional products schema:', error); else setProducts(data ?? []); });
+  }, []);
   const p = PATHS[lang];
   const wa = TALK_URL;
   const url = SITE + p.home;
@@ -195,6 +205,20 @@ export default function KbTabInstitucional() {
         '@type': 'ItemList', name: c.solTitle,
         itemListElement: c.sol.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s[0], url: `${SITE}${p.kb}?tab=catalogo&cat=${SOL_CATS[i]}` })),
       },
+      ...products.map((pr) => {
+        const productUrl = `${SITE}/produtos/${pr.slug}`;
+        return {
+          '@type': 'Product', '@id': `${productUrl}#product`, name: pr.name, url: productUrl,
+          description: pr.meta_description || pr.description || pr.name,
+          image: pr.og_image_url || pr.image_url || undefined,
+          brand: { '@type': 'Brand', name: pr.extra_data?.brand || 'Smart Dent' },
+          sku: pr.extra_data?.sku || undefined,
+          offers: {
+            '@type': 'Offer', priceCurrency: pr.currency || 'BRL', price: pr.promo_price ?? pr.price,
+            url: pr.cta_1_url || productUrl, seller: { '@id': `${SITE}/#org` },
+          },
+        };
+      }),
       {
         '@type': 'FAQPage', '@id': `${url}#faq`,
         mainEntity: c.faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
