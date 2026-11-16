@@ -1,14 +1,45 @@
 // zernio-wa-broadcast — Disparo em massa pelo WhatsApp oficial (Cloud API via Zernio).
-// Ações (staff-only): accounts | templates | send | status
+// Ações (staff-only): accounts | templates | send | test | sample | status
+// test = mesmo template só para o lead fixo de teste (TEST_LEAD_ID), sem criar campanha.
 // Fora da janela de 24h a Meta só aceita modelo APROVADO; por isso o envio exige template.
 // Não toca Evolution/WaLeads nem deals; só cria campaign_sessions + campaign_send_log.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
-import { MEDIA_HEADERS, isPublicHttpsUrl, planSlots, templateMeta, validateSchedule } from './plan.ts';
+import {
+  MAX_IMAGE_BYTES, MEDIA_HEADERS, TEST_LEAD_ID, broadcastKeepsHeaderMedia, checkHeaderImage, isPublicHttpsUrl,
+  planSlots, resolveButtons, templateMeta, validateSchedule,
+} from './plan.ts';
 
 const ZERNIO = 'https://zernio.com/api/v1';
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Mesma janela padrão de campaigns.send_window_start/end (horário de São Paulo). */
+const SEND_WINDOW: [string, string] = ['07:30', '19:00'];
+
+class MediaNotAccepted extends Error {
+  constructor() { super('A Zernio não confirmou a imagem da campanha neste envio. Nada foi enviado, para não sair a imagem-amostra do template.'); }
+}
+
+/** Baixa só o necessário para conferir tipo e tamanho da imagem do cabeçalho. */
+async function checkRemoteImage(url: string): Promise<string | null> {
+  try {
+    let r = await fetch(url, { method: 'HEAD', redirect: 'follow' });
+    let len = Number(r.headers.get('content-length'));
+    let ct = r.headers.get('content-type');
+    if (!r.ok || !Number.isFinite(len) || len <= 0) {
+      r = await fetch(url, { redirect: 'follow' });
+      ct = r.headers.get('content-type');
+      const buf = r.ok ? await r.arrayBuffer() : null;
+      len = buf ? buf.byteLength : NaN;
+    } else await r.body?.cancel().catch(() => null);
+    return checkHeaderImage(r.status, ct, Number.isFinite(len) ? len : null);
+  } catch (e) {
+    return `Não foi possível abrir o link da imagem (${String((e as Error).message).slice(0, 120)})`;
+  }
+}
+void MAX_IMAGE_BYTES;
 
 const idOf = (v: any): string => (!v ? '' : typeof v === 'object' ? (v._id ?? v.id ?? '') : String(v));
 const digits = (p: string | null | undefined) => String(p ?? '').replace(/\D/g, '');
@@ -88,19 +119,25 @@ Deno.serve(async (req) => {
       return json({ templates: list });
     }
 
-    if (action === 'send') {
-      const { accountId, profileId, templateName, language, name, leadIds, variableMap, description } = p;
+    if (action === 'send' || action === 'test') {
+      const isTest = action === 'test';
+      const { accountId, profileId, templateName, language, name, variableMap, description } = p;
+      // Teste: sempre e só o lead fixo de teste, sem campanha em massa.
+      const leadIds: string[] = isTest ? [TEST_LEAD_ID] : p.leadIds;
       if (!accountId || !profileId || !templateName || !language || !name || !Array.isArray(leadIds) || !leadIds.length)
         return json({ error: 'accountId, profileId, templateName, language, name e leadIds são obrigatórios' }, 400);
       if (leadIds.length > 10000) return json({ error: 'máximo 10.000 leads por disparo' }, 400);
       const nowDate = new Date();
-      const perHour = p.perHour == null || p.perHour === '' ? null : Number(p.perHour);
-      const scheduledAt = p.scheduledAt ? new Date(String(p.scheduledAt)).toISOString() : null;
-      const schedErr = validateSchedule(p.perHour, p.scheduledAt, nowDate);
-      if (schedErr) return json({ error: schedErr }, 400);
+      const perHour = isTest || p.perHour == null || p.perHour === '' ? null : Number(p.perHour);
+      const scheduledAt = !isTest && p.scheduledAt ? new Date(String(p.scheduledAt)).toISOString() : null;
+      if (!isTest) {
+        const schedErr = validateSchedule(p.perHour, p.scheduledAt, nowDate);
+        if (schedErr) return json({ error: schedErr }, 400);
+      }
+      const campaignId = !isTest && UUID_RE.test(String(p.campaignId ?? '')) ? String(p.campaignId) : null;
 
-      // Cabeçalho lido do template aprovado na Meta (não do navegador): com mídia, exige a imagem da campanha
-      // e nunca envia com a amostra aprovada.
+      // Cabeçalho e botões lidos do template aprovado na Meta (não do navegador): com mídia, exige a imagem
+      // da campanha e nunca envia com a amostra aprovada.
       const tb = await z(`/whatsapp/templates?accountId=${encodeURIComponent(accountId)}&status=APPROVED`);
       const tplRaw = (tb.templates ?? tb.data ?? []).find((t: any) => t.name === templateName && t.language === language
         && String(t.status ?? '').toUpperCase() === 'APPROVED');
@@ -110,9 +147,15 @@ Deno.serve(async (req) => {
       const headerMediaUrl = p.headerMediaUrl ? String(p.headerMediaUrl).trim() : '';
       const mediaHeader = MEDIA_HEADERS.includes(meta.headerType);
       if (mediaHeader && !headerMediaUrl)
-        return json({ error: `O template tem cabeçalho ${meta.headerType}: envie a mídia da campanha (headerMediaUrl). A amostra aprovada nunca é enviada.` }, 400);
-      if (mediaHeader && !isPublicHttpsUrl(headerMediaUrl)) return json({ error: 'headerMediaUrl precisa ser uma URL pública https' }, 400);
+        return json({ error: meta.headerType === 'IMAGE' ? 'Imagem da campanha obrigatória' : `O template tem cabeçalho ${meta.headerType}: envie a mídia da campanha. A amostra aprovada nunca é enviada.` }, 400);
+      if (mediaHeader && !isPublicHttpsUrl(headerMediaUrl)) return json({ error: 'O link da imagem precisa ser uma URL pública https' }, 400);
+      if (meta.headerType === 'IMAGE') {
+        const mediaErr = await checkRemoteImage(headerMediaUrl);
+        if (mediaErr) return json({ error: mediaErr }, 400);
+      }
       const mediaType = meta.headerType.toLowerCase() as 'image' | 'video' | 'document';
+      const btn = resolveButtons(meta.buttons, p.buttonLinks && typeof p.buttonLinks === 'object' ? p.buttonLinks : null);
+      if ('error' in btn) return json({ error: btn.error }, 400);
       const vmap: VarSpec[] = Array.isArray(variableMap) ? variableMap : [];
       for (const v of vmap) {
         if (v?.source === 'field' && !FIELDS[v.value]) return json({ error: `campo inválido: ${v?.value}` }, 400);
@@ -134,8 +177,9 @@ Deno.serve(async (req) => {
       if (!valid.length) return json({ error: 'Nenhum lead com telefone válido' }, 400);
 
       // Zernio só aceita valor fixo por broadcast → agrupa por combinação de variáveis (dentro de cada lote).
-      // Lotes por hora sobre o TOTAL; dentro de cada lote, um broadcast por combinação de variáveis.
-      const slots = planSlots(valid, { perHour, scheduledAt, now: nowDate }).map((sl) => {
+      // Lotes por hora sobre o TOTAL, dentro da janela de envio da campanha; dentro de cada lote, um broadcast
+      // por combinação de variáveis.
+      const slots = planSlots(valid, { perHour, scheduledAt, now: nowDate, windowStart: SEND_WINDOW[0], windowEnd: SEND_WINDOW[1] }).map((sl) => {
         const groups = new Map<string, { values: string[]; leads: any[] }>();
         for (const l of sl.leads) {
           const values = vmap.map((v) => resolveVar(v, l));
@@ -147,17 +191,72 @@ Deno.serve(async (req) => {
       });
       const totalBroadcasts = slots.reduce((a, sl) => a + sl.groups.length, 0);
       if (totalBroadcasts > 400) return json({ error: `O disparo geraria ${totalBroadcasts} envios distintos (máx. 400). Use campos com menos variação ou um limite por hora maior.` }, 400);
+
+      // Cria um broadcast; com mídia, confere que a Zernio guardou a imagem da campanha antes de qualquer envio.
+      const createBroadcast = async (bname: string, values: string[]) => {
+        const template: any = { name: templateName, language };
+        const components: any[] = [];
+        if (mediaHeader) {
+          components.push({ type: 'header', parameters: [{ type: mediaType, [mediaType]: { link: headerMediaUrl } }] });
+          template.headerMedia = { type: mediaType, link: headerMediaUrl };
+        }
+        if (values.length) {
+          components.push({ type: 'body', parameters: values.map((_, i) => ({ type: 'text', text: `{{${i + 1}}}` })) });
+          template.variableMapping = Object.fromEntries(values.map((v, i) => [String(i + 1), { field: 'custom', customValue: v }]));
+        }
+        if (btn.components.length) {
+          components.push(...btn.components);
+          template.buttonParams = btn.params;
+        }
+        if (components.length) template.components = components;
+        const created = await z('/broadcasts', { method: 'POST', body: JSON.stringify({
+          profileId, accountId, platform: 'whatsapp', name: bname, template,
+        }) });
+        const bid = created?.broadcast?.id;
+        if (!bid) throw new Error('Zernio não retornou broadcast id');
+        if (mediaHeader) {
+          const got = await z(`/broadcasts/${bid}`).catch((e) => ({ error: String(e) }));
+          const kept = broadcastKeepsHeaderMedia(created, headerMediaUrl) || broadcastKeepsHeaderMedia(got, headerMediaUrl);
+          if (!kept) {
+            console.error('[zernio-wa-broadcast] Zernio não confirmou headerMedia', JSON.stringify({ created, got }).slice(0, 4000));
+            await z(`/broadcasts/${bid}`, { method: 'DELETE' }).catch(() => null);
+            throw new MediaNotAccepted();
+          }
+        }
+        return bid as string;
+      };
+
+      if (isTest) {
+        const g = slots[0].groups[0];
+        try {
+          const bid = await createBroadcast(`TESTE · ${name} · ${nowDate.toISOString().slice(0, 16)}`, g.values);
+          const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST', body: JSON.stringify({ phones: [`+${g.leads[0].phone}`] }) });
+          await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
+          return json({ ok: true, test: true, broadcast_id: bid, added: r.added ?? 0, lead: g.leads[0].nome, warnings: btn.warnings });
+        } catch (e) {
+          if (e instanceof MediaNotAccepted) return json({ error: e.message }, 502);
+          throw e;
+        }
+      }
+
       const isScheduled = slots.some((sl) => sl.at);
       const startAt = slots[0]?.at ?? null;
       const baseResults = {
         provider: 'zernio_cloud_api', account_id: accountId, template: templateName, language, variable_map: vmap,
         header_type: meta.headerType, header_media_url: mediaHeader ? headerMediaUrl : null,
-        per_hour: perHour, scheduled_at: startAt,
+        per_hour: perHour, scheduled_at: startAt, button_links: btn.stored,
       };
 
+      if (campaignId) {
+        const { data: exists } = await admin.from('campaigns').select('id').eq('id', campaignId).maybeSingle();
+        if (exists) return json({ error: 'Esta campanha já foi enviada. Recarregue a tela para criar outra.' }, 409);
+      }
       const { data: camp } = await admin.from('campaigns').insert({
+        ...(campaignId ? { id: campaignId } : {}),
         nome: name, descricao: description ?? null, canal: 'whatsapp_oficial', status: isScheduled ? 'scheduled' : 'sending',
         mensagem_template: `template:${templateName}`, total_leads: valid.length,
+        send_window_start: SEND_WINDOW[0], send_window_end: SEND_WINDOW[1],
+        metadata: { button_links: btn.stored },
         ...(isScheduled ? { scheduled_at: startAt } : { started_at: nowDate.toISOString() }),
         created_by: u.user.id,
       }).select('id').maybeSingle();
@@ -173,26 +272,12 @@ Deno.serve(async (req) => {
       const broadcasts: string[] = [];
       const slotLog: { at: string | null; broadcast_ids: string[]; leads: number }[] = [];
       let added = 0, skipped = 0, failedGroups = 0;
-      for (const sl of slots) {
+      let mediaRefused = false;
+      outer: for (const sl of slots) {
         const slotIds: string[] = [];
         for (const g of sl.groups) {
-          const template: any = { name: templateName, language };
-          const components: any[] = [];
-          if (mediaHeader) {
-            components.push({ type: 'header', parameters: [{ type: mediaType, [mediaType]: { link: headerMediaUrl } }] });
-            template.headerMedia = { type: mediaType, link: headerMediaUrl };
-          }
-          if (g.values.length) {
-            components.push({ type: 'body', parameters: g.values.map((_, i) => ({ type: 'text', text: `{{${i + 1}}}` })) });
-            template.variableMapping = Object.fromEntries(g.values.map((v, i) => [String(i + 1), { field: 'custom', customValue: v }]));
-          }
-          if (components.length) template.components = components;
           try {
-            const created = await z('/broadcasts', { method: 'POST', body: JSON.stringify({
-              profileId, accountId, platform: 'whatsapp', name: `${name} · ${session.id.slice(0, 8)} · ${broadcasts.length + 1}`, template,
-            }) });
-            const bid = created?.broadcast?.id;
-            if (!bid) throw new Error('Zernio não retornou broadcast id');
+            const bid = await createBroadcast(`${name} · ${session.id.slice(0, 8)} · ${broadcasts.length + 1}`, g.values);
             for (let i = 0; i < g.leads.length; i += 500) {
               const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST',
                 body: JSON.stringify({ phones: g.leads.slice(i, i + 500).map((l) => `+${l.phone}`) }) });
@@ -213,6 +298,7 @@ Deno.serve(async (req) => {
           } catch (e) {
             failedGroups++;
             console.error('[zernio-wa-broadcast] grupo falhou', e);
+            if (e instanceof MediaNotAccepted) { mediaRefused = true; break outer; }
             await admin.from('campaign_send_log').insert(g.leads.map((l) => ({
               campaign_id: session.id, source_campaign_id: camp?.id ?? null, lead_id: l.id, nome: l.nome, telefone: l.phone,
               status: 'failed', provider: 'zernio_cloud_api', error_message: String((e as Error).message).slice(0, 500),
@@ -226,16 +312,17 @@ Deno.serve(async (req) => {
       await admin.from('campaign_sessions').update({
         status, sent_count: isScheduled ? 0 : added, failed_count: skipped,
         results: { ...baseResults, campaign_id: camp?.id ?? null, broadcast_id: broadcasts[0] ?? null, broadcast_ids: broadcasts,
-          slots: slotLog, added, skipped, failed_groups: failedGroups },
+          slots: slotLog, added, skipped, failed_groups: failedGroups, ...(mediaRefused ? { media_refused: true } : {}) },
       }).eq('id', session.id);
       if (camp?.id) await admin.from('campaigns').update({
         total_sent: isScheduled ? 0 : added, total_failed: skipped,
         status: broadcasts.length ? (failedGroups ? 'completed_with_errors' : (isScheduled ? 'scheduled' : 'completed')) : 'failed',
       }).eq('id', camp.id);
+      if (mediaRefused && !broadcasts.length) return json({ error: new MediaNotAccepted().message }, 502);
       if (!broadcasts.length) return json({ error: 'Nenhum envio foi aceito pela Zernio' }, 502);
       return json({ ok: true, campaign_id: session.id, broadcasts: broadcasts.length, added, skipped, total: valid.length,
         failed_groups: failedGroups, scheduled: isScheduled, scheduled_at: startAt, slots: slotLog.length,
-        last_slot_at: slotLog[slotLog.length - 1]?.at ?? null });
+        last_slot_at: slotLog[slotLog.length - 1]?.at ?? null, warnings: btn.warnings });
     }
 
     if (action === 'sample') {
