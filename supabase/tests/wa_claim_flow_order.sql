@@ -19,25 +19,25 @@ BEGIN
     (cc, '__teste_ordem_C', 'active', 'blast', '[]');
   FOREACH g IN ARRAY ARRAY['__a1@g.us','__a2@g.us'] LOOP
     FOR i IN 1..10 LOOP
-      INSERT INTO wa_message_queue (campaign_id, group_jid, node_index, sequence_no, node_type, scheduled_at, status)
-      VALUES (ca, g, 11 - i, i, 'msg', t0, 'pending');  -- node_index invertido de propósito
+      INSERT INTO wa_message_queue (campaign_id, group_jid, node_id, node_index, sequence_no, node_type, scheduled_at, status)
+      VALUES (ca, g, 'n' || i, 11 - i, i, 'msg', t0, 'pending');  -- node_index invertido de propósito
     END LOOP;
   END LOOP;
-  INSERT INTO wa_message_queue (campaign_id, group_jid, node_index, sequence_no, node_type, scheduled_at, status) VALUES
-    (cb, '__b1@g.us', 0, 1, 'msg', now() + interval '1 day', 'pending'),
-    (cb, '__b1@g.us', 1, 2, 'msg', t0, 'pending'),
-    (cb, '__b1@g.us', 2, 3, 'msg', t0, 'pending');
+  INSERT INTO wa_message_queue (campaign_id, group_jid, node_id, node_index, sequence_no, node_type, scheduled_at, status) VALUES
+    (cb, '__b1@g.us', 'n1', 0, 1, 'msg', now() + interval '1 day', 'pending'),
+    (cb, '__b1@g.us', 'n2', 1, 2, 'msg', t0, 'pending'),
+    (cb, '__b1@g.us', 'n3', 2, 3, 'msg', t0, 'pending');
   FOR i IN 1..3 LOOP
-    INSERT INTO wa_message_queue (campaign_id, group_jid, node_index, sequence_no, node_type, scheduled_at, status)
-    VALUES (cc, '__c' || i || '@g.us', 0, 1, 'msg', t0, 'pending');
+    INSERT INTO wa_message_queue (campaign_id, group_jid, node_id, node_index, sequence_no, node_type, scheduled_at, status)
+    VALUES (cc, '__c' || i || '@g.us', 'n1', 0, 1, 'msg', t0, 'pending');
   END LOOP;
 
+  CREATE TEMP TABLE _claimed (id uuid, campaign_id uuid, group_jid text, sequence_no int) ON COMMIT DROP;
   LOOP
     rounds := rounds + 1; EXIT WHEN rounds > 40;
-    CREATE TEMP TABLE IF NOT EXISTS _claimed (id uuid, campaign_id uuid, group_jid text, sequence_no int) ON COMMIT DROP;
     TRUNCATE _claimed;
-    INSERT INTO _claimed SELECT id, campaign_id, group_jid, sequence_no FROM claim_pending_wa_messages(50)
-      WHERE campaign_id IN (ca, cb, cc);
+    INSERT INTO _claimed SELECT x.id, x.campaign_id, x.group_jid, x.sequence_no FROM claim_pending_wa_messages(50) x
+      WHERE x.campaign_id IN (ca, cb, cc);
     SELECT count(*) INTO batch FROM _claimed;
     EXIT WHEN batch = 0;
     -- "execução simultânea": outra reserva antes de terminar a primeira
@@ -51,7 +51,7 @@ BEGIN
        AND EXISTS (SELECT 1 FROM _claimed WHERE campaign_id = ca AND group_jid = '__a2@g.us') THEN parallel_ok := true; END IF;
     IF (SELECT count(*) FROM _claimed WHERE campaign_id = cc) = 3 THEN blast_ok := true; END IF;
     IF EXISTS (SELECT 1 FROM _claimed WHERE campaign_id = cb) THEN b_blocked := false; END IF;
-    FOR r IN SELECT * FROM _claimed WHERE campaign_id = ca LOOP
+    FOR r IN SELECT * FROM _claimed WHERE campaign_id = ca ORDER BY sequence_no LOOP
       IF r.group_jid = '__a1@g.us' THEN
         IF r.sequence_no <> last_a1 + 1 THEN errs := errs || format(' a1 fora de ordem (%s depois de %s);', r.sequence_no, last_a1); END IF;
         last_a1 := r.sequence_no; seen_a1 := seen_a1 + 1;
