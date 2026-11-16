@@ -72,3 +72,33 @@ export function presetInterest(
   }
   return matchInterest(buttons, input.interest);
 }
+
+const PRICE_PART = /\s*(?:com\s+)?\d+(?:[.,]\d+)?\s*%\s*(?:off|de desconto)?/gi;
+
+/** Nome do item da landing (card do simulador) gravado em custom_simulators; o simulador geral não tem item. */
+export function simulatorItemLabel(simulators: unknown, id: unknown): string | null {
+  const key = String(id ?? "").trim();
+  if (!key || key === "geral" || !Array.isArray(simulators)) return null;
+  const sim = (simulators as Array<{ id?: unknown; label?: unknown }>).find((s) => String(s?.id ?? "") === key);
+  const label = String(sim?.label ?? "").replace(PRICE_PART, "").replace(/\s+/g, " ").trim();
+  return label || null;
+}
+
+/**
+ * Item que o lead escolheu, para as frases depois da conversão:
+ * card da landing (quando a escolha é o próprio card) → produto exato do botão → rótulo do botão.
+ */
+export function chosenItemLabel(chosen: PresetInterest | null, preset: PresetInterest | null, itemLabel: string | null): string | null {
+  if (!chosen) return null;
+  if (itemLabel && preset && norm(chosen.label) === norm(preset.label)) return itemLabel;
+  return chosen.product_name || chosen.label || null;
+}
+
+/** Texto do botão "Me chame agora no WhatsApp", sem artigo (vale para produto e categoria). */
+export function sellerWhatsAppText(input: { sellerFirst: string; item: string; campaign?: string | null; ticket: string }) {
+  const campaign = input.campaign ? campaignMessageName(input.campaign) : "";
+  const about = campaign
+    ? `vi a ${/^campanha\b/i.test(campaign) ? "" : "campanha "}${campaign} e quero saber mais sobre ${input.item}`
+    : `quero saber mais sobre ${input.item}`;
+  return `Olá ${input.sellerFirst}, ${about}. Meu atendimento já foi registrado com o número ${input.ticket}`;
+}

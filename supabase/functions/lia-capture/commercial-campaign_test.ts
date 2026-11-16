@@ -57,3 +57,39 @@ Deno.test("item da landing já escolhido: botão pelo produto ou produto ativo d
   assertEquals(presetInterest(buttons, { interest: "resina direta" })?.label, "Resina direta");
   assertEquals(presetInterest(buttons, { interest: "Qualquer coisa" }), null);
 });
+
+import { chosenItemLabel, sellerWhatsAppText, simulatorItemLabel } from "./commercial-campaign.ts";
+
+const sims = [
+  { id: "geral", label: "Atendimento geral" },
+  { id: "smartmake-avulsos", label: "SmartMake · itens avulsos (17 itens)", button: "Caracterização" },
+  { id: "combo-vitality-nanoclean", label: "Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde", button: "Resinas" },
+];
+
+Deno.test("landing card label names the item; the general simulator has none", () => {
+  assertEquals(simulatorItemLabel(sims, "smartmake-avulsos"), "SmartMake · itens avulsos (17 itens)");
+  assertEquals(simulatorItemLabel(sims, "geral"), null);
+  assertEquals(simulatorItemLabel(sims, "nao-existe"), null);
+  assertEquals(simulatorItemLabel(sims, "combo-vitality-nanoclean"), "Combo 3 Vitality + NanoClean PoD de brinde");
+});
+
+Deno.test("after conversion the phrase names the card, the exact product or the chosen category", () => {
+  const caracterizacao = buttons.find((b) => b.label === "Caracterização")!;
+  const scanner = buttons.find((b) => b.label === "Scanner intraoral")!;
+  // Card ligado a um botão de categoria: frase usa o card.
+  assertEquals(chosenItemLabel(caracterizacao, caracterizacao, "SmartMake · itens avulsos (17 itens)"), "SmartMake · itens avulsos (17 itens)");
+  // Simulador geral, botão de categoria: frase usa a categoria.
+  assertEquals(chosenItemLabel(buttons[0], null, null), "Resinas");
+  // Botão com produto do catálogo: frase usa o nome exato do produto.
+  assertEquals(chosenItemLabel(scanner, null, null), "Scanner X");
+  // Lead trocou para outro botão: o card não vale mais.
+  assertEquals(chosenItemLabel(buttons[0], caracterizacao, "SmartMake · itens avulsos (17 itens)"), "Resinas");
+  assertEquals(chosenItemLabel(null, caracterizacao, "SmartMake"), null);
+});
+
+Deno.test("seller WhatsApp text has no article and names the campaign without the period", () => {
+  assertEquals(sellerWhatsAppText({ sellerFirst: "Daniele", item: "Caracterização", campaign: "BlackFriday 16 a 20", ticket: "123" }),
+    "Olá Daniele, vi a campanha BlackFriday e quero saber mais sobre Caracterização. Meu atendimento já foi registrado com o número 123");
+  assertEquals(sellerWhatsAppText({ sellerFirst: "Ana", item: "Impressora 3D Elegoo Mars 5 Ultra", ticket: "9" }),
+    "Olá Ana, quero saber mais sobre Impressora 3D Elegoo Mars 5 Ultra. Meu atendimento já foi registrado com o número 9");
+});

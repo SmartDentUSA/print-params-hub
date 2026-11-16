@@ -12,7 +12,7 @@ import { linkLeadToPageSession } from '@/hooks/usePageTracking';
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string | null; label: string; options: string[]; field_type?: string };
 type CommercialCampaign = { question: string; options: string[]; group_message: string | null; redirect_ms: number };
-type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null; commercial_campaign?: CommercialCampaign | null; commercial_preset?: { label: string; product_catalog_id: string | null; product_name: string | null } | null };
+type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null; commercial_campaign?: CommercialCampaign | null; commercial_preset?: { label: string; product_catalog_id: string | null; product_name: string | null } | null; item_label?: string | null };
 type Msg = { from: "lia" | "user"; text: string; createdAt?: number; question?: Question };
 type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string; hook?: string | null };
 type Step = "phone" | "email" | "name" | "interest" | "creating" | "qualify" | "done";
@@ -72,6 +72,11 @@ export default function LiaCaptureChat({ formId, campaign, product, productId = 
   const [groupOpened, setGroupOpened] = useState(false);
   const [redirectIn, setRedirectIn] = useState<number | null>(null);
   const firstNameRef = useRef<string | null>(null);
+  // Busca do vendedor roda em intervalo: lê sempre o contexto e a escolha atuais.
+  const ctxRef = useRef<Ctx | null>(null);
+  const interestRef = useRef<string | null>(null);
+  ctxRef.current = ctx;
+  interestRef.current = interest;
   // Only announce the seller returned by the authorized endpoint.
   const invitation = useMemo(() => (seller ? sellerInvitation(seller, data.name) : ""), [seller, data.name]);
   const [closed, setClosed] = useState(false);
@@ -112,7 +117,7 @@ export default function LiaCaptureChat({ formId, campaign, product, productId = 
 
   useEffect(() => {
     let cancelled = false;
-    call({ action: "context", form_id: formId, campaign, product, product_catalog_id: productId, preset_interest: presetInterest }).then(async (c: Ctx) => {
+    call({ action: "context", form_id: formId, campaign, product, product_catalog_id: productId, preset_interest: presetInterest, simulator: simulator ?? undefined }).then(async (c: Ctx) => {
       if (cancelled) return;
       setCtx(c);
       trackAttendanceView(c.form_id);
@@ -170,7 +175,12 @@ export default function LiaCaptureChat({ formId, campaign, product, productId = 
     let stop = false;
     const tick = async () => {
       try {
-        const s = await call({ action: "seller", lead_id: lead.id, token: lead.token, form_id: ctx?.form_id ?? undefined, campaign: ctx?.campaign ?? undefined, product: ctx?.product ?? product ?? undefined });
+        const c = ctxRef.current;
+        const s = await call({
+          action: "seller", lead_id: lead.id, token: lead.token, form_id: c?.form_id ?? formId ?? undefined, campaign: c?.campaign ?? campaign ?? undefined,
+          product: interestRef.current ?? c?.product ?? product ?? undefined, interest: interestRef.current ?? undefined,
+          product_catalog_id: productId ?? undefined, preset_interest: presetInterest ?? undefined, simulator: simulator ?? undefined,
+        });
         if (!stop && s?.ready) setSeller(s);
       } catch { /* retry */ }
     };
@@ -300,8 +310,11 @@ export default function LiaCaptureChat({ formId, campaign, product, productId = 
     setLead({ id: r.lead_id, token: r.token });
     await linkLeadToPageSession(r.lead_id);
     if (firstName) setData({ ...identity, name: firstName });
-    if (greet) await say(firstName ? `Maravilha, ${firstName}!` : "Maravilha!");
-    else await say("Perfeito! Já registrei seu interesse.");
+    // Campanha comercial: confirma o item escolhido (card da landing, produto ou categoria).
+    const item = typeof r.item_label === "string" && r.item_label.trim() ? r.item_label.trim() : null;
+    const registered = item ? ` Já registrei seu interesse em ${item}.` : "";
+    if (greet) await say(`${firstName ? `Maravilha, ${firstName}!` : "Maravilha!"}${registered}`);
+    else await say(item ? `Perfeito!${registered}` : "Perfeito! Já registrei seu interesse.");
     const questions: Question[] = r.questions;
     setCtx({ ...ctx, questions, ...(chosen ? { product: chosen } : {}) });
     setQIdx(0);

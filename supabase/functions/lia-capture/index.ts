@@ -19,7 +19,7 @@ import { cleanPersonName } from "../_shared/piperun-field-map.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
-import { campaignButtons, campaignDisplayName, campaignMessageName, DEFAULT_INTEREST_QUESTION, GROUP_REDIRECT_MS, isCommercialCampaignForm, matchInterest, presetInterest, type PresetInterest } from "./commercial-campaign.ts";
+import { campaignButtons, campaignDisplayName, campaignMessageName, chosenItemLabel, DEFAULT_INTEREST_QUESTION, GROUP_REDIRECT_MS, isCommercialCampaignForm, matchInterest, presetInterest, sellerWhatsAppText, simulatorItemLabel, type PresetInterest } from "./commercial-campaign.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -80,6 +80,7 @@ async function resolveContext(body: any) {
   let commercial: { question: string; options: string[]; group_message: string | null; redirect_ms: number; display_name: string; promotional_table_id: string | null; promotional_table_name: string | null } | null = null;
   let commercialButtons: ReturnType<typeof campaignButtons> = [];
   let commercialPreset: PresetInterest | null = null;
+  let itemLabel: string | null = null;
   if (campaignSlug) {
     const { data: c } = await sb.from("campaigns").select("nome, lia_opening_message, lia_product_name").ilike("lia_slug", campaignSlug).maybeSingle();
     if (c) {
@@ -122,6 +123,14 @@ async function resolveContext(body: any) {
         ? presetInterest(commercialButtons, { product_catalog_id: presetId, interest: body.preset_interest }, presetCatalog)
         : null;
       if (commercialPreset) product = commercialPreset.product_name || commercialPreset.label;
+      // Card da landing que abriu o simulador: nome do item para as frases depois da conversão (CRM segue com o botão/produto).
+      const simulatorId = str(body.simulator, 80);
+      if (commercialPreset && simulatorId && simulatorId !== "geral") {
+        const { data: lpSims, error: simErr } = await sb.from("smartops_form_landing_pages").select("custom_simulators")
+          .eq("form_id", formId).eq("status", "published").limit(1).maybeSingle();
+        if (simErr) console.warn("[lia-capture] landing simulators unavailable", simErr.code);
+        itemLabel = simulatorItemLabel(lpSims?.custom_simulators, simulatorId);
+      }
       if (commercialButtons.length) commercial = {
         question: str((f as any)?.capture_buttons_question, 200) || DEFAULT_INTEREST_QUESTION,
         options: commercialButtons.map((b) => b.label),
@@ -205,7 +214,7 @@ async function resolveContext(body: any) {
   });
   const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const greeting = hour < 12 ? "Bom dia!" : hour < 18 ? "Boa tarde!" : "Boa noite!";
-  return { form_id: formId, form_purpose: formPurpose, event_id: formEventId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, whatsapp_group_url: groupUrl, commercial_campaign: commercial, commercial_buttons: commercialButtons, commercial_preset: commercialPreset, qualification_form_id: qFormId, fields };
+  return { form_id: formId, form_purpose: formPurpose, event_id: formEventId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, whatsapp_group_url: groupUrl, commercial_campaign: commercial, commercial_buttons: commercialButtons, commercial_preset: commercialPreset, item_label: itemLabel, qualification_form_id: qFormId, fields };
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
@@ -327,10 +336,14 @@ async function sellerCard(leadId: string, body: any) {
   }
   if (!ownerName || /distribuidor/i.test(ownerName)) return { ready: false };
   const first = ownerName.split(" ")[0];
-  const product = ctx?.product || lead.produto_interesse || lead.produto_interesse_auto || "seus produtos";
+  // Campanha comercial: o item é a escolha validada do lead (card da landing, produto do botão ou categoria).
+  const preset = ctx?.commercial_preset && matchInterest([ctx.commercial_preset], body?.interest) ? ctx.commercial_preset : null;
+  const chosen = ctx?.commercial_campaign ? (matchInterest(ctx.commercial_buttons, body?.interest) ?? preset) : null;
+  const item = chosenItemLabel(chosen, preset, ctx?.item_label ?? null);
+  const product = item || ctx?.product || lead.produto_interesse || lead.produto_interesse_auto || "seus produtos";
   const dealId = deal?.piperun_deal_id ? String(deal.piperun_deal_id) : "";
   const phone = normPhone(member?.whatsapp_number) || FALLBACK_WA;
-  const text = `Olá ${first}, quero saber mais sobre o ${product}, e meu atendimento já foi registrado com número ${dealId || leadId.slice(0, 8)}`;
+  const text = sellerWhatsAppText({ sellerFirst: first, item: product, campaign: ctx?.commercial_campaign?.display_name ?? null, ticket: dealId || leadId.slice(0, 8) });
   return {
     ready: true,
     seller_name: ownerName,
@@ -429,7 +442,7 @@ Deno.serve(async (req) => {
         console.error("[lia-capture] CRM note sync on create failed", error);
         await sb.from("system_health_logs").insert({ function_name: "lia-capture", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id: leadId, stage: "create" } });
       }));
-      return json({ lead_id: leadId, token: await sign(leadId), product: chosen ? chosen.label : undefined, questions: await pendingQuestions(leadId, chosen ? { ...body, product: chosen.label } : body) });
+      return json({ lead_id: leadId, token: await sign(leadId), product: chosen ? chosen.label : undefined, item_label: chosenItemLabel(chosen, preset, base.item_label) ?? undefined, questions: await pendingQuestions(leadId, chosen ? { ...body, product: chosen.label } : body) });
     }
 
     if (action === "qualification") {
