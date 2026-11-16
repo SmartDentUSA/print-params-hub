@@ -1,5 +1,5 @@
 import { assertEquals } from 'jsr:@std/assert@1';
-import { broadcastKeepsHeaderMedia, checkHeaderImage, planSlots, pushIntoWindow, resolveButtons, templateMeta, validateSchedule } from './plan.ts';
+import { MAX_TEST_PHONES, broadcastKeepsHeaderMedia, phoneVariants, checkHeaderImage, planSlots, pushIntoWindow, resolveButtons, templateMeta, validateSchedule } from './plan.ts';
 
 const now = new Date('2026-11-20T12:00:00Z');
 const leads = Array.from({ length: 1000 }, (_, i) => i);
