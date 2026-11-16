@@ -1,21 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fmtSaoPaulo, planBroadcast, saoPauloLocalToIso } from "./waBroadcastSchedule";
+import { planBroadcast, pushIntoWindow } from "./waBroadcastSchedule";
 
-test("horário digitado é de São Paulo (UTC-3)", () => {
-  assert.equal(saoPauloLocalToIso("2026-11-20T09:00"), "2026-11-20T12:00:00.000Z");
-  assert.equal(fmtSaoPaulo(new Date("2026-11-20T12:00:00Z")), "20/11 09:00");
-});
+const now = new Date("2026-11-20T12:00:00Z"); // 09:00 em São Paulo
 
-test("1.000 leads a 250 por hora: 4 lotes, último 3 h depois do início", () => {
-  const p = planBroadcast({ leads: 1000, perHour: 250, scheduledAtIso: "2026-11-20T12:00:00.000Z", now: new Date("2026-11-20T10:00:00Z") });
-  assert.equal(p.slots, 4);
-  assert.equal(p.durationHours, 4);
+test("250 leads, 100 por hora: 3 lotes de hora em hora", () => {
+  const p = planBroadcast({ leads: 250, perHour: 100, scheduledAtIso: "2026-11-20T13:00:00.000Z", now });
+  assert.equal(p.slots, 3);
   assert.equal(p.lastAt.toISOString(), "2026-11-20T15:00:00.000Z");
+  assert.equal(p.durationHours, 3);
 });
 
-test("sem limite e sem data: envio imediato, não agendado", () => {
-  const p = planBroadcast({ leads: 1000, perHour: null, scheduledAtIso: null, now: new Date("2026-11-20T10:00:00Z") });
+test("agendamento às 22:00 de São Paulo começa às 07:30 do dia seguinte", () => {
+  assert.equal(pushIntoWindow(new Date("2026-11-21T01:00:00Z")).toISOString(), "2026-11-21T10:30:00.000Z");
+  const p = planBroadcast({ leads: 10, perHour: null, scheduledAtIso: "2026-11-21T01:00:00.000Z", now });
+  assert.equal(p.startAt.toISOString(), "2026-11-21T10:30:00.000Z");
+  assert.equal(p.movedByWindow, true);
+});
+
+test("envio agora sem limite por hora não é agendado", () => {
+  const p = planBroadcast({ leads: 500, perHour: null, scheduledAtIso: null, now });
   assert.equal(p.scheduled, false);
   assert.equal(p.slots, 1);
 });

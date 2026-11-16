@@ -2909,6 +2909,7 @@ export type Database = {
           media_items: Json | null
           media_url_override: string | null
           mensagem_template: string | null
+          metadata: Json
           nome: string
           notes: string | null
           objetivo: string | null
@@ -2954,6 +2955,7 @@ export type Database = {
           media_items?: Json | null
           media_url_override?: string | null
           mensagem_template?: string | null
+          metadata?: Json
           nome: string
           notes?: string | null
           objetivo?: string | null
@@ -2999,6 +3001,7 @@ export type Database = {
           media_items?: Json | null
           media_url_override?: string | null
           mensagem_template?: string | null
+          metadata?: Json
           nome?: string
           notes?: string | null
           objetivo?: string | null
