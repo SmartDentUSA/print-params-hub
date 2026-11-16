@@ -47,6 +47,8 @@ const SOL_IMGS = [
   `${CAT_IMG}/nanoclean-pod-limpeza-resina-3d-odontologica-sem-alcool-1784902807481.png`,
 ];
 // Categoria correspondente no catálogo da Base de Conhecimento (chaves de catalogSidebarFilters).
+// Países com distribuidor oficial ativo (tabela distributors).
+const DIST_COUNTRIES = ['br', 'cl', 'co', 'cr', 'do', 'pa', 'us', 'uy', 've', 'bo', 'ec', 'sv', 'pe'];
 const SOL_CATS = ['resinas_3d', 'softwares_cad', 'scanners', 'impressoras_3d', 'pos_impressao', 'cimentos'];
 
 const css = `
@@ -134,6 +136,7 @@ const css = `
 .sdi-step:before{counter-increment:s;content:"0" counter(s);font-size:13px;font-weight:800;letter-spacing:.2em;color:var(--or);display:block;margin-bottom:14px}
 .sdi-step h3{margin:0 0 6px;font-size:16px;font-weight:700}.sdi-step p{margin:0;color:var(--mut);font-size:14px;line-height:1.55}
 .sdi-bento{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:20px}
+.sdi-flags{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.sdi-flags img{width:30px;height:20px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(54,62,86,.18),0 4px 10px -6px rgba(54,62,86,.5)}
 .sdi-panel-a{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
 .sdi-panel-a a{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:9px 14px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:0 8px 20px -14px rgba(54,62,86,.5)}
 .sdi-panel-a a.or{background:var(--or);color:#fff}
@@ -312,6 +315,12 @@ export default function KbTabInstitucional() {
               <div className="sdi-panel-a">
                 <a href="https://www.smartdent.com.br/r/rk82ex" target="_blank" rel="noopener">{c.distCta1}<ArrowRight size={14} /></a>
                 <a className="or" href="https://s.smartdent.com.br/wi7ygf" target="_blank" rel="noopener">{c.distCta2}<ArrowRight size={14} /></a>
+              </div>
+              <div className="sdi-flags">
+                {DIST_COUNTRIES.map((cc) => {
+                  const name = new Intl.DisplayNames([lang], { type: 'region' }).of(cc.toUpperCase()) ?? cc.toUpperCase();
+                  return <img key={cc} src={`/institucional/flags/${cc}.svg`} alt={name} title={name} width={30} height={20} loading="lazy" />;
+                })}
               </div>
             </div>
           </div>
