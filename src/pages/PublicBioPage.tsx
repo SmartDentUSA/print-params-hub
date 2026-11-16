@@ -166,6 +166,13 @@ export default function PublicBioPage({ main = false }: { main?: boolean }) {
           <h1 className="mt-4 text-2xl font-bold text-foreground">{page.title}</h1>
           {page.subtitle && <p className="mt-1 text-sm text-muted-foreground">{page.subtitle}</p>}
 
+          {/* Cards publicados (ex.: campanha BLACK26) vêm antes dos destaques fixos. */}
+          <section className="mt-5 flex w-full flex-col items-stretch gap-3 px-2 sm:px-0">
+            {page.items.map((item) => (
+              <BioCard key={item.id} item={item} onWhatsApp={openWhatsApp} onTrack={onTrack} />
+            ))}
+          </section>
+
           <div className="mt-5 flex w-full flex-col items-stretch gap-3 px-2 sm:px-0">
             <a
               href="/base-conhecimento?tab=parametros"
@@ -205,12 +212,6 @@ export default function PublicBioPage({ main = false }: { main?: boolean }) {
 
         </header>
 
-
-        <section className="mt-8 flex w-full flex-col items-center gap-3">
-          {page.items.map((item) => (
-            <BioCard key={item.id} item={item} onWhatsApp={openWhatsApp} onTrack={onTrack} />
-          ))}
-        </section>
 
         {page.items.length === 0 && (
           <p className="mt-10 text-center text-sm text-muted-foreground">Nenhum link publicado ainda.</p>
