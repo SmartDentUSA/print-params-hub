@@ -21,11 +21,13 @@ Deno.test("Busca aceita celular ou ID do CRM", () => {
   assertEquals(classifySearchInput("12").kind, "invalid");
 });
 
-Deno.test("Grupo tem vendedor e KOL; o número da Beatriz cria o grupo e não é repetido", () => {
-  assertEquals(groupParticipants("16 99111-2222", "5511988887777", "5516997501531"), ["5516991112222", "5511988887777"]);
-  assertEquals(groupParticipants("5516997501531", "11988887777", "5516997501531"), ["5511988887777"]);
-  // Vendedor que se indica como candidato: um único participante além da Beatriz.
-  assertEquals(groupParticipants("5516981596947", "16981596947", "5516997501531"), ["5516981596947"]);
+Deno.test("Grupo criado pelo Celular Comercial tem vendedor, KOL e Beatriz, sem repetir o criador", () => {
+  const COMERCIAL = "5516981596947", BEATRIZ = "5516997501531";
+  assertEquals(groupParticipants(["16 99111-2222", "5511988887777", BEATRIZ], COMERCIAL), ["5516991112222", "5511988887777", BEATRIZ]);
+  // Vendedor que se indica como candidato: entra uma vez só.
+  assertEquals(groupParticipants(["5516991112222", "16991112222", BEATRIZ], COMERCIAL), ["5516991112222", BEATRIZ]);
+  // O número do Celular Comercial nunca é convidado: ele cria e administra o grupo.
+  assertEquals(groupParticipants([COMERCIAL, "11988887777", BEATRIZ], COMERCIAL), ["5511988887777", BEATRIZ]);
 });
 
 Deno.test("Mensagem do grupo cita profissional, vendedor e link do portal", () => {

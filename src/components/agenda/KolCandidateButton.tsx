@@ -23,7 +23,7 @@ const EMPTY: FormState = { nome: "", email: "", area_atuacao: "", especialidade:
 
 const STEP_LABEL: Record<string, string> = {
   ficha: "Ficha do profissional (Cursos > KOLs)", portal: "Link do Portal do Profissional Parceiro", crm: "CRM",
-  crm_pessoa: "Pessoa no CRM", crm_deal: "Negócio no funil KOL", grupo: "Grupo de WhatsApp", mensagem: "Mensagem da Beatriz", crm_nota: "Nota no negócio",
+  crm_pessoa: "Pessoa no CRM", crm_deal: "Negócio no funil KOL", grupo: "Grupo de WhatsApp", mensagem: "Mensagem no grupo", crm_nota: "Nota no negócio",
 };
 
 export function KolCandidateButton() {

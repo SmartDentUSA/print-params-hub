@@ -51,13 +51,17 @@ export function waDigits(raw: unknown): string {
   return d.length >= 12 && d.length <= 13 ? d : "";
 }
 
-/** Participantes do grupo: vendedor + KOL. O número da Beatriz cria o grupo e já é o administrador. */
-export function groupParticipants(sellerPhone: unknown, kolPhone: unknown, adminPhone: unknown): string[] {
-  const admin = waDigits(adminPhone);
+/**
+ * Participantes do grupo: vendedor + KOL + Beatriz (Marketing). O Celular Comercial
+ * cria o grupo e já é o administrador, por isso nunca entra na lista; números
+ * repetidos ou inválidos são descartados.
+ */
+export function groupParticipants(members: unknown[], creatorPhone: unknown): string[] {
+  const creator = waDigits(creatorPhone);
   const out = new Set<string>();
-  for (const p of [sellerPhone, kolPhone]) {
+  for (const p of members) {
     const d = waDigits(p);
-    if (d && d !== admin) out.add(d);
+    if (d && d !== creator) out.add(d);
   }
   return [...out];
 }
