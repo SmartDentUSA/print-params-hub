@@ -125,7 +125,7 @@ Deno.test('público dentro do limite diário e sem data continua saindo agora', 
   assertEquals(s, [{ at: null, leads: leads.slice(0, 200) }]);
 });
 
-Deno.test('lote diário que cairia às 22:00 de SP vai para 07:30 do dia seguinte', () => {
+Deno.test('lote diário iniciado às 18:00 de SP repete às 18:00 do dia seguinte', () => {
   // começa 18:00 SP; 24 h depois = 18:00 do dia seguinte (dentro da janela)
   const s = planSlots(leads.slice(0, 300), { perDay: 250, scheduledAt: '2026-11-20T21:00:00Z', now });
   assertEquals(s.map((x) => x.at), ['2026-11-20T21:00:00.000Z', '2026-11-21T21:00:00.000Z']);
