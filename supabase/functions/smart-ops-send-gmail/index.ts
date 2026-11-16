@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { forceCtaDestination } from "./cta.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -130,15 +131,6 @@ function extractUrls(html: string): string[] {
     if (/^https?:\/\//i.test(u)) set.add(u);
   }
   return [...set];
-}
-
-function forceFormDestination(html: string, ctaConfig: any): string {
-  const principal = ctaConfig?.cta_principal;
-  const formUrl = principal?.tipo === "form" && /^https:\/\/s\.smartdent\.com\.br\/[A-Za-z0-9_-]+$/i.test(principal?.url || "")
-    ? principal.url
-    : null;
-  if (!formUrl) throw new Error("CTA do e-mail deve usar a URL encurtada oficial do formulário");
-  return html.replace(/href\s*=\s*(["'])https?:\/\/[^"']+\1/gi, (_match, quote) => `href=${quote}${formUrl}${quote}`);
 }
 
 // Send a single email for a queued campaign_send_log row.
@@ -388,7 +380,7 @@ Deno.serve(async (req) => {
       emailHtml = html;
     } else {
       try {
-        emailHtml = forceFormDestination(html, cta_config);
+        emailHtml = forceCtaDestination(html, cta_config);
       } catch (error) {
         return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "CTA de formulário inválido" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
