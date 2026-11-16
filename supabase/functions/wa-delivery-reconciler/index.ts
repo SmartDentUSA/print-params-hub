@@ -57,7 +57,17 @@ serve(async (req) => {
     }
   }
 
-  const summary = { checked: 0, delivered: 0, read: 0, stuck_requeued: 0, unverified: 0, still_pending: 0 }
+  // Campanhas de fluxo seguem a ordem de sequence_no: uma mensagem antiga voltando
+  // para a fila sairia depois das seguintes (e poderia duplicar). Nelas só marcamos
+  // a falha; o reenvio fica para o botão manual de reprocessar.
+  const campIds = Array.from(new Set(items.map(i => i.campaign_id).filter(Boolean))) as string[]
+  const flowCampaigns = new Set<string>()
+  if (campIds.length) {
+    const { data: camps } = await supabase.from('wa_campaigns').select('id, campaign_type').in('id', campIds)
+    for (const c of camps ?? []) if (((c as any).campaign_type ?? 'flow') === 'flow') flowCampaigns.add((c as any).id)
+  }
+
+  const summary = { checked: 0, delivered: 0, read: 0, stuck_requeued: 0, flow_failed_not_requeued: 0, unverified: 0, still_pending: 0 }
   const nowIso = new Date().toISOString()
 
   for (const it of items) {
@@ -87,8 +97,16 @@ serve(async (req) => {
       }).eq('id', it.id)
     } else if (ageMin > STUCK_MINUTES) {
       const explicitError = String(raw ?? '').toUpperCase() === 'ERROR'
-      if (explicitError) {
-        // Falha explícita do Baileys → re-agenda pro dispatcher tentar de novo.
+      if (explicitError && it.campaign_id && flowCampaigns.has(it.campaign_id)) {
+        summary.flow_failed_not_requeued++
+        await supabase.from('wa_message_queue').update({
+          delivery_status: 'failed_undelivered',
+          delivery_checked_at: nowIso,
+          delivery_attempts: attempts,
+          error_message: `Baileys retornou ERROR após ${Math.floor(ageMin)}min — fluxo: não reenviado automaticamente para manter a ordem`,
+        }).eq('id', it.id)
+      } else if (explicitError) {
+        // Falha explícita do Baileys → re-agenda pro dispatcher tentar de novo (blasts).
         summary.stuck_requeued++
         await supabase.from('wa_message_queue').update({
           delivery_status: 'failed_undelivered',
