@@ -156,6 +156,12 @@ h1 .hot{background:linear-gradient(180deg,#FCB58F,var(--orange) 55%,#E06800);-we
 /* ---------- Faixa fixa 50% ---------- */
 .fixed50{margin:6px 0 0}
 .fixed50 .wrap>div{display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:space-between;border:1px solid rgba(244,124,66,.35);background:linear-gradient(100deg,rgba(244,124,66,.16),rgba(244,124,66,.03));border-radius:var(--r);padding:18px 24px}
+.fixed50 .f50-photo{width:132px;flex:0 0 132px;border-radius:16px;cursor:default}
+.fixed50 .f50-txt{flex:1 1 280px;min-width:0}
+.fixed50 .f50-price{margin-top:8px;font-size:14px;color:#fff}
+.fixed50 .f50-price b{color:#4ade80}
+.fixed50 .f50-price s{color:var(--mut)}
+@media(max-width:640px){.fixed50 .f50-photo{width:104px;flex-basis:104px}}
 .fixed50 strong{font-size:clamp(18px,2.2vw,24px);font-weight:900;letter-spacing:-.02em}
 .fixed50 p{color:var(--mut);font-size:14px}
 .fixed50 em{font-style:normal;color:var(--orange);font-weight:900}
@@ -395,9 +401,11 @@ h1,h2,h3,.badge,.nowp,.step strong,.cells b,.hot,.pt td:first-child,.btn,.save{f
 <section class="fixed50 rv">
   <div class="wrap">
     <div>
-      <div>
+      <div class="f50-photo photo" data-alt="Resina 3D Smart Print Model Plus" data-cat="https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-model-plus-1784781670990.png"><img class="fb" src="img/photo/05-model-plus.jpg" width="640" height="640" alt="Resina 3D Smart Print Model Plus" loading="lazy"></div>
+      <div class="f50-txt">
         <strong><em>50% OFF fixo</em> na Resina Smart Print Model Plus</strong>
         <p>Do início ao fim da campanha, sem mudar de fase.</p>
+        <p class="f50-price">De <s>R$ 399,00</s> por <b>R$ 199,50</b> · economize <b>R$ 199,50</b></p>
       </div>
       <a class="btn btn-wa btn-sm" href="#" data-wa data-wa-ctx="fixed50" data-slug="model-plus" data-name="Resina 3D Smart Print Model Plus" data-wa-mode="fixed"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5 3.5A11.9 11.9 0 0 0 12 0C5.4 0 .1 5.3.1 11.9c0 2.1.6 4.2 1.6 6L0 24l6.3-1.7a12 12 0 0 0 5.7 1.5h0c6.6 0 11.9-5.3 11.9-11.9 0-3.2-1.2-6.2-3.4-8.4zM12 21.8h0a9.9 9.9 0 0 1-5-1.4l-.4-.2-3.7 1 1-3.6-.2-.4a9.9 9.9 0 0 1-1.5-5.2C2.2 6.5 6.6 2.1 12 2.1c2.6 0 5.1 1 7 2.9a9.8 9.8 0 0 1 2.9 7c0 5.4-4.4 9.8-9.9 9.8zm5.4-7.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1l-.9 1.1c-.2.2-.3.2-.6.1a8 8 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5 1.9.8 2.6.9 3.5.7.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.1-.3-.2-.6-.3z"/></svg> Quero a Model Plus</a>
     </div>
@@ -417,6 +425,8 @@ h1,h2,h3,.badge,.nowp,.step strong,.cells b,.hot,.pt td:first-child,.btn,.save{f
       <button class="chip" role="tab" data-f="finalizacao" aria-selected="false">Pós-processamento</button>
       <button class="chip" role="tab" data-f="caracterizacao" aria-selected="false">Caracterização</button>
       <button class="chip" role="tab" data-f="cimentos" aria-selected="false">Cimentos e resinas diretas</button>
+      <button class="chip" role="tab" data-f="software" aria-selected="false">Software RMS</button>
+      <button class="chip" role="tab" data-f="combos" aria-selected="false">Combos e brindes</button>
       <button class="chip" role="tab" data-f="equipamentos" aria-selected="false">Equipamentos</button>
     </div>
     <div class="grid" id="grid">
@@ -798,11 +808,119 @@ h1,h2,h3,.badge,.nowp,.step strong,.cells b,.hot,.pt td:first-child,.btn,.save{f
           </div>
         </div>
       </article>
+      <article class="card rv" data-cat="software" data-slug="exoplan-rms" data-name="Exoplan RMS · Ativação + 1 kg Clear Guide de brinde">
+        <div class="card-in">
+          <div class="tagrow"><span class="badge alt" data-badge="static">Sem desconto progressivo</span><button type="button" class="zoombtn" data-zoom="img/15-exoplan-rms.png" data-alt="Exoplan RMS · Ativação + 1 kg Clear Guide de brinde" aria-label="Ver arte completa de Exoplan RMS · Ativação + 1 kg Clear Guide de brinde"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>Ver arte</button></div>
+          <a class="photo" href="img/15-exoplan-rms.png" data-zoom="img/15-exoplan-rms.png" data-alt="Exoplan RMS · Ativação + 1 kg Clear Guide de brinde" data-cat="" aria-label="Ver arte completa de Exoplan RMS · Ativação + 1 kg Clear Guide de brinde">
+            <img class="fb" src="img/photo/15-exoplan-rms.jpg" width="900" height="510" alt="Exoplan RMS · Ativação + 1 kg Clear Guide de brinde" loading="lazy" decoding="async">
+          </a>
+          <div class="info">
+            <div class="cat">Software RMS</div>
+            <h3>Exoplan RMS · Ativação + 1 kg Clear Guide de brinde</h3>
+            <div class="save">Economize <b>R$ 1.454,45</b><small>1 kg de Resina Clear Guide de brinde (R$ 1.711,12 com 15% OFF)</small></div><div class="nowline static"><div class="real">Ativação e Implantação exoplan RMS + Guide Creator<br>De <s>R$ 1.688,70</s></div><div class="nowp"><small>Por</small>R$ 1.299,00</div></div><p class="note"><b>Ganhe 1 kg de Resina Smart Print Bio Clear Guide.</b> Sem desconto progressivo: mesmo valor de 16 a 30/11.</p>
+            <div class="timer" data-timer="end" role="timer">
+              <div class="lbl"><i></i><span data-t-label>Fase 1 · 25% OFF termina em</span></div>
+              <div class="cells">
+                <div><b data-u="d">00</b><small>dias</small></div>
+                <div><b data-u="h">00</b><small>horas</small></div>
+                <div><b data-u="m">00</b><small>min</small></div>
+                <div><b data-u="s">00</b><small>seg</small></div>
+              </div>
+              <p class="nx" data-t-next></p>
+            </div>
+            <div class="cta">
+              <a class="btn btn-wa btn-block" href="#" data-wa data-wa-ctx="card" data-slug="exoplan-rms" data-name="Exoplan RMS · Ativação + 1 kg Clear Guide de brinde" data-cat="software" data-wa-mode="end"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5 3.5A11.9 11.9 0 0 0 12 0C5.4 0 .1 5.3.1 11.9c0 2.1.6 4.2 1.6 6L0 24l6.3-1.7a12 12 0 0 0 5.7 1.5h0c6.6 0 11.9-5.3 11.9-11.9 0-3.2-1.2-6.2-3.4-8.4zM12 21.8h0a9.9 9.9 0 0 1-5-1.4l-.4-.2-3.7 1 1-3.6-.2-.4a9.9 9.9 0 0 1-1.5-5.2C2.2 6.5 6.6 2.1 12 2.1c2.6 0 5.1 1 7 2.9a9.8 9.8 0 0 1 2.9 7c0 5.4-4.4 9.8-9.9 9.8zm5.4-7.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1l-.9 1.1c-.2.2-.3.2-.6.1a8 8 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5 1.9.8 2.6.9 3.5.7.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.1-.3-.2-.6-.3z"/></svg><span data-btn-text>Quero esse preço agora</span></a>
+              <a class="store" href="https://loja.smartdent.com.br/" data-store data-slug="exoplan-rms" data-name="Exoplan RMS · Ativação + 1 kg Clear Guide de brinde" target="_blank" rel="noopener">Ver na loja online</a>
+            </div>
+          </div>
+        </div>
+      </article>
+      <article class="card rv" data-cat="software" data-slug="exocad-rms" data-name="exocad RMS · Ativação + resina Vitality de brinde">
+        <div class="card-in">
+          <div class="tagrow"><span class="badge alt" data-badge="static">Brinde incluso</span><button type="button" class="zoombtn" data-zoom="img/16-exocad-rms.png" data-alt="exocad RMS · Ativação + resina Vitality de brinde" aria-label="Ver arte completa de exocad RMS · Ativação + resina Vitality de brinde"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>Ver arte</button></div>
+          <a class="photo" href="img/16-exocad-rms.png" data-zoom="img/16-exocad-rms.png" data-alt="exocad RMS · Ativação + resina Vitality de brinde" data-cat="" aria-label="Ver arte completa de exocad RMS · Ativação + resina Vitality de brinde">
+            <img class="fb" src="img/photo/16-exocad-rms.jpg" width="900" height="510" alt="exocad RMS · Ativação + resina Vitality de brinde" loading="lazy" decoding="async">
+          </a>
+          <div class="info">
+            <div class="cat">Software RMS</div>
+            <h3>exocad RMS · Ativação + resina Vitality de brinde</h3>
+            <div class="save">Economize <b>R$ 1.580,15</b><small>1 resina Vitality 250 g de brinde, cor à sua escolha (R$ 1.859,00 com 15% OFF)</small></div><div class="nowline static"><div class="real">Ativação exocad RMS · DentalCAD Ultimate Lab Bundle</div><div class="nowp"><small>Ativação</small>R$ 2.399,00</div></div><p class="note"><b>Ganhe 1 resina Vitality 250 g</b> (cores A2, A3, B1 ou BL1 à sua escolha, valor de tabela R$ 1.859,00).</p>
+            <div class="timer" data-timer="end" role="timer">
+              <div class="lbl"><i></i><span data-t-label>Fase 1 · 25% OFF termina em</span></div>
+              <div class="cells">
+                <div><b data-u="d">00</b><small>dias</small></div>
+                <div><b data-u="h">00</b><small>horas</small></div>
+                <div><b data-u="m">00</b><small>min</small></div>
+                <div><b data-u="s">00</b><small>seg</small></div>
+              </div>
+              <p class="nx" data-t-next></p>
+            </div>
+            <div class="cta">
+              <a class="btn btn-wa btn-block" href="#" data-wa data-wa-ctx="card" data-slug="exocad-rms" data-name="exocad RMS · Ativação + resina Vitality de brinde" data-cat="software" data-wa-mode="end"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5 3.5A11.9 11.9 0 0 0 12 0C5.4 0 .1 5.3.1 11.9c0 2.1.6 4.2 1.6 6L0 24l6.3-1.7a12 12 0 0 0 5.7 1.5h0c6.6 0 11.9-5.3 11.9-11.9 0-3.2-1.2-6.2-3.4-8.4zM12 21.8h0a9.9 9.9 0 0 1-5-1.4l-.4-.2-3.7 1 1-3.6-.2-.4a9.9 9.9 0 0 1-1.5-5.2C2.2 6.5 6.6 2.1 12 2.1c2.6 0 5.1 1 7 2.9a9.8 9.8 0 0 1 2.9 7c0 5.4-4.4 9.8-9.9 9.8zm5.4-7.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1l-.9 1.1c-.2.2-.3.2-.6.1a8 8 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5 1.9.8 2.6.9 3.5.7.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.1-.3-.2-.6-.3z"/></svg><span data-btn-text>Quero esse preço agora</span></a>
+              <a class="store" href="https://loja.smartdent.com.br/" data-store data-slug="exocad-rms" data-name="exocad RMS · Ativação + resina Vitality de brinde" target="_blank" rel="noopener">Ver na loja online</a>
+            </div>
+          </div>
+        </div>
+      </article>
+      <article class="card rv" data-cat="combos" data-slug="combo-bite-glazeon" data-name="Combo Bite Splint +Flex 1 kg + GlazeON de brinde">
+        <div class="card-in">
+          <div class="tagrow"><span class="badge" data-badge="tier">Fase 1 · 25% OFF</span><button type="button" class="zoombtn" data-zoom="img/17-combo-bite-glazeon.png" data-alt="Combo Bite Splint +Flex 1 kg + GlazeON de brinde" aria-label="Ver arte completa de Combo Bite Splint +Flex 1 kg + GlazeON de brinde"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>Ver arte</button></div>
+          <a class="photo" href="img/17-combo-bite-glazeon.png" data-zoom="img/17-combo-bite-glazeon.png" data-alt="Combo Bite Splint +Flex 1 kg + GlazeON de brinde" data-cat="https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-bite-splint-flex-duravel-1784780601017.png|https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/3848beb6-b671-43c4-9799-d8e482d197f4-1764283867703.webp" aria-label="Ver arte completa de Combo Bite Splint +Flex 1 kg + GlazeON de brinde">
+            <img class="fb" src="img/photo/17-combo-bite-glazeon.jpg" width="900" height="510" alt="Combo Bite Splint +Flex 1 kg + GlazeON de brinde" loading="lazy" decoding="async">
+          </a>
+          <div class="info">
+            <div class="cat">Combos e brindes</div>
+            <h3>Combo Bite Splint +Flex 1 kg + GlazeON de brinde</h3>
+            <div class="save hide" data-mode="range" data-sv='[["Bite Splint +Flex 1 kg", 756.25, 563.75, 467.5]]'></div><div class="nowline" data-prices="1925.00|1443.75|1636.25|1732.50"><div class="real">Valor de tabela <s>R$ 1.925,00</s><br>Bite Splint +Flex 1 kg</div><div class="nowp"></div></div><div class="tw"><table class="pt" data-phase="1"><thead><tr><th>Apresentação<small>valores em R$</small></th><th class="c0">Tabela</th><th data-c="1">25%<small>16–20/11</small></th><th data-c="2">15%<small>21–25/11</small></th><th data-c="3">10%<small>26–30/11</small></th></tr></thead><tbody><tr><td>Bite Splint +Flex 1 kg<small>+ 1 GlazeON de brinde (valor R$ 275,00)</small></td><td class="c0">1.925,00</td><td data-c="1">1.443,75</td><td data-c="2">1.636,25</td><td data-c="3">1.732,50</td></tr></tbody></table></div>
+            <div class="timer" data-timer="tier" role="timer">
+              <div class="lbl"><i></i><span data-t-label>Fase 1 · 25% OFF termina em</span></div>
+              <div class="cells">
+                <div><b data-u="d">00</b><small>dias</small></div>
+                <div><b data-u="h">00</b><small>horas</small></div>
+                <div><b data-u="m">00</b><small>min</small></div>
+                <div><b data-u="s">00</b><small>seg</small></div>
+              </div>
+              <p class="nx" data-t-next></p>
+            </div>
+            <div class="cta">
+              <a class="btn btn-wa btn-block" href="#" data-wa data-wa-ctx="card" data-slug="combo-bite-glazeon" data-name="Combo Bite Splint +Flex 1 kg + GlazeON de brinde" data-cat="combos" data-wa-mode=""><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5 3.5A11.9 11.9 0 0 0 12 0C5.4 0 .1 5.3.1 11.9c0 2.1.6 4.2 1.6 6L0 24l6.3-1.7a12 12 0 0 0 5.7 1.5h0c6.6 0 11.9-5.3 11.9-11.9 0-3.2-1.2-6.2-3.4-8.4zM12 21.8h0a9.9 9.9 0 0 1-5-1.4l-.4-.2-3.7 1 1-3.6-.2-.4a9.9 9.9 0 0 1-1.5-5.2C2.2 6.5 6.6 2.1 12 2.1c2.6 0 5.1 1 7 2.9a9.8 9.8 0 0 1 2.9 7c0 5.4-4.4 9.8-9.9 9.8zm5.4-7.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1l-.9 1.1c-.2.2-.3.2-.6.1a8 8 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5 1.9.8 2.6.9 3.5.7.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.1-.3-.2-.6-.3z"/></svg><span data-btn-text>Quero esse preço agora</span></a>
+              <a class="store" href="https://loja.smartdent.com.br/" data-store data-slug="combo-bite-glazeon" data-name="Combo Bite Splint +Flex 1 kg + GlazeON de brinde" target="_blank" rel="noopener">Ver na loja online</a>
+            </div>
+          </div>
+        </div>
+      </article>
+      <article class="card rv" data-cat="combos" data-slug="combo-vitality-nanoclean" data-name="Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde">
+        <div class="card-in">
+          <div class="tagrow"><span class="badge alt" data-badge="static">15% OFF fixo</span><button type="button" class="zoombtn" data-zoom="img/18-combo-vitality-nanoclean.png" data-alt="Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde" aria-label="Ver arte completa de Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>Ver arte</button></div>
+          <a class="photo" href="img/18-combo-vitality-nanoclean.png" data-zoom="img/18-combo-vitality-nanoclean.png" data-alt="Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde" data-cat="https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-vitality-longa-duracao-1784782470169.png|https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/nanoclean-pod-limpeza-resina-3d-odontologica-sem-alcool-1784902807481.png" aria-label="Ver arte completa de Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde">
+            <img class="fb" src="img/photo/18-combo-vitality-nanoclean.jpg" width="900" height="510" alt="Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde" loading="lazy" decoding="async">
+          </a>
+          <div class="info">
+            <div class="cat">Combos e brindes</div>
+            <h3>Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde</h3>
+            <div class="save">Economize <b>R$ 1.235,55</b><small>R$ 836,55 de desconto nas 3 Vitality + NanoClean PoD de brinde (R$ 399,00)</small></div><div class="nowline static"><div class="real">3 × Vitality 250 g · De <s>R$ 5.577,00</s><br>15% OFF em cada (R$ 1.580,15 cada)</div><div class="nowp"><small>Total dos 3</small>R$ 4.740,45</div></div><p class="note"><b>Ganhe 1 NanoClean PoD 160 g</b> (valor de tabela R$ 399,00). Desconto fixo de 15% de 16 a 30/11.</p>
+            <div class="timer" data-timer="end" role="timer">
+              <div class="lbl"><i></i><span data-t-label>Fase 1 · 25% OFF termina em</span></div>
+              <div class="cells">
+                <div><b data-u="d">00</b><small>dias</small></div>
+                <div><b data-u="h">00</b><small>horas</small></div>
+                <div><b data-u="m">00</b><small>min</small></div>
+                <div><b data-u="s">00</b><small>seg</small></div>
+              </div>
+              <p class="nx" data-t-next></p>
+            </div>
+            <div class="cta">
+              <a class="btn btn-wa btn-block" href="#" data-wa data-wa-ctx="card" data-slug="combo-vitality-nanoclean" data-name="Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde" data-cat="combos" data-wa-mode="end"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5 3.5A11.9 11.9 0 0 0 12 0C5.4 0 .1 5.3.1 11.9c0 2.1.6 4.2 1.6 6L0 24l6.3-1.7a12 12 0 0 0 5.7 1.5h0c6.6 0 11.9-5.3 11.9-11.9 0-3.2-1.2-6.2-3.4-8.4zM12 21.8h0a9.9 9.9 0 0 1-5-1.4l-.4-.2-3.7 1 1-3.6-.2-.4a9.9 9.9 0 0 1-1.5-5.2C2.2 6.5 6.6 2.1 12 2.1c2.6 0 5.1 1 7 2.9a9.8 9.8 0 0 1 2.9 7c0 5.4-4.4 9.8-9.9 9.8zm5.4-7.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1l-.9 1.1c-.2.2-.3.2-.6.1a8 8 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5 1.9.8 2.6.9 3.5.7.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.1-.3-.2-.6-.3z"/></svg><span data-btn-text>Quero esse preço agora</span></a>
+              <a class="store" href="https://loja.smartdent.com.br/" data-store data-slug="combo-vitality-nanoclean" data-name="Combo 3 Vitality com 15% OFF + NanoClean PoD de brinde" target="_blank" rel="noopener">Ver na loja online</a>
+            </div>
+          </div>
+        </div>
+      </article>
       <article class="card rv" data-cat="equipamentos" data-slug="elegoo-mars-5-ultra" data-name="Impressora 3D ELEGOO Mars 5 Ultra">
         <div class="card-in">
-          <div class="tagrow"><span class="badge alt" data-badge="static">Condição especial</span><button type="button" class="zoombtn" data-zoom="img/15-elegoo-mars-5-ultra.png" data-alt="Impressora 3D ELEGOO Mars 5 Ultra" aria-label="Ver arte completa de Impressora 3D ELEGOO Mars 5 Ultra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>Ver arte</button></div>
-          <a class="photo" href="img/15-elegoo-mars-5-ultra.png" data-zoom="img/15-elegoo-mars-5-ultra.png" data-alt="Impressora 3D ELEGOO Mars 5 Ultra" data-cat="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/37651e02-b6f1-43e4-a958-5ed1f42c43a9-1768352754294.webp" aria-label="Ver arte completa de Impressora 3D ELEGOO Mars 5 Ultra">
-            <img class="fb" src="img/photo/15-elegoo-mars-5-ultra.jpg" width="372" height="540" alt="Impressora 3D ELEGOO Mars 5 Ultra" loading="lazy" decoding="async">
+          <div class="tagrow"><span class="badge alt" data-badge="static">Condição especial</span><button type="button" class="zoombtn" data-zoom="img/19-elegoo-mars-5-ultra.png" data-alt="Impressora 3D ELEGOO Mars 5 Ultra" aria-label="Ver arte completa de Impressora 3D ELEGOO Mars 5 Ultra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>Ver arte</button></div>
+          <a class="photo" href="img/19-elegoo-mars-5-ultra.png" data-zoom="img/19-elegoo-mars-5-ultra.png" data-alt="Impressora 3D ELEGOO Mars 5 Ultra" data-cat="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/37651e02-b6f1-43e4-a958-5ed1f42c43a9-1768352754294.webp" aria-label="Ver arte completa de Impressora 3D ELEGOO Mars 5 Ultra">
+            <img class="fb" src="img/photo/19-elegoo-mars-5-ultra.jpg" width="372" height="540" alt="Impressora 3D ELEGOO Mars 5 Ultra" loading="lazy" decoding="async">
           </a>
           <div class="info">
             <div class="cat">Equipamentos</div>
@@ -827,9 +945,9 @@ h1,h2,h3,.badge,.nowp,.step strong,.cells b,.hot,.pt td:first-child,.btn,.save{f
       </article>
       <article class="card wide rv" data-cat="equipamentos" data-slug="combo-chairside-ai-pro" data-name="Combo Chairside Smart A.I. Pro">
         <div class="card-in">
-          <div class="tagrow"><span class="badge alt" data-badge="static">Últimas unidades</span><button type="button" class="zoombtn" data-zoom="img/16-combo-chairside-ai-pro.png" data-alt="Combo Chairside Smart A.I. Pro" aria-label="Ver arte completa de Combo Chairside Smart A.I. Pro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>Ver arte</button></div>
-          <a class="photo" href="img/16-combo-chairside-ai-pro.png" data-zoom="img/16-combo-chairside-ai-pro.png" data-alt="Combo Chairside Smart A.I. Pro" data-cat="https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/chairside-smart-ai-pro-1788182984717.png" aria-label="Ver arte completa de Combo Chairside Smart A.I. Pro">
-            <img class="fb" src="img/photo/16-combo-chairside-ai-pro.jpg" width="900" height="461" alt="Combo Chairside Smart A.I. Pro" loading="lazy" decoding="async">
+          <div class="tagrow"><span class="badge alt" data-badge="static">Últimas unidades</span><button type="button" class="zoombtn" data-zoom="img/20-combo-chairside-ai-pro.png" data-alt="Combo Chairside Smart A.I. Pro" aria-label="Ver arte completa de Combo Chairside Smart A.I. Pro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>Ver arte</button></div>
+          <a class="photo" href="img/20-combo-chairside-ai-pro.png" data-zoom="img/20-combo-chairside-ai-pro.png" data-alt="Combo Chairside Smart A.I. Pro" data-cat="https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/chairside-smart-ai-pro-1788182984717.png" aria-label="Ver arte completa de Combo Chairside Smart A.I. Pro">
+            <img class="fb" src="img/photo/20-combo-chairside-ai-pro.jpg" width="900" height="461" alt="Combo Chairside Smart A.I. Pro" loading="lazy" decoding="async">
           </a>
           <div class="info">
             <div class="cat">Equipamentos</div>

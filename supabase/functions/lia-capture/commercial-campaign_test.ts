@@ -54,8 +54,8 @@ Deno.test("item da landing já escolhido: botão pelo produto ou produto ativo d
   // ID sem produto ativo no catálogo não preenche nada.
   assertEquals(presetInterest(buttons, { product_catalog_id: cat.id }, null), null);
   // Itens sem produto único usam o botão do formulário pelo rótulo.
-  assertEquals(presetInterest(buttons, { interest: "resina direta" })?.label, "Resina direta");
-  assertEquals(presetInterest(buttons, { interest: "Qualquer coisa" }), null);
+  assertEquals(presetInterest(buttons, { interest: "resina direta" }, null)?.label, "Resina direta");
+  assertEquals(presetInterest(buttons, { interest: "Qualquer coisa" }, null), null);
 });
 
 import { chosenItemLabel, sellerWhatsAppText, simulatorItemLabel } from "./commercial-campaign.ts";
