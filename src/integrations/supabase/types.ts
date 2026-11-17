@@ -32081,6 +32081,102 @@ export type Database = {
         }
         Relationships: []
       }
+      wa_button_reply_log: {
+        Row: {
+          button_key: string
+          button_label: string | null
+          campaign_id: string | null
+          created_at: string
+          error: string | null
+          id: string
+          inbox_id: string
+          lead_id: string | null
+          link: string | null
+          phone: string
+          provider_message_id: string | null
+          reply_text: string | null
+          rule_id: string | null
+          sent_at: string | null
+          skip_reason: string | null
+          status: string
+        }
+        Insert: {
+          button_key: string
+          button_label?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          inbox_id: string
+          lead_id?: string | null
+          link?: string | null
+          phone: string
+          provider_message_id?: string | null
+          reply_text?: string | null
+          rule_id?: string | null
+          sent_at?: string | null
+          skip_reason?: string | null
+          status?: string
+        }
+        Update: {
+          button_key?: string
+          button_label?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          inbox_id?: string
+          lead_id?: string | null
+          link?: string | null
+          phone?: string
+          provider_message_id?: string | null
+          reply_text?: string | null
+          rule_id?: string | null
+          sent_at?: string | null
+          skip_reason?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      wa_button_reply_rules: {
+        Row: {
+          account_id: string
+          broadcast_ids: string[]
+          buttons: Json
+          campaign_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          is_test: boolean
+          session_id: string | null
+          test_phones: string[]
+        }
+        Insert: {
+          account_id: string
+          broadcast_ids?: string[]
+          buttons?: Json
+          campaign_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_test?: boolean
+          session_id?: string | null
+          test_phones?: string[]
+        }
+        Update: {
+          account_id?: string
+          broadcast_ids?: string[]
+          buttons?: Json
+          campaign_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_test?: boolean
+          session_id?: string | null
+          test_phones?: string[]
+        }
+        Relationships: []
+      }
       wa_campaign_groups: {
         Row: {
           campaign_id: string
