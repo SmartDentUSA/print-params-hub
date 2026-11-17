@@ -2,6 +2,7 @@
 // Clona a estrutura do formulário modelo "# - INDICAÇÃO - Erick Souza"
 // (campos, opções, botões de produto, condições) e vincula à ficha do profissional.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { cloneFormFields } from "./clone-form-fields.ts";
 
 const TEMPLATE_FORM_ID = "98918740-4e99-45f9-bf6d-89cfe90a8c14"; // # - INDICAÇÃO - Erick Souza
 
@@ -130,10 +131,8 @@ export async function ensureReferralForm(
     .eq("form_id", TEMPLATE_FORM_ID)
     .order("order_index");
   if (fields?.length) {
-    const rows = fields.map((f: any) => {
-      const { id: _fid, created_at: _fc, updated_at: _fu, ...frest } = f;
-      return { ...frest, form_id: newForm.id };
-    });
+    // Novo ID por pergunta, com as condições apontando para as perguntas da cópia.
+    const rows = cloneFormFields(fields as any[], newForm.id);
     const { error: fErr } = await admin.from("smartops_form_fields").insert(rows);
     if (fErr) console.error("[kol-referral-form] clone fields", fErr.message);
   }
