@@ -694,6 +694,8 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                       ? "Espelho fiel da Landing Page (verbatim)"
                       : emailSource === "landing_page_verbatim"
                       ? "Espelho fiel da Landing Page (verbatim)"
+                      : emailSource === "landing_page_custom"
+                      ? "Gerado com o texto da Landing Page"
                       : emailSource === "catalog_dossier"
                       ? "Fallback: dossiê do catálogo"
                       : "E-mail padrão: espelho fiel da LP"}
@@ -713,7 +715,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
               <span className="flex items-center gap-2">
                 2. Revisar & Ajustar
                 {emailSource?.startsWith("landing_page") && (
-                  <Badge variant="secondary" className="text-[10px]">Espelho fiel da Landing Page</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{emailSource === "landing_page_custom" ? "Conteúdo da Landing Page" : "Espelho fiel da Landing Page"}</Badge>
                 )}
                 {emailSource === "catalog_dossier" && (
                   <Badge variant="outline" className="text-[10px]">Fallback catálogo</Badge>
@@ -901,7 +903,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
           )}
           <EmailSequenceBuilder
           seedFromCurrent={{
-            produto_id: produtoId,
+            produto_id: produtoId || null,
             audience_filter: filters,
             subject, preheader, html: effectiveHtml || html,
             cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
@@ -921,7 +923,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
               <span className="flex items-center gap-2">
                 Revisar & Ajustar — Tela expandida
                 {emailSource?.startsWith("landing_page") && (
-                  <Badge variant="secondary" className="text-[10px]">Espelho fiel da Landing Page</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{emailSource === "landing_page_custom" ? "Conteúdo da Landing Page" : "Espelho fiel da Landing Page"}</Badge>
                 )}
                 {emailSource === "catalog_dossier" && (
                   <Badge variant="outline" className="text-[10px]">Fallback catálogo</Badge>
