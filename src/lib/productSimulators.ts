@@ -86,3 +86,15 @@ export function withAllProductSimulators(rows: SimulatorMetricRow[], products: {
   }
   return out;
 }
+
+/** Formulário de oportunidade do site: simulador padrão dos produtos do catálogo da Base de Conhecimento sem formulário próprio. */
+export const KB_CATALOG_FALLBACK_FORM_ID = "b9d5740b-30cd-4a07-8bcb-92d7bc4a68f4"; // # - [CHATSITE] - Oportunidade
+
+/**
+ * Botão de WhatsApp de um card do catálogo da Base de Conhecimento: o formulário vinculado ao
+ * produto, quando existe; senão o CHATSITE com o produto já escolhido e o simulador isolado do produto.
+ */
+export function kbCatalogWhatsAppTarget(productId: string, linkedFormId?: string | null): { formId: string; productId?: string; simulator?: string } {
+  if (linkedFormId) return { formId: linkedFormId };
+  return { formId: KB_CATALOG_FALLBACK_FORM_ID, productId, simulator: productSimulatorId(productId) };
+}

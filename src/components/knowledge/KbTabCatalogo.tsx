@@ -23,6 +23,7 @@ import { basicResinSpecs, catalogResinShades } from '@/lib/resinCatalogDetails';
 import './resin-catalog-details.css';
 import { AttendanceDialog } from '@/components/lia/AttendanceDialog';
 import { buildLiaUrl, trackAttendanceEvent } from '@/lib/attendanceChannel';
+import { kbCatalogWhatsAppTarget } from '@/lib/productSimulators';
 import { MessageCircle } from 'lucide-react';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
@@ -420,9 +421,11 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
   const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
   const [waFormByProduct, setWaFormByProduct] = useState<Map<string, string>>(new Map());
   const [waUrl, setWaUrl] = useState<string | null>(null);
-  const openWhatsApp = (formId: string, productName: string) => {
-    trackAttendanceEvent({ channel: 'whatsapp_lia', event_type: 'click', form_id: formId, product_name: productName });
-    setWaUrl(buildLiaUrl({ formId }) + '&utm_source=catalogo&utm_medium=whatsapp_lia');
+  // Todo card tem WhatsApp: formulário vinculado ao produto ou, sem ele, o CHATSITE com o simulador isolado do produto.
+  const openWhatsApp = (productId: string, productName: string) => {
+    const target = kbCatalogWhatsAppTarget(productId, waFormByProduct.get(productId));
+    trackAttendanceEvent({ channel: 'whatsapp_lia', event_type: 'click', form_id: target.formId, product_name: productName, simulator_id: target.simulator ?? null });
+    setWaUrl(buildLiaUrl(target) + '&utm_source=catalogo&utm_medium=whatsapp_lia');
   };
   const [rowsRaw, setRowsRaw] = useState<any[]>([]);
   const [resinsRaw, setResinsRaw] = useState<any[]>([]);
@@ -1119,12 +1122,12 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                     </div>
                   )}
                   <div className="kb-cfoot">
-                    <span className="kb-date">{waFormByProduct.get(p.id) ? 'Atendimento' : 'Smart Dent'}</span>
-                    {waFormByProduct.get(p.id) && (
+                    <span className="kb-date">Atendimento</span>
+                    {p.id && (
                       <button
                         type="button"
                         className="kb-wa-icon"
-                        onClick={() => openWhatsApp(waFormByProduct.get(p.id)!, p.name)}
+                        onClick={() => openWhatsApp(p.id, p.name)}
                         title="Informações pelo WhatsApp"
                         aria-label="Informações pelo WhatsApp"
                       >
