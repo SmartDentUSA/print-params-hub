@@ -1,6 +1,6 @@
 import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
-  extractCustomLandingText, extractLandingCards, insertProductCards, PRODUCT_CARDS_MARKER,
+  extractCustomLandingText, extractLandingCards, fillMissingImages, insertProductCards, PRODUCT_CARDS_MARKER,
   renderProductCardsHtml, stripCommercialValues,
 } from "./custom-landing.ts";
 
@@ -43,4 +43,13 @@ Deno.test("cards entram no marcador ou antes do bloco do botão", () => {
   assertEquals(insertProductCards(`a${PRODUCT_CARDS_MARKER}b`, "C"), "aCb");
   assertEquals(insertProductCards(`<body>x<section data-section="cta">y</section></body>`, "C"), `<body>xC<section data-section="cta">y</section></body>`);
   assertEquals(insertProductCards(`a${PRODUCT_CARDS_MARKER}b`, ""), "ab");
+});
+
+Deno.test("itens avulsos usam a foto do kit da mesma linha", () => {
+  const r = fillMissingImages([
+    { slug: "kit-smartmake", name: "Kit SmartMake", category: "", imageUrl: "https://a/kit.png" },
+    { slug: "smartmake-avulsos", name: "SmartMake avulsos", category: "", imageUrl: null },
+    { slug: "exocad-rms", name: "exocad", category: "", imageUrl: null },
+  ]);
+  assertEquals(r.map((c) => c.imageUrl), ["https://a/kit.png", "https://a/kit.png", null]);
 });

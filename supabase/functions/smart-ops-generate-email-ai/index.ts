@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  extractCustomLandingText, extractLandingCards, insertProductCards, renderProductCardsHtml,
+  extractCustomLandingText, extractLandingCards, fillMissingImages, insertProductCards, renderProductCardsHtml,
   PRODUCT_CARDS_MARKER, type CustomLandingContext, type EmailProductCard,
 } from "./custom-landing.ts";
 
@@ -905,10 +905,10 @@ Deno.serve(async (req) => {
               if (r?.image_url && /^https:\/\//i.test(r.image_url)) imgById.set(r.id, r.image_url);
             }
           }
-          landingCards = cards.map((c) => {
+          landingCards = fillMissingImages(cards.map((c) => {
             const pid = pidBySlug.get(c.slug);
             return { ...c, imageUrl: pid ? imgById.get(pid) ?? null : null };
-          });
+          }));
         }
       }
     }

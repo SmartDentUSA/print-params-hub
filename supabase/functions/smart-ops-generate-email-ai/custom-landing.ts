@@ -162,3 +162,22 @@ export function insertProductCards(html: string, cardsHtml: string): string {
   if (anchor >= 0) return html.slice(0, anchor) + cardsHtml + html.slice(anchor);
   return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${cardsHtml}</body>`) : html + cardsHtml;
 }
+
+const GENERIC_SLUG_TOKENS = new Set(["kit", "combo", "itens", "avulsos", "cores", "resinas", "resina", "rms", "smart", "de", "e"]);
+
+/** Card sem produto único (itens avulsos, combos) usa a foto do card da mesma linha (ex.: kit-smartmake). */
+export function fillMissingImages(cards: EmailProductCard[]): EmailProductCard[] {
+  const tokens = (slug: string) => slug.split("-").filter((t) => t.length > 2 && !GENERIC_SLUG_TOKENS.has(t));
+  return cards.map((c) => {
+    if (c.imageUrl) return c;
+    const mine = tokens(c.slug);
+    let best: EmailProductCard | null = null;
+    let bestScore = 0;
+    for (const o of cards) {
+      if (!o.imageUrl || o.slug === c.slug) continue;
+      const score = tokens(o.slug).filter((t) => mine.includes(t)).length;
+      if (score > bestScore) { best = o; bestScore = score; }
+    }
+    return best ? { ...c, imageUrl: best.imageUrl } : c;
+  });
+}
