@@ -27,3 +27,8 @@ export function forceCtaDestination(html: string, ctaConfig: any): string {
     return `href=${quote}${sim ? `${url}&amp;sim=${sim}` : url}${quote}`;
   });
 }
+
+/** href do HTML → endereço real do clique (o HTML escreve "&" como "&amp;"; sem isso o ?sim= do card se perde). */
+export function hrefToUrl(href: string): string {
+  return String(href || "").replace(/&amp;/gi, "&");
+}

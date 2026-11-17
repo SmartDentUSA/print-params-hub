@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { forceCtaDestination } from "./cta.ts";
+import { forceCtaDestination, hrefToUrl } from "./cta.ts";
 import { applyEcommerceFilters } from "../_shared/campaign-ecommerce-filters.ts";
 
 const corsHeaders = {
@@ -161,7 +161,7 @@ async function sendOne(args: {
     if (original.includes("/email-track-open")) continue;
     const code = randomCode(8);
     const { error: slErr } = await supabase.from("short_links").insert({
-      code, destination_url: original,
+      code, destination_url: hrefToUrl(original),
       campaign_id: campaignId, send_log_id: sendLogId, lead_id: leadId,
       seller_phone: seller?.whatsapp || null, seller_name: seller?.nome || null,
     });
