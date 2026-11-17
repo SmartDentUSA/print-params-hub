@@ -1001,14 +1001,14 @@ Deno.serve(async (req) => {
     if (!existingLead && telefoneNormalized) {
       const last9 = telefoneNormalized.replace(/\D/g, '').slice(-9);
       if (last9.length === 9) {
-        const { data: byPhoneFuzzy } = await supabase
+        const { data: fuzzyRows } = await supabase
           .from('lia_attendances')
           .select('*')
           .like('telefone_normalized', `%${last9}`)
           .is('merged_into', null)
           .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
+          .limit(10);
+        const byPhoneFuzzy = pickPhoneMatch(fuzzyRows ?? [], email);
         if (byPhoneFuzzy) {
           existingLead = byPhoneFuzzy;
           matchedVia = 'phone';
