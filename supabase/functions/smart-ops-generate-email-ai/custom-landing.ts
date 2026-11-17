@@ -75,7 +75,7 @@ export function cleanCardName(s: string): string {
   const noOff = String(s || "")
     .replace(/\s*(com\s+)?\d{1,3}(?:[.,]\d+)?\s*%\s*(de\s+)?(off|desconto)\b/gi, "")
     .replace(/\b(off|desconto)\b\s*$/i, "");
-  return stripCommercialValues(noOff).replace(/\s+([·,])/g, "$1").replace(/[·,\s]+$/, "").trim();
+  return stripCommercialValues(noOff).replace(/\s+,/g, ",").replace(/[·,\s]+$/, "").trim();
 }
 
 export function extractLandingCards(html: string, max = 40): LandingCard[] {
