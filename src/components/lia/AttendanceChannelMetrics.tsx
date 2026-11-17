@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Copy, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { shortenUrl } from "@/utils/shortLink";
 import { parseSimulators, type LandingSimulator } from "@/lib/lp/customLanding";
 import { CLICK_ORIGINS, CLICK_ORIGIN_LABEL } from "@/lib/clickOrigin";
-import { groupProductSimulators, productIdFromSimulator, withAllProductSimulators } from "@/lib/productSimulators";
+import { groupProductSimulators, productIdFromSimulator, productSimulatorUrl, withAllProductSimulators } from "@/lib/productSimulators";
 import { isCommercialCampaignForm } from "@/lib/commercialCampaignForm";
 import { loadCommercialCatalog } from "@/components/smartops/ProductSimulatorsPanel";
 
@@ -30,15 +32,31 @@ function mergeOrigins(data: any[]): OriginRow[] {
   if (by.has("direto")) rows.push({ origin: "direto", ...num(by.get("direto")) });
   return rows;
 }
-/** Simulador de produto sem nenhum movimento: fica recolhido para a tabela não virar uma lista enorme. */
+const PUBLIC_SITE = "https://www.smartdent.com.br";
+/** Simulador de produto sem nenhum movimento (pode ser ocultado pelo botão da tabela). */
 const isIdleProduct = (s: SimRow) => !!productIdFromSimulator(s.simulator_id) && !s.views && !s.leads && !s.conversions;
+/** Simuladores por produto agrupados pela família do catálogo, na ordem do catálogo; fora do catálogo vão para "Outros produtos". */
+function groupProductRows(sims: SimRow[], families: { category: string; ids: string[] }[]) {
+  const byPid = new Map<string, SimRow>();
+  for (const s of sims) { const pid = productIdFromSimulator(s.simulator_id); if (pid) byPid.set(pid, s); }
+  const out: { category: string; rows: SimRow[] }[] = [];
+  for (const f of families) {
+    const rows = f.ids.map((id) => byPid.get(id)).filter(Boolean) as SimRow[];
+    f.ids.forEach((id) => byPid.delete(id));
+    if (rows.length) out.push({ category: f.category, rows });
+  }
+  if (byPid.size) out.push({ category: "Outros produtos", rows: [...byPid.values()] });
+  return out;
+}
 const LABEL: Record<string, string> = { form: "Formulário", specialist: "Falar com especialista", whatsapp_lia: "WhatsApp (Dra. LIA)" };
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 90, title, formOverride }: { formId?: string | null; campaignSlug?: string | null; days?: number; title?: string; formOverride?: { views: number; leads: number; conversions: number; revenue: number } }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [sims, setSims] = useState<SimRow[]>([]);
-  const [showIdleProducts, setShowIdleProducts] = useState(false);
+  const [showIdleProducts, setShowIdleProducts] = useState(true);
+  const [families, setFamilies] = useState<{ category: string; ids: string[] }[]>([]);
+  const [copying, setCopying] = useState<string | null>(null);
   const [origins, setOrigins] = useState<OriginRow[]>([]);
   useEffect(() => {
     setOrigins([]);
@@ -51,6 +69,7 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
   }, [formId, days]);
   useEffect(() => {
     setSims([]);
+    setFamilies([]);
     if (!formId) return;
     let cancelled = false;
     const since = new Date(Date.now() - days * 86400000).toISOString();
@@ -66,8 +85,9 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
       let merged = mergeSimulators(list, m?.data ?? []);
       if (commercial) {
         // Campanha comercial: todos os produtos do catálogo têm simulador próprio; aparecem mesmo sem movimento.
-        const catalog = await loadCommercialCatalog().catch(() => []);
-        merged = withAllProductSimulators(merged, groupProductSimulators(catalog).flatMap((g) => g.items));
+        const groups = groupProductSimulators(await loadCommercialCatalog().catch(() => []));
+        merged = withAllProductSimulators(merged, groups.flatMap((g) => g.items));
+        if (!cancelled) setFamilies(groups.map((g) => ({ category: g.category, ids: g.items.map((i) => i.id) })));
       }
       // Simuladores por produto fora do catálogo comercial atual: nome do produto em vez do identificador.
       const ids = [...new Set(merged.filter((r) => r.label === r.simulator_id).map((r) => productIdFromSimulator(r.simulator_id)).filter(Boolean))] as string[];
@@ -92,6 +112,42 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
 
   const productSims = sims.filter((s) => productIdFromSimulator(s.simulator_id)).length;
   const idleProducts = sims.filter(isIdleProduct).length;
+  const otherSims = sims.filter((s) => !productIdFromSimulator(s.simulator_id));
+  const productGroups = groupProductRows(sims.filter((s) => showIdleProducts || !isIdleProduct(s)), families);
+
+  const copyLink = async (simulatorId: string) => {
+    const productId = productIdFromSimulator(simulatorId);
+    if (!formId || !productId) return;
+    setCopying(simulatorId);
+    try {
+      const full = productSimulatorUrl({ formId, productId, base: PUBLIC_SITE });
+      const short = await shortenUrl(full);
+      await navigator.clipboard.writeText(short);
+      toast.success("Link do simulador deste produto copiado");
+    } catch {
+      toast.error("Não foi possível copiar o link");
+    } finally {
+      setCopying(null);
+    }
+  };
+  const simRow = (s: SimRow) => (
+    <tr key={`sim-${s.simulator_id}`} className="text-muted-foreground">
+      <td className="py-1 pl-4 text-xs" title={`Identificador: ${s.simulator_id}`}>
+        ↳ {s.label}{" "}
+        {productIdFromSimulator(s.simulator_id) ? (
+          <button type="button" className="ml-1 inline-flex items-center gap-1 underline underline-offset-2 hover:text-foreground disabled:opacity-50" disabled={copying === s.simulator_id} onClick={() => copyLink(s.simulator_id)}>
+            <Copy className="h-3 w-3" /> copiar link
+          </button>
+        ) : <span className="opacity-70">({s.simulator_id})</span>}
+      </td>
+      <td className="text-xs">{s.views}</td>
+      <td className="text-xs">{s.leads}</td>
+      <td className="text-xs">{s.views ? `${((s.leads / s.views) * 100).toFixed(1)}%` : "—"}</td>
+      <td className="text-xs">{s.conversions}</td>
+      <td className="text-xs">{s.leads ? `${((s.conversions / s.leads) * 100).toFixed(1)}%` : "—"}</td>
+      <td className="text-xs">{brl(s.revenue)}</td>
+    </tr>
+  );
 
   return (
     <Card>
@@ -114,26 +170,27 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                     <td>{r.leads ? `${((r.conversions / r.leads) * 100).toFixed(1)}%` : "—"}</td>
                     <td>{brl(r.revenue)}</td>
                   </tr>
-                  {r.channel === "whatsapp_lia" && sims.filter((s) => showIdleProducts || !isIdleProduct(s)).map((s) => (
-                    <tr key={`sim-${s.simulator_id}`} className="text-muted-foreground">
-                      <td className="py-1 pl-4 text-xs" title={`Identificador: ${s.simulator_id}`}>↳ {s.label} <span className="opacity-70">({s.simulator_id})</span></td>
-                      <td className="text-xs">{s.views}</td>
-                      <td className="text-xs">{s.leads}</td>
-                      <td className="text-xs">{s.views ? `${((s.leads / s.views) * 100).toFixed(1)}%` : "—"}</td>
-                      <td className="text-xs">{s.conversions}</td>
-                      <td className="text-xs">{s.leads ? `${((s.conversions / s.leads) * 100).toFixed(1)}%` : "—"}</td>
-                      <td className="text-xs">{brl(s.revenue)}</td>
-                    </tr>
-                  ))}
-                  {r.channel === "whatsapp_lia" && idleProducts > 0 && (
+                  {r.channel === "whatsapp_lia" && otherSims.map(simRow)}
+                  {r.channel === "whatsapp_lia" && productSims > 0 && (
                     <tr className="text-muted-foreground">
-                      <td colSpan={7} className="py-1 pl-4 text-xs">
-                        <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => setShowIdleProducts((v) => !v)}>
-                          {showIdleProducts ? "Ocultar produtos sem movimento" : `Mostrar os ${productSims} simuladores por produto do catálogo (${idleProducts} ainda sem movimento)`}
-                        </button>
+                      <td colSpan={7} className="pt-3 pb-1 pl-4 text-xs font-medium text-foreground">
+                        Simuladores por produto do catálogo ({productSims})
+                        {idleProducts > 0 && (
+                          <button type="button" className="ml-2 font-normal text-muted-foreground underline underline-offset-2 hover:text-foreground" onClick={() => setShowIdleProducts((v) => !v)}>
+                            {showIdleProducts ? `ocultar os ${idleProducts} sem movimento` : `mostrar também os ${idleProducts} sem movimento`}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )}
+                  {r.channel === "whatsapp_lia" && productGroups.map((g) => (
+                    <Fragment key={`fam-${g.category}`}>
+                      <tr className="text-muted-foreground">
+                        <td colSpan={7} className="pt-2 pb-0.5 pl-4 text-[11px] font-semibold uppercase tracking-wide">{g.category}</td>
+                      </tr>
+                      {g.rows.map(simRow)}
+                    </Fragment>
+                  ))}
                 </Fragment>))}
               </tbody>
             </table>
@@ -161,7 +218,7 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                 <p className="mt-1 text-xs text-muted-foreground">Cada origem conta os links curtos marcados (?o=email, ?o=sms, ?o=whatsapp, ?o=grupos, ?o=bio), copiados pelo botão "origem" no card do formulário ou inseridos pelas telas de e-mail, SMS e WhatsApp. Sem marcação, a origem é deduzida pelo site de onde a pessoa veio (Instagram, Facebook, Google...). "Acesso direto" reúne quem chegou sem nenhuma pista; "Antes da marcação" são acessos anteriores a 16/11 16:18.</p>
               </div>
             )}
-            <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. {sims.length ? "Abaixo do WhatsApp, cada simulador da landing (geral e por produto) com seu identificador; a contagem por simulador começa a partir de hoje. " : ""}{formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
+            <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. {sims.length ? "Abaixo do WhatsApp, cada simulador com seu identificador e, nas campanhas comerciais, um simulador isolado para cada produto do catálogo (mesmo formulário e mesma origem de conversão), agrupado por família, com o botão para copiar o link. " : ""}{formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
           </div>
         )}
       </CardContent>
