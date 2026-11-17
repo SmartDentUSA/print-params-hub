@@ -23,12 +23,22 @@ function phoneVariants(d: string): string[] {
   return [d];
 }
 
+/** Chave de serviço: a do ambiente ou a guardada no cofre do banco (o gatilho usa esta); confere numa chamada só de administrador. */
+async function isServiceKey(token: string, envKey: string): Promise<boolean> {
+  if (token === envKey) return true;
+  try {
+    const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/admin/users?per_page=1`, { headers: { apikey: token, Authorization: `Bearer ${token}` } });
+    await r.body?.cancel().catch(() => null);
+    return r.ok;
+  } catch { return false; }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-  if (!token || token !== serviceKey) return json({ error: 'unauthorized' }, 401);
+  if (!token || !(await isServiceKey(token, serviceKey))) return json({ error: 'unauthorized' }, 401);
   const apiKey = Deno.env.get('ZERNIO_API_KEY');
   if (!apiKey) return json({ error: 'ZERNIO_API_KEY não configurada' }, 500);
 
