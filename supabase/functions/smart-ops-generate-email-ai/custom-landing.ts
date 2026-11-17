@@ -291,28 +291,24 @@ export interface OfferCardsOptions {
 
 const C = {
   page: "#07080d", card: "#11131c", line: "#262a3b", text: "#c3c8d6", white: "#ffffff",
-  accent: "#FCB58F", orange: "#E56838", green: "#1FAF5B", mute: "#8b92a6",
+  accent: "#FCB58F", zebra: "#181b28", orange: "#E56838", green: "#1FAF5B", mute: "#8b92a6",
 };
 const F = "font-family:Arial,Helvetica,sans-serif;";
 
-// Estilos curtos e herdados da tabela: são 23+ cards e o Gmail corta e-mails acima de ~100 KB.
+// Estilos curtos e herdados da tabela: são 20+ cards e o Gmail corta e-mails acima de ~100 KB.
 function renderTable(t: PriceTable): string {
-  const bd = `border-bottom:1px solid ${C.line}`;
-  const th = (h: string, i: number) =>
-    `<td${i ? ' align="right"' : ""} style="padding:5px 4px;font-size:10px;line-height:13px;color:${C.accent};font-weight:700;${bd}">${h}</td>`;
-  const rows = t.rows.map((r) => {
+  const th = (h: string, i: number) => `<td${i ? ' align="right"' : ""} style="font-size:10px;line-height:13px;color:${C.accent}">${h}</td>`;
+  const rows = t.rows.map((r, ri) => {
     let col = 0;
     const tr = r.cells.map((c) => {
       const first = col === 0;
       col += c.span;
       const span = c.span > 1 ? ` colspan="${c.span}"` : "";
-      return first
-        ? `<td${span} style="padding:5px 4px;font-size:11px;${bd}">${c.html}</td>`
-        : `<td${span} align="right" style="padding:5px 4px;color:${C.white};white-space:nowrap;${bd}">${c.html}</td>`;
+      return first ? `<td${span} style="font-size:11px;color:${r.total ? C.white : C.text}">${c.html}</td>` : `<td${span} align="right" nowrap>${c.html}</td>`;
     }).join("");
-    return `<tr${r.total ? ` style="font-weight:700;color:${C.white}"` : ""}>${tr}</tr>`;
+    return `<tr${ri % 2 === 0 ? ` bgcolor="${C.zebra}"` : ""}${r.total ? ' style="font-weight:700"' : ""}>${tr}</tr>`;
   }).join("");
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;${F}font-size:12px;line-height:15px;color:${C.text};">${t.head.length ? `<tr>${t.head.map(th).join("")}</tr>` : ""}${rows}</table>`;
+  return `<table role="presentation" width="100%" cellpadding="5" cellspacing="0" border="0" style="border-collapse:collapse;${F}font-size:12px;line-height:15px;color:${C.white};font-weight:700;">${t.head.length ? `<tr>${t.head.map(th).join("")}</tr>` : ""}${rows}</table>`;
 }
 
 export function renderProductCardsHtml(cards: EmailProductCard[], ctaUrl: string, opts: OfferCardsOptions = {}): string {
