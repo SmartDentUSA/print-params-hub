@@ -1143,6 +1143,9 @@ Retorne JSON no formato:
     const cardsHtml = landingCards.length && regenerate !== "subject" && cta_principal?.url
       ? renderProductCardsHtml(landingCards, cta_principal.url, {
         title: "Escolha o seu produto",
+        phaseBadge: landingCountdown && landingCountdown.pcts.length > 1
+          ? `${landingCountdown.pcts.join("% → ")}% OFF`
+          : undefined,
         countdownUrl: landingCountdown
           ? (kind, fixedPct) => countdownImageUrl(Deno.env.get("SUPABASE_URL")!, landingCountdown!, kind, fixedPct)
           : undefined,

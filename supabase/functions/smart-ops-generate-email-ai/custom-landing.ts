@@ -285,6 +285,8 @@ export interface OfferCardsOptions {
   buttonLabel?: string;
   /** endereço da imagem do cronômetro para o tipo do card; null = sem cronômetro */
   countdownUrl?: (kind: "tier" | "fixed" | "end", fixedPct: number) => string | null;
+  /** selo dos cards de desconto por fase (ex.: "25% → 15% → 10% OFF"), no lugar de "Fase 1 · 25% OFF" */
+  phaseBadge?: string;
 }
 
 const C = {
@@ -293,18 +295,24 @@ const C = {
 };
 const F = "font-family:Arial,Helvetica,sans-serif;";
 
+// Estilos curtos e herdados da tabela: são 23+ cards e o Gmail corta e-mails acima de ~100 KB.
 function renderTable(t: PriceTable): string {
+  const bd = `border-bottom:1px solid ${C.line}`;
   const th = (h: string, i: number) =>
-    `<td style="${F}padding:5px 4px;font-size:10px;line-height:13px;color:${C.accent};font-weight:700;border-bottom:1px solid ${C.line};${i ? "text-align:right;" : ""}">${h}</td>`;
+    `<td${i ? ' align="right"' : ""} style="padding:5px 4px;font-size:10px;line-height:13px;color:${C.accent};font-weight:700;${bd}">${h}</td>`;
   const rows = t.rows.map((r) => {
     let col = 0;
-    return `<tr>${r.cells.map((c) => {
+    const tr = r.cells.map((c) => {
       const first = col === 0;
       col += c.span;
-      return `<td${c.span > 1 ? ` colspan="${c.span}"` : ""} style="${F}padding:5px 4px;font-size:${first ? 11 : 12}px;line-height:15px;color:${r.total || !first ? C.white : C.text};${r.total ? "font-weight:700;" : ""}border-bottom:1px solid ${C.line};${first ? "" : "text-align:right;white-space:nowrap;"}">${c.html}</td>`;
-    }).join("")}</tr>`;
+      const span = c.span > 1 ? ` colspan="${c.span}"` : "";
+      return first
+        ? `<td${span} style="padding:5px 4px;font-size:11px;${bd}">${c.html}</td>`
+        : `<td${span} align="right" style="padding:5px 4px;color:${C.white};white-space:nowrap;${bd}">${c.html}</td>`;
+    }).join("");
+    return `<tr${r.total ? ` style="font-weight:700;color:${C.white}"` : ""}>${tr}</tr>`;
   }).join("");
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">${t.head.length ? `<tr>${t.head.map(th).join("")}</tr>` : ""}${rows}</table>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;${F}font-size:12px;line-height:15px;color:${C.text};">${t.head.length ? `<tr>${t.head.map(th).join("")}</tr>` : ""}${rows}</table>`;
 }
 
 export function renderProductCardsHtml(cards: EmailProductCard[], ctaUrl: string, opts: OfferCardsOptions = {}): string {
@@ -318,8 +326,9 @@ export function renderProductCardsHtml(cards: EmailProductCard[], ctaUrl: string
     const o = c.offer || null;
     const timerUrl = o?.timer && opts.countdownUrl ? opts.countdownUrl(o.timer, o.fixedPct) : null;
     // Selo por fase só faz sentido sem cronômetro (o cronômetro mostra a fase do dia da abertura).
-    const badge = o?.badge && !(o.badgeByPhase && timerUrl)
-      ? `<div style="margin:0 0 8px;"><span style="${F}display:inline-block;font-size:11px;font-weight:700;color:${C.white};background:${C.orange};border-radius:999px;padding:4px 10px;">${escHtml(o.badge)}</span></div>`
+    const badgeText = o?.badgeByPhase && timerUrl ? opts.phaseBadge || "" : o?.badge || "";
+    const badge = badgeText
+      ? `<div style="margin:0 0 8px;"><span style="${F}display:inline-block;font-size:11px;font-weight:700;color:${C.white};background:${C.orange};border-radius:999px;padding:4px 10px;">${escHtml(badgeText)}</span></div>`
       : "";
     const line = (html: string, size = 13) => html
       ? `<div style="${F}font-size:${size}px;line-height:1.4;color:${C.text};margin-top:6px;">${html}</div>` : "";
