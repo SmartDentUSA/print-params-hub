@@ -31,3 +31,12 @@ Deno.test("origem desconhecida é ignorada", () => {
   assertEquals(normalizeClickOrigin("tiktok"), null);
   assertEquals(normalizeClickOrigin("GRUPOS"), "grupos");
 });
+
+Deno.test("card de produto do e-mail abre a landing com o simulador do produto", () => {
+  assertEquals(
+    pagePath("landing_page", "black26_campanha_ativa", "v7pmii", "email", "bite-splint-flex"),
+    "/lp/black26_campanha_ativa?utm_source=email&utm_medium=shortlink&utm_campaign=v7pmii&sim=bite-splint-flex",
+  );
+  assertEquals(pagePath("landing_page", "x", "v7pmii", null, "<script>"), "/lp/x");
+  assertEquals(pagePath("form", "x", "v7pmii", null, "bite-splint-flex"), "/f/x");
+});
