@@ -1,5 +1,6 @@
 // zernio-wa-broadcast — Disparo em massa pelo WhatsApp oficial (Cloud API via Zernio).
 // Ações (staff-only): accounts | templates | send | test | sample | status
+// Botões de resposta rápida com link ganham resposta automática (wa_button_reply_rules → zernio-wa-button-reply).
 // test = mesmo template para até MAX_TEST_PHONES números digitados (ou o lead fixo TEST_LEAD_ID), sem criar campanha.
 // Fora da janela de 24h a Meta só aceita modelo APROVADO; por isso o envio exige template.
 // Não toca Evolution/WaLeads nem deals; só cria campaign_sessions + campaign_send_log.
@@ -9,6 +10,7 @@ import {
   MAX_TEST_PHONES, MEDIA_HEADERS, TEST_LEAD_ID, broadcastKeepsHeaderMedia, checkHeaderImage, isPublicHttpsUrl,
   fillTokens, phoneVariants, planSlots, resolveButtons, templateMeta, validateDailyAndCost, validateSchedule,
 } from './plan.ts';
+import { buildButtonReplies, resolveFormIdForLink } from '../_shared/wa-button-replies.ts';
 
 const ZERNIO = 'https://zernio.com/api/v1';
 const json = (b: unknown, s = 200) =>
@@ -169,6 +171,10 @@ Deno.serve(async (req) => {
       const mediaType = meta.headerType.toLowerCase() as 'image' | 'video' | 'document';
       const btn = resolveButtons(meta.buttons, p.buttonLinks && typeof p.buttonLinks === 'object' ? p.buttonLinks : null);
       if ('error' in btn) return json({ error: btn.error }, 400);
+      // Resposta automática dos botões de resposta rápida (rótulo, link, texto e formulário do link).
+      const br = buildButtonReplies(meta.buttons, p.buttonLinks, p.buttonReplies && typeof p.buttonReplies === 'object' ? p.buttonReplies : null);
+      if ('error' in br) return json({ error: br.error }, 400);
+      const buttonReplies = await Promise.all(br.replies.map(async (r) => ({ ...r, form_id: await resolveFormIdForLink(admin, r.link).catch(() => null) })));
       const vmap: VarSpec[] = Array.isArray(variableMap) ? variableMap : [];
       for (const v of vmap) {
         if (v?.source === 'field' && !FIELDS[v.value]) return json({ error: `campo inválido: ${v?.value}` }, 400);
@@ -261,6 +267,13 @@ Deno.serve(async (req) => {
             await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
             added += Number(r.added ?? 0); ids.push(bid);
           }
+          if (buttonReplies.length) {
+            const { error: rErr } = await admin.from('wa_button_reply_rules').insert({
+              account_id: accountId, broadcast_ids: ids, is_test: true, test_phones: valid.map((l) => l.phone),
+              buttons: buttonReplies, expires_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+            });
+            if (rErr) console.error('[zernio-wa-broadcast] regra de resposta (teste) falhou', rErr);
+          }
           return json({
             ok: true, test: true, broadcast_ids: ids, added,
             phones: valid.map((l) => `+${l.phone}`), lead: testPhones.length ? null : valid[0]?.nome, warnings: btn.warnings,
@@ -277,7 +290,7 @@ Deno.serve(async (req) => {
       const baseResults = {
         provider: 'zernio_cloud_api', account_id: accountId, template: templateName, language, variable_map: vmap,
         header_type: meta.headerType, header_media_url: mediaHeader ? headerMediaUrl : null,
-        per_hour: perHour, per_day: perDay, scheduled_at: startAt, button_links: btn.stored,
+        per_hour: perHour, per_day: perDay, scheduled_at: startAt, button_links: btn.stored, button_replies: buttonReplies,
         cost_per_message: costPerMessage, estimated_cost: estimatedCost,
       };
 
@@ -290,7 +303,7 @@ Deno.serve(async (req) => {
         nome: name, descricao: description ?? null, canal: 'whatsapp_oficial', status: isScheduled ? 'scheduled' : 'sending',
         mensagem_template: `template:${templateName}`, total_leads: valid.length,
         send_window_start: SEND_WINDOW[0], send_window_end: SEND_WINDOW[1],
-        metadata: { button_links: btn.stored, per_day: perDay, cost_per_message: costPerMessage, estimated_cost: estimatedCost },
+        metadata: { button_links: btn.stored, button_replies: buttonReplies, per_day: perDay, cost_per_message: costPerMessage, estimated_cost: estimatedCost },
         ...(isScheduled ? { scheduled_at: startAt } : { started_at: nowDate.toISOString() }),
         created_by: u.user.id,
       }).select('id').maybeSingle();
@@ -341,6 +354,14 @@ Deno.serve(async (req) => {
           }
         }
         slotLog.push({ at: sl.at, broadcast_ids: slotIds, leads: sl.groups.reduce((a, g) => a + g.leads.length, 0) });
+      }
+      if (buttonReplies.length && broadcasts.length) {
+        const lastAt = slotLog.reduce((m, sl) => Math.max(m, sl.at ? new Date(sl.at).getTime() : nowDate.getTime()), nowDate.getTime());
+        const { error: rErr } = await admin.from('wa_button_reply_rules').insert({
+          campaign_id: camp?.id ?? null, session_id: session.id, account_id: accountId, broadcast_ids: broadcasts,
+          buttons: buttonReplies, expires_at: new Date(lastAt + 30 * 86_400_000).toISOString(),
+        });
+        if (rErr) console.error('[zernio-wa-broadcast] regra de resposta falhou', rErr);
       }
       const status = broadcasts.length === 0 ? 'failed' : failedGroups ? 'completed_with_errors' : (isScheduled ? 'scheduled' : 'running');
       await admin.from('campaign_sessions').update({
