@@ -4,6 +4,7 @@ import { mergeSmartLead } from "../_shared/lead-enrichment.ts";
 import { validateLeadIdentity, logRejectedLead, sanitizeDisplayName } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 import { resolveFormProduct } from "../_shared/form-product.ts";
+import { pickPhoneMatch, escapeLike } from "./phone-match.ts";
 import {
   canonicalizeArea,
   canonicalizeSpecialty,
@@ -984,27 +985,30 @@ Deno.serve(async (req) => {
     let incomingEmailDiffersFromCanonical = false;
 
     if (telefoneNormalized) {
-      const { data: byPhone } = await supabase
+      const { data: phoneRows } = await supabase
         .from("lia_attendances")
         .select("*")
         .eq("telefone_normalized", telefoneNormalized)
         .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .limit(10);
+      // Mesmo telefone em mais de um cadastro: prefere o que já tem o e-mail enviado
+      // (telefone + e-mail = mesma pessoa). Pegar o mais antigo com e-mail fictício
+      // fazia a troca do e-mail colidir com o outro cadastro e o registro falhava.
+      const byPhone = pickPhoneMatch(phoneRows ?? [], email);
       if (byPhone) { existingLead = byPhone; matchedVia = "phone"; }
     }
     // Fallback: busca pelos últimos 9 dígitos do telefone (cobre variações de formato)
     if (!existingLead && telefoneNormalized) {
       const last9 = telefoneNormalized.replace(/\D/g, '').slice(-9);
       if (last9.length === 9) {
-        const { data: byPhoneFuzzy } = await supabase
+        const { data: fuzzyRows } = await supabase
           .from('lia_attendances')
           .select('*')
           .like('telefone_normalized', `%${last9}`)
           .is('merged_into', null)
           .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
+          .limit(10);
+        const byPhoneFuzzy = pickPhoneMatch(fuzzyRows ?? [], email);
         if (byPhoneFuzzy) {
           existingLead = byPhoneFuzzy;
           matchedVia = 'phone';
@@ -1017,7 +1021,7 @@ Deno.serve(async (req) => {
       const { data: byEmail } = await supabase
         .from("lia_attendances")
         .select("*")
-        .eq("email", email)
+        .ilike("email", escapeLike(email))
         .maybeSingle();
       if (byEmail) {
         existingLead = byEmail;
@@ -1540,8 +1544,22 @@ Deno.serve(async (req) => {
         const m = merged as Record<string, unknown>;
         const inc = incomingData as Record<string, unknown>;
         if (isPlaceholderEmailValue(existingLead.email) && email && !isPlaceholderEmailValue(email)) {
-          m.email = email;
-          if (!fieldsUpdated.includes("email")) fieldsUpdated.push("email");
+          // Só troca o e-mail fictício se nenhum outro cadastro usa esse e-mail;
+          // senão a gravação viola o e-mail único e o lead inteiro deixa de ser registrado.
+          const { data: emailOwner } = await supabase
+            .from("lia_attendances")
+            .select("id")
+            .ilike("email", escapeLike(email))
+            .neq("id", existingLead.id)
+            .limit(1)
+            .maybeSingle();
+          if (emailOwner) {
+            delete m.email;
+            console.warn(`[ingest-lead] EMAIL_UPGRADE_SKIPPED: lead=${existingLead.id} email already used by ${emailOwner.id}`);
+          } else {
+            m.email = email;
+            if (!fieldsUpdated.includes("email")) fieldsUpdated.push("email");
+          }
         }
         if (isPlaceholderNameValue(existingLead.nome) && inc.nome && !isPlaceholderNameValue(inc.nome)) {
           m.nome = inc.nome;
@@ -1897,7 +1915,7 @@ Deno.serve(async (req) => {
           let q = supabase.from("lia_attendances").select("id");
           q = /piperun_id/.test(insertError.message) && conflictPiperunId
             ? q.eq("piperun_id", conflictPiperunId)
-            : q.eq("email", email);
+            : q.ilike("email", escapeLike(email));
           const { data: conflictRow } = await q.limit(1).maybeSingle();
           if (conflictRow?.id) {
             const upd: Record<string, unknown> = { ...incomingData };
