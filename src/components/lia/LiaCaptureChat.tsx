@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, MessageCircle, ChevronLeft, Smile, Users } from "lucide-react";
 import { trackAttendanceEvent, trackAttendanceView } from "@/lib/attendanceChannel";
+import { currentClickOrigin } from "@/lib/clickOrigin";
 import groupBadge from "@/assets/smartdent-group-badge.png.asset.json";
 import { resolveAssetUrl } from "@/utils/assetUrl";
 import { landingAttendanceMedia, type LandingAttendanceMedia } from "@/lib/landingAttendanceMedia";
@@ -305,7 +306,7 @@ export default function LiaCaptureChat({ formId, campaign, product, productId = 
       name: identity.name, email: identity.email, phone: identity.phone,
       session_id: sessionStorage.getItem("dra_lia_session"),
       utm_source: params.get("utm_source"), utm_medium: params.get("utm_medium"), utm_campaign: params.get("utm_campaign"),
-      utm_term: params.get("utm_term"),
+      utm_term: currentClickOrigin() ?? params.get("utm_term"),
     });
     setLead({ id: r.lead_id, token: r.token });
     await linkLeadToPageSession(r.lead_id);
