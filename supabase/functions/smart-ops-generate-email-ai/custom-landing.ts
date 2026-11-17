@@ -59,3 +59,104 @@ export function extractCustomLandingText(html: string, maxChars = 6000): CustomL
   }
   return { title, text: lines.join("\n"), imageUrl };
 }
+
+// ── Cards de produto da landing (HTML próprio) ──
+// Cada <article class="card" data-slug data-name> vira um card no e-mail. A arte da
+// landing traz preços (e vem embutida como data:image, que o Gmail bloqueia), então a
+// foto do e-mail é a imagem do produto no catálogo, ligada pelo custom_simulators.
+
+export interface LandingCard { slug: string; name: string; category: string }
+export interface EmailProductCard extends LandingCard { imageUrl: string | null }
+
+export const PRODUCT_CARDS_MARKER = "<!--PRODUTOS_LANDING-->";
+
+/** Nome do card sem valores comerciais ("com 15% OFF", R$, percentuais). */
+export function cleanCardName(s: string): string {
+  const noOff = String(s || "")
+    .replace(/\s*(com\s+)?\d{1,3}(?:[.,]\d+)?\s*%\s*(de\s+)?(off|desconto)\b/gi, "")
+    .replace(/\b(off|desconto)\b\s*$/i, "");
+  return stripCommercialValues(noOff).replace(/\s+([·,])/g, "$1").replace(/[·,\s]+$/, "").trim();
+}
+
+export function extractLandingCards(html: string, max = 40): LandingCard[] {
+  const src = String(html || "");
+  const re = /<article\b([^>]*\bclass\s*=\s*["'][^"']*\bcard\b[^"']*["'][^>]*)>([\s\S]*?)<\/article>/gi;
+  const out: LandingCard[] = [];
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) && out.length < max) {
+    const attrs = m[1];
+    const slug = attrs.match(/\bdata-slug\s*=\s*["']([^"']+)["']/i)?.[1]?.trim().toLowerCase() || "";
+    const rawName = attrs.match(/\bdata-name\s*=\s*["']([^"']+)["']/i)?.[1]
+      || m[2].match(/<h3[^>]*>([\s\S]*?)<\/h3>/i)?.[1] || "";
+    const rawCat = m[2].match(/<div[^>]*class\s*=\s*["'][^"']*\bcat\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] || "";
+    const name = cleanCardName(decode(rawName.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " "));
+    const category = cleanCardName(decode(rawCat.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " "));
+    if (!/^[a-z0-9-]{1,80}$/.test(slug) || !name || seen.has(slug)) continue;
+    seen.add(slug);
+    out.push({ slug, name, category });
+  }
+  return out;
+}
+
+/** Link do card: o mesmo link do botão principal, abrindo o simulador daquele produto. */
+export function withSimulatorParam(url: string, slug: string): string {
+  try {
+    const u = new URL(url);
+    u.searchParams.set("sim", slug);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+const escHtml = (s: string) => String(s ?? "")
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+export function renderProductCardsHtml(
+  cards: EmailProductCard[],
+  ctaUrl: string,
+  opts: { title?: string; buttonLabel?: string } = {},
+): string {
+  if (!cards.length || !ctaUrl) return "";
+  const navy = "#363E56", orange = "#E56838", soft = "#F4F5F8", textSoft = "#5B6275";
+  const btn = opts.buttonLabel || "Quero esse produto";
+  const cell = (c: EmailProductCard) => {
+    const href = escHtml(withSimulatorParam(ctaUrl, c.slug));
+    const img = c.imageUrl
+      ? `<a href="${href}" style="text-decoration:none;"><img src="${escHtml(c.imageUrl)}" alt="${escHtml(c.name)}" width="248" style="display:block;width:100%;max-width:248px;height:auto;margin:0 auto 12px;border:0;border-radius:10px;background:#ffffff;"></a>`
+      : "";
+    return `<td class="pc" width="50%" valign="top" style="padding:6px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${soft};border-radius:14px;">
+    <tr><td style="padding:14px;text-align:center;">
+      ${img}
+      ${c.category ? `<div style="font-family:Arial,sans-serif;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:${orange};font-weight:700;margin-bottom:6px;">${escHtml(c.category)}</div>` : ""}
+      <div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.3;color:${navy};font-weight:700;margin-bottom:12px;">${escHtml(c.name)}</div>
+      <a href="${href}" style="display:inline-block;font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#ffffff;background:${orange};text-decoration:none;border-radius:999px;padding:10px 18px;">${escHtml(btn)}</a>
+    </td></tr>
+  </table>
+</td>`;
+  };
+  const rows: string[] = [];
+  for (let i = 0; i < cards.length; i += 2) {
+    rows.push(`<tr>${cell(cards[i])}${cards[i + 1] ? cell(cards[i + 1]) : '<td class="pc" width="50%" style="padding:6px;"></td>'}</tr>`);
+  }
+  return `<section data-section="products" data-section-label="Produtos da landing">
+<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;margin:0 auto;">
+  <tr><td style="padding:18px 10px 6px;font-family:Arial,sans-serif;font-size:20px;font-weight:800;color:${navy};text-align:center;">${escHtml(opts.title || "Escolha o seu produto")}</td></tr>
+  <tr><td style="padding:0 4px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows.join("\n")}</table>
+  </td></tr>
+</table>
+</section>`;
+}
+
+/** Coloca os cards no lugar marcado pela IA; sem marcador, logo antes do fim do corpo. */
+export function insertProductCards(html: string, cardsHtml: string): string {
+  if (!cardsHtml) return html.replaceAll(PRODUCT_CARDS_MARKER, "");
+  if (html.includes(PRODUCT_CARDS_MARKER)) {
+    const [first, ...rest] = html.split(PRODUCT_CARDS_MARKER);
+    return first + cardsHtml + rest.join("");
+  }
+  return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${cardsHtml}</body>`) : html + cardsHtml;
+}
