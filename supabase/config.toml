@@ -742,3 +742,6 @@ verify_jwt = false
 
 [functions.zernio-wa-button-reply]
 verify_jwt = false
+
+[functions.email-countdown]
+verify_jwt = false

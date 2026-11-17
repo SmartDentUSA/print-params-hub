@@ -1,8 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  extractCustomLandingText, extractLandingCards, fillMissingImages, insertProductCards, renderProductCardsHtml,
-  PRODUCT_CARDS_MARKER, type CustomLandingContext, type EmailProductCard,
+  extractCustomLandingText, extractLandingArtworks, extractLandingCards, extractLandingOffers, fillMissingImages,
+  insertProductCards, renderProductCardsHtml, PRODUCT_CARDS_MARKER, type CustomLandingContext, type EmailProductCard,
+  type LandingArt,
 } from "./custom-landing.ts";
+import {
+  countdownImageUrl, parseLandingCountdownConfig, type CountdownConfig,
+} from "../_shared/email-countdown.ts";
+import { publishLandingArt } from "./landing-art.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -881,6 +886,7 @@ Deno.serve(async (req) => {
     // ── Landing page enviada como HTML próprio: usa o texto da própria página ──
     let customLp: CustomLandingContext | null = null;
     let landingCards: EmailProductCard[] = [];
+    let landingCountdown: CountdownConfig | null = null;
     if (cta_principal?.tipo === "landing" && cta_principal.id) {
       const { data: lpRow } = await supabase
         .from("smartops_form_landing_pages")
@@ -889,7 +895,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (lpRow?.status === "published" && lpRow.custom_html && String(lpRow.custom_html).trim()) {
         customLp = extractCustomLandingText(String(lpRow.custom_html));
-        // Cards de produto da landing: foto do catálogo (a arte da landing tem preço).
+        // Cards de produto da landing: arte, descontos e cronômetro da própria página.
         const cards = extractLandingCards(String(lpRow.custom_html));
         if (cards.length) {
           const sims = Array.isArray(lpRow.custom_simulators) ? lpRow.custom_simulators as any[] : [];
@@ -905,9 +911,19 @@ Deno.serve(async (req) => {
               if (r?.image_url && /^https:\/\//i.test(r.image_url)) imgById.set(r.id, r.image_url);
             }
           }
+          // Arte da própria landing (com os descontos) tem prioridade; sem arte, foto do catálogo.
+          const html = String(lpRow.custom_html);
+          const offers = extractLandingOffers(html);
+          const arts = extractLandingArtworks(html);
+          const artUrl = await publishLandingArt(supabase, cta_principal.id, cards.map((c) => [c.slug, arts.get(c.slug)] as [string, LandingArt | undefined]));
+          landingCountdown = parseLandingCountdownConfig(html);
           landingCards = fillMissingImages(cards.map((c) => {
             const pid = pidBySlug.get(c.slug);
-            return { ...c, imageUrl: pid ? imgById.get(pid) ?? null : null };
+            return {
+              ...c,
+              imageUrl: artUrl.get(c.slug) ?? (pid ? imgById.get(pid) ?? null : null),
+              offer: offers.get(c.slug) ?? null,
+            };
           }));
         }
       }
@@ -1125,7 +1141,12 @@ Retorne JSON no formato:
     // Cards de produto entram depois da limpeza de links: cada um abre o simulador do produto
     // pelo mesmo link curto do botão principal (?sim=<card>).
     const cardsHtml = landingCards.length && regenerate !== "subject" && cta_principal?.url
-      ? renderProductCardsHtml(landingCards, cta_principal.url, { title: "Escolha o seu produto" })
+      ? renderProductCardsHtml(landingCards, cta_principal.url, {
+        title: "Escolha o seu produto",
+        countdownUrl: landingCountdown
+          ? (kind, fixedPct) => countdownImageUrl(Deno.env.get("SUPABASE_URL")!, landingCountdown!, kind, fixedPct)
+          : undefined,
+      })
       : "";
     const sanitizedHtml = insertProductCards(sanitizeHtml(parsed.html_body || ""), cardsHtml);
     let sanitizedText = (parsed.plain_text || "").replaceAll("{{link_wa_vendedor}}", fallbackUrl);
