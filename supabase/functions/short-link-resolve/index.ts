@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       if (!form?.id) return Response.redirect(FALLBACK_HOME, 302);
       path = whatsappSimulatorPath(form.id, code, origin);
     } else {
-      path = pagePath(link.default_target === "landing_page" ? "landing_page" : "form", link.form_slug, code, origin);
+      path = pagePath(link.default_target === "landing_page" ? "landing_page" : "form", link.form_slug, code, origin, url.searchParams.get("sim"));
     }
 
     // Fire-and-forget: increment counter + register visitor in the same pipeline
