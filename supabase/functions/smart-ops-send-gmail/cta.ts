@@ -11,10 +11,19 @@ export function officialCtaUrl(ctaConfig: any): string | null {
   return m ? `https://s.smartdent.com.br/${m[1]}?o=email` : null;
 }
 
+// Card de produto da landing: mesmo link curto do botão, com ?sim=<card> para abrir o
+// simulador daquele produto. Só vale para o mesmo código curto do botão principal.
+const SIM_PARAM_RE = /(?:[?&]|&amp;)sim=([a-z0-9-]{1,80})(?=&|$|#)/i;
+
 export function forceCtaDestination(html: string, ctaConfig: any): string {
   const url = officialCtaUrl(ctaConfig);
   if (!url) {
     throw new Error("CTA do e-mail deve usar a URL encurtada oficial do formulário, da landing page ou do simulador de WhatsApp");
   }
-  return html.replace(/href\s*=\s*(["'])https?:\/\/[^"']+\1/gi, (_match, quote) => `href=${quote}${url}${quote}`);
+  const base = url.split("?")[0].toLowerCase();
+  return html.replace(/href\s*=\s*(["'])(https?:\/\/[^"']+)\1/gi, (_match, quote, href: string) => {
+    const sameLink = href.split("?")[0].toLowerCase() === base;
+    const sim = sameLink ? href.match(SIM_PARAM_RE)?.[1]?.toLowerCase() : null;
+    return `href=${quote}${sim ? `${url}&amp;sim=${sim}` : url}${quote}`;
+  });
 }

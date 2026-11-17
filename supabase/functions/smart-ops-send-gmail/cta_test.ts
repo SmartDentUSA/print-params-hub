@@ -27,3 +27,19 @@ Deno.test("recusa wa.me e endereços que não são o link curto oficial", () => 
   assertEquals(officialCtaUrl({ cta_principal: { tipo: "landing", url: "https://www.smartdent.com.br/lp/x" } }), null);
   assertThrows(() => forceCtaDestination("<a href=\"https://x.com\">x</a>", {}));
 });
+
+Deno.test("card de produto mantém o simulador do produto no mesmo link curto", () => {
+  const cfg = { cta_principal: { tipo: "landing", url: "https://s.smartdent.com.br/v7pmii?o=email" } };
+  assertEquals(
+    forceCtaDestination('<a href="https://s.smartdent.com.br/v7pmii?o=email&amp;sim=bite-splint-flex">A</a>', cfg),
+    '<a href="https://s.smartdent.com.br/v7pmii?o=email&amp;sim=bite-splint-flex">A</a>',
+  );
+});
+
+Deno.test("sim em outro endereço não sobrevive", () => {
+  const cfg = { cta_principal: { tipo: "landing", url: "https://s.smartdent.com.br/v7pmii?o=email" } };
+  assertEquals(
+    forceCtaDestination('<a href="https://evil.com/v7pmii?sim=x">A</a>', cfg),
+    '<a href="https://s.smartdent.com.br/v7pmii?o=email">A</a>',
+  );
+});
