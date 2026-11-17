@@ -4,6 +4,7 @@ import { mergeSmartLead } from "../_shared/lead-enrichment.ts";
 import { validateLeadIdentity, logRejectedLead, sanitizeDisplayName } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 import { resolveFormProduct } from "../_shared/form-product.ts";
+import { pickPhoneMatch, escapeLike } from "./phone-match.ts";
 import {
   canonicalizeArea,
   canonicalizeSpecialty,
