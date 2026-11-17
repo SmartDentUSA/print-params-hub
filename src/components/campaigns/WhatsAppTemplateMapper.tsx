@@ -11,6 +11,8 @@ import { ArrowLeft, CalendarClock, Coins, FlaskConical, ImageIcon, Link2, Plus, 
 import { META_NEW_NUMBER_DAILY_LIMIT, estimateCost, fillTokens, fmtSaoPaulo, planBroadcast, saoPauloLocalToIso } from "@/lib/waBroadcastSchedule";
 import { CampaignLinkPicker } from "@/components/smartops/CampaignLinkPicker";
 import { BUTTON_LINK_SECTIONS } from "@/lib/social/groupLinkSections";
+import { MAX_REPLY_CHARS, defaultReplyText, previewReply } from "@/lib/waButtonReplies";
+import { Textarea } from "@/components/ui/textarea";
 
 export type WaAccount = { accountId: string; profileId: string; name: string | null; phone: string | null };
 type HeaderType = "NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT" | "LOCATION";
@@ -75,6 +77,7 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
   const [perHourText, setPerHourText] = useState("");
   const [scheduleLocal, setScheduleLocal] = useState("");
   const [buttonLinks, setButtonLinks] = useState<Record<string, string>>({});
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
   const [testPhonesText, setTestPhonesText] = useState("");
   const [perDayText, setPerDayText] = useState(String(META_NEW_NUMBER_DAILY_LIMIT));
@@ -117,6 +120,7 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
       return null;
     }
     if (b.type !== "URL" && link && !/^https:\/\/\S+\.\S+/i.test(link)) return "Use um link completo começando com https://";
+    if (b.type === "QUICK_REPLY" && link && (replyTexts[String(i)] ?? "").length > MAX_REPLY_CHARS) return `A resposta pode ter no máximo ${MAX_REPLY_CHARS} caracteres.`;
     return null;
   });
   const buttonsValid = buttonErrors.every((e) => !e);
@@ -145,6 +149,7 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
   useEffect(() => {
     setHeaderMediaUrl("");
     setButtonLinks({});
+    setReplyTexts(Object.fromEntries((tpl?.buttons ?? []).map((b, i) => [String(i), b.type === "QUICK_REPLY" ? defaultReplyText(b.text) : ""]).filter(([, v]) => v)));
     setVars(Array.from({ length: tpl?.vars ?? 0 }, (_, i) =>
       i === 0 ? { source: "field", value: "primeiro_nome", fallback: "colega" } : { source: "literal", value: "", fallback: "" }));
   }, [tplKey]);
@@ -204,6 +209,8 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
     requestAnimationFrame(() => { el?.focus(); const pos = before.length + token.length; el?.setSelectionRange(pos, pos); });
   };
   const setLink = (k: string, v: string) => setButtonLinks((prev) => ({ ...prev, [k]: v }));
+  const setReply = (k: string, v: string) => setReplyTexts((prev) => ({ ...prev, [k]: v }));
+  const cleanReplyTexts = () => Object.fromEntries(Object.entries(replyTexts).map(([k, v]) => [k, v.trim()]).filter(([k, v]) => v && (buttonLinks[k] ?? "").trim()));
   const cleanButtonLinks = () => Object.fromEntries(Object.entries(buttonLinks).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
 
   const testPhones = testPhonesText.split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
@@ -220,7 +227,7 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
       const r = await callWaBroadcast({
         action: "test", accountId: account!.accountId, profileId: account!.profileId,
         templateName: tpl!.name, language: tpl!.language, name: campaignName.trim(),
-        variableMap: vars, buttonLinks: cleanButtonLinks(),
+        variableMap: vars, buttonLinks: cleanButtonLinks(), buttonReplies: cleanReplyTexts(),
         ...(testPhones.length ? { testPhones } : {}),
         ...(needsMedia ? { headerMediaUrl: headerMediaUrl.trim() } : {}),
       });
@@ -244,7 +251,7 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
       const r = await callWaBroadcast({
         action: "send", accountId: account!.accountId, profileId: account!.profileId,
         templateName: tpl!.name, language: tpl!.language, name: campaignName.trim(), description,
-        leadIds, variableMap: vars, campaignId: draftCampaignId, buttonLinks: cleanButtonLinks(),
+        leadIds, variableMap: vars, campaignId: draftCampaignId, buttonLinks: cleanButtonLinks(), buttonReplies: cleanReplyTexts(),
         ...(needsMedia ? { headerMediaUrl: headerMediaUrl.trim() } : {}),
         ...(perHour && perHourValid ? { perHour } : {}),
         ...(scheduledAtIso ? { scheduledAt: scheduledAtIso } : {}),
@@ -397,7 +404,24 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
                         <Input value={buttonLinks[k] ?? ""} onChange={(e) => setLink(k, e.target.value)} placeholder="Escolha em Links ou cole uma URL https:// (opcional)" />
                         <CampaignLinkPicker channel="whatsapp" sections={BUTTON_LINK_SECTIONS} onInsert={(t) => setLink(k, t.trim())} />
                       </div>
-                      <p className="text-[11px] text-muted-foreground">Resposta rápida não abre link direto. O link só será enviado na resposta automática (em breve).</p>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Resposta automática quando o lead tocar neste botão</Label>
+                        <Textarea rows={2} value={replyTexts[k] ?? ""} maxLength={MAX_REPLY_CHARS}
+                          onChange={(e) => setReply(k, e.target.value)} placeholder={defaultReplyText(b.text)} />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button type="button" onClick={() => setReply(k, defaultReplyText(b.text))}
+                            className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground">usar texto padrão</button>
+                          <span className="text-[11px] text-muted-foreground">Use {"{primeiro_nome}"} e {"{link}"}; sem {"{link}"}, o link vai no fim.</span>
+                        </div>
+                        {(buttonLinks[k] ?? "").trim() ? (
+                          <p className="rounded bg-muted/50 px-2 py-1 text-[11px] text-muted-foreground">
+                            Prévia: {previewReply(replyTexts[k] || defaultReplyText(b.text), sample?.primeiro_nome || "Ana", (buttonLinks[k] ?? "").trim())}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">Sem link, este botão não recebe resposta automática.</p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">O sistema responde sozinho pelo mesmo número, no máximo uma vez a cada 24 h por lead e botão. Quem está descadastrado não recebe.</p>
+                      </div>
                     </>
                   )}
                   {err && <p className="text-xs text-destructive">{err}</p>}

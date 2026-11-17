@@ -48,7 +48,7 @@ function groupProductRows(sims: SimRow[], families: { category: string; ids: str
   if (byPid.size) out.push({ category: "Outros produtos", rows: [...byPid.values()] });
   return out;
 }
-const LABEL: Record<string, string> = { form: "Formulário", specialist: "Falar com especialista", whatsapp_lia: "WhatsApp (Dra. LIA)" };
+const LABEL: Record<string, string> = { form: "Formulário", specialist: "Falar com especialista", whatsapp_lia: "WhatsApp (Dra. LIA)", whatsapp_api: "WhatsApp oficial (botões da campanha)" };
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 90, title, formOverride }: { formId?: string | null; campaignSlug?: string | null; days?: number; title?: string; formOverride?: { views: number; leads: number; conversions: number; revenue: number } }) {
@@ -160,7 +160,7 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                 <tr><th className="py-1">Canal</th><th>Visualizações</th><th>Leads gerados</th><th>Taxa de lead</th><th>Conversões</th><th>Conversão</th><th>Valor das conversões</th></tr>
               </thead>
               <tbody>
-                {rows.map((r) => (<Fragment key={r.channel}>
+                {rows.filter((r) => r.channel !== "whatsapp_api" || r.views > 0).map((r) => (<Fragment key={r.channel}>
                   <tr className="border-t border-border">
                     <td className="py-1.5 font-medium">{LABEL[r.channel] ?? r.channel}</td>
                     <td>{r.views}</td>
@@ -218,7 +218,7 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                 <p className="mt-1 text-xs text-muted-foreground">Cada origem conta os links curtos marcados (?o=email, ?o=sms, ?o=whatsapp, ?o=grupos, ?o=bio), copiados pelo botão "origem" no card do formulário ou inseridos pelas telas de e-mail, SMS e WhatsApp. Sem marcação, a origem é deduzida pelo site de onde a pessoa veio (Instagram, Facebook, Google...). "Acesso direto" reúne quem chegou sem nenhuma pista; "Antes da marcação" são acessos anteriores a 16/11 16:18.</p>
               </div>
             )}
-            <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. {sims.length ? "Abaixo do WhatsApp, cada simulador com seu identificador e, nas campanhas comerciais, um simulador isolado para cada produto do catálogo (mesmo formulário e mesma origem de conversão), agrupado por família, com o botão para copiar o link. " : ""}{formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
+            <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário), cliques nos botões (especialista e WhatsApp) e toques nos botões das campanhas de WhatsApp oficial. Conversão conta só negócios ganhos depois da captura. {sims.length ? "Abaixo do WhatsApp, cada simulador com seu identificador e, nas campanhas comerciais, um simulador isolado para cada produto do catálogo (mesmo formulário e mesma origem de conversão), agrupado por família, com o botão para copiar o link. " : ""}{formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
           </div>
         )}
       </CardContent>
