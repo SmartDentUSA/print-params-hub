@@ -28,6 +28,6 @@ Deno.test("landing com origem de e-mail recebe utm_source=email", () => {
 });
 
 Deno.test("origem desconhecida é ignorada", () => {
-  assertEquals(normalizeClickOrigin("facebook"), null);
+  assertEquals(normalizeClickOrigin("tiktok"), null);
   assertEquals(normalizeClickOrigin("GRUPOS"), "grupos");
 });
