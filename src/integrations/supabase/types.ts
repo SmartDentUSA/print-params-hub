@@ -10097,6 +10097,27 @@ export type Database = {
         }
         Relationships: []
       }
+      landing_html_backup: {
+        Row: {
+          custom_html: string | null
+          id: number
+          landing_id: string | null
+          saved_at: string | null
+        }
+        Insert: {
+          custom_html?: string | null
+          id?: number
+          landing_id?: string | null
+          saved_at?: string | null
+        }
+        Update: {
+          custom_html?: string | null
+          id?: number
+          landing_id?: string | null
+          saved_at?: string | null
+        }
+        Relationships: []
+      }
       lead_activity_log: {
         Row: {
           company_id: string | null
