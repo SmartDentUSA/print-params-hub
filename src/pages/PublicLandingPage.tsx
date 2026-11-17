@@ -8,7 +8,7 @@ import { trackAttendanceEvent, buildLiaUrl } from "@/lib/attendanceChannel";
 import { AttendanceDialog } from "@/components/lia/AttendanceDialog";
 import { CustomLandingFrame } from "@/components/lp/CustomLandingFrame";
 import { parseSimulators, pickSimulator } from "@/lib/lp/customLanding";
-import { clickOriginFromSearch } from "@/lib/clickOrigin";
+import { currentClickOrigin } from "@/lib/clickOrigin";
 
 type LandingPage = {
   id: string;
@@ -37,7 +37,7 @@ export default function PublicLandingPage() {
   const [modalChannel, setModalChannel] = useState<"form" | "specialist">("form");
   const [liaOpen, setLiaOpen] = useState(false);
   // Origem do clique (e-mail, SMS, WhatsApp...) que trouxe o visitante; segue para formulário e simulador.
-  const origin = useMemo(() => clickOriginFromSearch(window.location.search), []);
+  const origin = useMemo(() => currentClickOrigin(), []);
   const originQs = origin ? `&utm_term=${origin}` : "";
 
   useEffect(() => {
