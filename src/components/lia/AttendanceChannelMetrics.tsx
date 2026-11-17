@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { parseSimulators, type LandingSimulator } from "@/lib/lp/customLanding";
 import { CLICK_ORIGINS, CLICK_ORIGIN_LABEL } from "@/lib/clickOrigin";
-import { productIdFromSimulator } from "@/lib/productSimulators";
+import { groupProductSimulators, productIdFromSimulator, withAllProductSimulators } from "@/lib/productSimulators";
+import { isCommercialCampaignForm } from "@/lib/commercialCampaignForm";
+import { loadCommercialCatalog } from "@/components/smartops/ProductSimulatorsPanel";
 
 type Row = { channel: string; views: number; leads: number; conversions: number; revenue: number };
 type SimRow = { simulator_id: string; label: string; views: number; leads: number; conversions: number; revenue: number };
@@ -28,12 +30,15 @@ function mergeOrigins(data: any[]): OriginRow[] {
   if (by.has("direto")) rows.push({ origin: "direto", ...num(by.get("direto")) });
   return rows;
 }
+/** Simulador de produto sem nenhum movimento: fica recolhido para a tabela não virar uma lista enorme. */
+const isIdleProduct = (s: SimRow) => !!productIdFromSimulator(s.simulator_id) && !s.views && !s.leads && !s.conversions;
 const LABEL: Record<string, string> = { form: "Formulário", specialist: "Falar com especialista", whatsapp_lia: "WhatsApp (Dra. LIA)" };
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 90, title, formOverride }: { formId?: string | null; campaignSlug?: string | null; days?: number; title?: string; formOverride?: { views: number; leads: number; conversions: number; revenue: number } }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [sims, setSims] = useState<SimRow[]>([]);
+  const [showIdleProducts, setShowIdleProducts] = useState(false);
   const [origins, setOrigins] = useState<OriginRow[]>([]);
   useEffect(() => {
     setOrigins([]);
@@ -52,13 +57,20 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
     Promise.all([
       (supabase as any).from("smartops_form_landing_pages").select("custom_simulators").eq("form_id", formId).maybeSingle(),
       (supabase as any).rpc("fn_attendance_simulator_metrics", { _form_id: formId, _since: since }),
-    ]).then(async ([lp, m]: any[]) => {
+      (supabase as any).from("smartops_forms").select("name, is_commercial_campaign").eq("id", formId).maybeSingle(),
+    ]).then(async ([lp, m, f]: any[]) => {
       if (cancelled) return;
       const list = parseSimulators(lp?.data?.custom_simulators);
-      if (!list.length && !(m?.data ?? []).length) return;
-      const merged = mergeSimulators(list, m?.data ?? []);
-      // Simuladores por produto (p-<id do catálogo>): nome do produto em vez do identificador.
-      const ids = [...new Set(merged.map((r) => productIdFromSimulator(r.simulator_id)).filter(Boolean))] as string[];
+      const commercial = !!f?.data && isCommercialCampaignForm(f.data);
+      if (!commercial && !list.length && !(m?.data ?? []).length) return;
+      let merged = mergeSimulators(list, m?.data ?? []);
+      if (commercial) {
+        // Campanha comercial: todos os produtos do catálogo têm simulador próprio; aparecem mesmo sem movimento.
+        const catalog = await loadCommercialCatalog().catch(() => []);
+        merged = withAllProductSimulators(merged, groupProductSimulators(catalog).flatMap((g) => g.items));
+      }
+      // Simuladores por produto fora do catálogo comercial atual: nome do produto em vez do identificador.
+      const ids = [...new Set(merged.filter((r) => r.label === r.simulator_id).map((r) => productIdFromSimulator(r.simulator_id)).filter(Boolean))] as string[];
       if (ids.length) {
         const { data: cat } = await (supabase as any).from("system_a_catalog").select("id, name").in("id", ids);
         const names = new Map<string, string>(((cat ?? []) as any[]).map((c) => [c.id, String(c.name ?? "").trim()]));
@@ -77,6 +89,9 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
     (supabase as any).rpc("fn_attendance_channel_metrics", { _form_id: formId ?? null, _campaign_slug: campaignSlug ?? null, _since: since })
       .then(({ data }: any) => setRows((data ?? []).map((r: any) => ({ ...r, views: +r.views, leads: +r.leads, conversions: +r.conversions, revenue: +r.revenue, ...(formOverride && r.channel === "form" ? formOverride : {}) }))));
   }, [formId, campaignSlug, days, formOverride?.views, formOverride?.leads, formOverride?.conversions, formOverride?.revenue]);
+
+  const productSims = sims.filter((s) => productIdFromSimulator(s.simulator_id)).length;
+  const idleProducts = sims.filter(isIdleProduct).length;
 
   return (
     <Card>
@@ -99,7 +114,7 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                     <td>{r.leads ? `${((r.conversions / r.leads) * 100).toFixed(1)}%` : "—"}</td>
                     <td>{brl(r.revenue)}</td>
                   </tr>
-                  {r.channel === "whatsapp_lia" && sims.map((s) => (
+                  {r.channel === "whatsapp_lia" && sims.filter((s) => showIdleProducts || !isIdleProduct(s)).map((s) => (
                     <tr key={`sim-${s.simulator_id}`} className="text-muted-foreground">
                       <td className="py-1 pl-4 text-xs" title={`Identificador: ${s.simulator_id}`}>↳ {s.label} <span className="opacity-70">({s.simulator_id})</span></td>
                       <td className="text-xs">{s.views}</td>
@@ -110,6 +125,15 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                       <td className="text-xs">{brl(s.revenue)}</td>
                     </tr>
                   ))}
+                  {r.channel === "whatsapp_lia" && idleProducts > 0 && (
+                    <tr className="text-muted-foreground">
+                      <td colSpan={7} className="py-1 pl-4 text-xs">
+                        <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => setShowIdleProducts((v) => !v)}>
+                          {showIdleProducts ? "Ocultar produtos sem movimento" : `Mostrar os ${productSims} simuladores por produto do catálogo (${idleProducts} ainda sem movimento)`}
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                 </Fragment>))}
               </tbody>
             </table>
