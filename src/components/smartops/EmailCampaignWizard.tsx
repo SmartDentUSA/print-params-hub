@@ -903,7 +903,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
           )}
           <EmailSequenceBuilder
           seedFromCurrent={{
-            produto_id: produtoId || null,
+            produto_id: produtoId,
             audience_filter: filters,
             subject, preheader, html: effectiveHtml || html,
             cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },
