@@ -109,3 +109,5 @@
 - [ ] `smart-ops-promo-coupons-sync` aceita chamadas sem login (modos que gravam na Loja Integrada) — aguardando autorização para proteger.
 - [x] Landing BLACK26 (s.smartdent.com.br/v7pmii) trocada pela página enviada; 16 itens abrem o simulador com produto preenchido (origem do formulário), botões gerais perguntam pelos botões; comparativo por canal lista os 17 simuladores. Página e conversa simuladas no navegador (sem cadastro real); precisa publicar; comparativo logado não conferido.
 - [x] Bio: card da BLACK26 mostra só o link da landing (botão "Falar com um Especialista" desligado por card, com opção na tela da Bio) e aparece acima dos destaques fixos; 2 testes aprovados e ordem/ausência do botão conferidas em desktop e 390px. Frontend precisa de publicação.
+
+- [ ] Simuladores WhatsApp: quem não tem impressora 3D não recebe a pergunta de cura nem as de impressão (condições restauradas/remapeadas)
