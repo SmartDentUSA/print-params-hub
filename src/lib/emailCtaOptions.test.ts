@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildLandingCtaOptions, buildSimulatorCtaOptions } from "./emailCtaOptions";
+import { buildLandingCtaOptions, buildSimulatorCtaOptions, canGenerateEmail } from "./emailCtaOptions";
 
 const forms = [
   { slug: "black26", name: "BLACK26 Engajamento" },
@@ -33,4 +33,16 @@ test("oferece as landing pages publicadas com o link curto marcado como e-mail",
   assert.deepEqual(opts.map(o => o.url), ["https://s.smartdent.com.br/v7pmii?o=email"]);
   assert.equal(opts[0].tipo, "landing");
   assert.equal(opts[0].id, "lp-black26");
+});
+
+test("sem produto, só uma landing page como botão principal permite gerar o e-mail", () => {
+  assert.equal(canGenerateEmail("", { tipo: "landing" }), true);
+  assert.equal(canGenerateEmail("", { tipo: "whatsapp" }), false);
+  assert.equal(canGenerateEmail("", { tipo: "form" }), false);
+  assert.equal(canGenerateEmail("", null), false);
+});
+
+test("com produto, qualquer botão oficial permite gerar o e-mail", () => {
+  assert.equal(canGenerateEmail("prod-1", { tipo: "whatsapp" }), true);
+  assert.equal(canGenerateEmail("prod-1", { tipo: "form" }), true);
 });

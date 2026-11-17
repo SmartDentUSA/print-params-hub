@@ -67,3 +67,13 @@ export function buildLandingCtaOptions(rows: ShortRow[], forms: FormRow[], publi
   }
   return out.sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 }
+
+/**
+ * O e-mail pode ser gerado com um produto do catálogo ou só com uma landing page publicada
+ * como botão principal (o conteúdo vem da própria página). Sem produto, formulário e simulador
+ * não bastam, porque não há de onde tirar o texto do e-mail.
+ */
+export function canGenerateEmail(produtoId: string | null | undefined, ctaPrincipal: { tipo?: string } | null | undefined): boolean {
+  if (!ctaPrincipal) return false;
+  return !!produtoId || ctaPrincipal.tipo === "landing";
+}

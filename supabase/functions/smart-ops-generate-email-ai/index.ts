@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { extractCustomLandingText, type CustomLandingContext } from "./custom-landing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -874,8 +875,29 @@ Deno.serve(async (req) => {
     const allowedUrls = [cta_principal?.url, ...(ctas_secundarios || []).map(c => c.url)]
       .filter((u): u is string => !!u);
 
+    // ── Landing page enviada como HTML próprio: usa o texto da própria página ──
+    let customLp: CustomLandingContext | null = null;
+    if (cta_principal?.tipo === "landing" && cta_principal.id) {
+      const { data: lpRow } = await supabase
+        .from("smartops_form_landing_pages")
+        .select("status, custom_html")
+        .eq("id", cta_principal.id)
+        .maybeSingle();
+      if (lpRow?.status === "published" && lpRow.custom_html && String(lpRow.custom_html).trim()) {
+        customLp = extractCustomLandingText(String(lpRow.custom_html));
+      }
+    }
+
     // ── Load Landing Page dossier (primary copy + visual source of truth) ──
-    const lp = use_landing_page ? await loadLpDossier(supabase, cta_principal, produto_id) : null;
+    const lp = use_landing_page && !customLp ? await loadLpDossier(supabase, cta_principal, produto_id) : null;
+
+    // Sem produto, a landing page escolhida é a única fonte do e-mail.
+    if (!produtoCtx && !lp && !customLp) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Escolha um produto ou uma landing page publicada como botão principal.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     console.log("[generate-email-ai] LP branch selected:", lp ? "YES" : "NO",
       "regenerate=", regenerate, "cta_url=", cta_principal?.url ? "yes" : "no");
 
@@ -943,6 +965,11 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const heroImageForPrompt = (produtoCtx?.image_url as string | undefined) || customLp?.imageUrl || "";
+    const landingBlock = customLp
+      ? `\n═══ CONTEÚDO DA LANDING PAGE (fonte principal do e-mail) ═══\nTítulo: ${customLp.title || "-"}\n${customLp.text || "-"}\n`
+      : "";
+
     const systemPrompt = `Você é um copywriter sênior da Smart Dent | Fluxo Digital, especializado em odontologia digital (impressão 3D, escaneamento, CAD/CAM). Escreve emails B2B para dentistas e laboratórios.
 
 REGRAS ABSOLUTAS:
@@ -953,8 +980,12 @@ REGRAS ABSOLUTAS:
 - NUNCA gere tags <table>, <tr> ou <td> soltas sem envolver em uma tabela completa e fechada corretamente. Se usar tabela para layout, feche todas as tags.
 - Personalizar com placeholders: {{nome}} (primeiro nome do lead) e {{vendedor_nome}}. NUNCA use {{link_wa_vendedor}} nem qualquer outro placeholder.
 - CTA principal como botão destacado. CTAs secundários como links no rodapé.
-- OBRIGATÓRIO: use a imagem do produto (\`<img src="…" alt="…" style="max-width:100%;height:auto">\`) no topo, logo após a saudação.
-- OBRIGATÓRIO: cite pelo menos 1 indicação clínica concreta E 1 spec técnica real do dossiê fornecido. NÃO invente números.
+${heroImageForPrompt
+  ? '- OBRIGATÓRIO: use a imagem hero informada (\`<img src="…" alt="…" style="max-width:100%;height:auto">\`) no topo, logo após a saudação.'
+  : '- Não use imagens (nenhuma imagem foi fornecida); não invente URLs de imagem.'}
+${produtoCtx
+  ? "- OBRIGATÓRIO: cite pelo menos 1 indicação clínica concreta E 1 spec técnica real do dossiê fornecido. NÃO invente números."
+  : "- Sem produto específico: use SOMENTE as informações do conteúdo da landing page fornecido. NÃO invente produtos, specs, números ou condições."}
 - PROIBIDO incluir depoimentos, citações de clientes, blocos em itálico com nome de dentista, "Dra. Joyce", "Cliente Smart Dent" ou qualquer prova social. O e-mail vai direto do dossiê ao CTA.
 - Estrutura sugerida: preheader (invisível) → saudação → hero image do produto → hook (1 parágrafo) → 2-3 benefícios com bullets (usando as specs/indicações) → CTA botão (landing page do produto) → rodapé com o CTA secundário (formulário do produto) + assinatura Smart Dent.
 
@@ -974,11 +1005,11 @@ ${hasSimulatorCta
 
 SAÍDA: apenas JSON válido, sem markdown, sem texto extra.`;
 
-    const userPrompt = `═══ DOSSIÊ DO PRODUTO ═══
-Nome: ${produtoCtx?.name || produto || "produto Smart Dent"}
+    const userPrompt = `${landingBlock}═══ DOSSIÊ DO PRODUTO ═══
+${produtoCtx ? "" : "(Sem produto específico — o e-mail fala da landing page acima como um todo.)\n"}Nome: ${produtoCtx?.name || produto || customLp?.title || "Smart Dent"}
 Categoria: ${produtoCtx?.product_category || produtoCtx?.category || "-"} / ${produtoCtx?.product_subcategory || ""}
 Descrição: ${produtoCtx?.description ? String(produtoCtx.description).slice(0, 800) : "-"}
-Imagem hero (USAR NO HTML): ${produtoCtx?.image_url || "-"}
+Imagem hero (USAR NO HTML): ${heroImageForPrompt || "-"}
 
 Especificações técnicas (usar 1 no email):
 ${techBullets}
@@ -1078,7 +1109,7 @@ Retorne JSON no formato:
       html_body: sanitizedHtml,
       plain_text: sanitizedText,
       produto_context: produtoCtx,
-      source: "catalog_dossier",
+      source: customLp ? "landing_page_custom" : "catalog_dossier",
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("[generate-email-ai] error", err);
