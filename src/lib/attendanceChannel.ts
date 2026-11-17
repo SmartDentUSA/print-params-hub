@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateSessionId } from "@/hooks/usePageTracking";
-import { clickOriginFromSearch, type ClickOrigin } from "@/lib/clickOrigin";
+import { currentClickOrigin, type AnyClickOrigin } from "@/lib/clickOrigin";
 
 export type AttendanceChannel = "form" | "specialist" | "whatsapp_lia";
 
@@ -46,11 +46,11 @@ export function trackAttendanceEvent(e: {
   /** Simulador de WhatsApp que originou o evento (ex.: item da landing). */
   simulator_id?: string | null;
   /** Origem do clique (e-mail, SMS...); padrão: lida da URL atual. */
-  origin?: ClickOrigin | null;
+  origin?: AnyClickOrigin | null;
 }) {
   let origin = e.origin ?? null;
   if (e.origin === undefined) {
-    try { origin = clickOriginFromSearch(window.location.search); } catch { origin = null; }
+    origin = currentClickOrigin();
   }
   void (supabase as any).from("attendance_channel_events").insert({
     channel: e.channel,
