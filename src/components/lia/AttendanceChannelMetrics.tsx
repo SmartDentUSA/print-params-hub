@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { parseSimulators, type LandingSimulator } from "@/lib/lp/customLanding";
 import { CLICK_ORIGINS, CLICK_ORIGIN_LABEL } from "@/lib/clickOrigin";
+import { productIdFromSimulator } from "@/lib/productSimulators";
 
 type Row = { channel: string; views: number; leads: number; conversions: number; revenue: number };
 type SimRow = { simulator_id: string; label: string; views: number; leads: number; conversions: number; revenue: number };
@@ -51,10 +52,22 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
     Promise.all([
       (supabase as any).from("smartops_form_landing_pages").select("custom_simulators").eq("form_id", formId).maybeSingle(),
       (supabase as any).rpc("fn_attendance_simulator_metrics", { _form_id: formId, _since: since }),
-    ]).then(([lp, m]: any[]) => {
+    ]).then(async ([lp, m]: any[]) => {
       if (cancelled) return;
       const list = parseSimulators(lp?.data?.custom_simulators);
-      if (list.length || (m?.data ?? []).length) setSims(mergeSimulators(list, m?.data ?? []));
+      if (!list.length && !(m?.data ?? []).length) return;
+      const merged = mergeSimulators(list, m?.data ?? []);
+      // Simuladores por produto (p-<id do catálogo>): nome do produto em vez do identificador.
+      const ids = [...new Set(merged.map((r) => productIdFromSimulator(r.simulator_id)).filter(Boolean))] as string[];
+      if (ids.length) {
+        const { data: cat } = await (supabase as any).from("system_a_catalog").select("id, name").in("id", ids);
+        const names = new Map<string, string>(((cat ?? []) as any[]).map((c) => [c.id, String(c.name ?? "").trim()]));
+        for (const r of merged) {
+          const pid = productIdFromSimulator(r.simulator_id);
+          if (pid && r.label === r.simulator_id) r.label = names.get(pid) ? `Produto: ${names.get(pid)}` : "Produto do catálogo";
+        }
+      }
+      if (!cancelled) setSims(merged);
     }, () => {});
     return () => { cancelled = true; };
   }, [formId, days]);
