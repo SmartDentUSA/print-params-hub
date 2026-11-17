@@ -38,7 +38,10 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-  if (!token || !(await isServiceKey(token, serviceKey))) return json({ error: 'unauthorized' }, 401);
+  if (!token || !(await isServiceKey(token, serviceKey))) {
+    console.warn(JSON.stringify({ event: 'zernio.wa.button_reply.unauthorized', token_len: token.length, jwt: token.startsWith('eyJ') }));
+    return json({ error: 'unauthorized' }, 401);
+  }
   const apiKey = Deno.env.get('ZERNIO_API_KEY');
   if (!apiKey) return json({ error: 'ZERNIO_API_KEY não configurada' }, 500);
 
