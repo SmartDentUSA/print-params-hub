@@ -1021,7 +1021,7 @@ Deno.serve(async (req) => {
       const { data: byEmail } = await supabase
         .from("lia_attendances")
         .select("*")
-        .eq("email", email)
+        .ilike("email", escapeLike(email))
         .maybeSingle();
       if (byEmail) {
         existingLead = byEmail;
@@ -1915,7 +1915,7 @@ Deno.serve(async (req) => {
           let q = supabase.from("lia_attendances").select("id");
           q = /piperun_id/.test(insertError.message) && conflictPiperunId
             ? q.eq("piperun_id", conflictPiperunId)
-            : q.eq("email", email);
+            : q.ilike("email", escapeLike(email));
           const { data: conflictRow } = await q.limit(1).maybeSingle();
           if (conflictRow?.id) {
             const upd: Record<string, unknown> = { ...incomingData };
