@@ -18,7 +18,7 @@ import { EmailRichEditor } from "./EmailRichEditor";
 import { EmailHtmlEditor } from "./EmailHtmlEditor";
 import { parseSections, serializeSections, toggleSection, type EmailSection } from "./emailSections";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { buildLandingCtaOptions, buildSimulatorCtaOptions } from "@/lib/emailCtaOptions";
+import { buildLandingCtaOptions, buildSimulatorCtaOptions, canGenerateEmail } from "@/lib/emailCtaOptions";
 import { withClickOrigin } from "@/lib/clickOrigin";
 
 type CtaType = "landing" | "form" | "whatsapp" | "custom";
@@ -56,7 +56,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   const [tom, setTom] = useState<string>("consultivo");
   const [tomCustom, setTomCustom] = useState<string>("");
   const [useLandingPage, setUseLandingPage] = useState<boolean>(true);
-  const [emailSource, setEmailSource] = useState<"landing_page_ai" | "landing_page_verbatim" | "catalog_dossier" | null>(null);
+  const [emailSource, setEmailSource] = useState<"landing_page_ai" | "landing_page_verbatim" | "landing_page_custom" | "catalog_dossier" | null>(null);
 
   // ── Generated content ──
   const [subject, setSubject] = useState("");
@@ -166,9 +166,10 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   useEffect(() => {
     (async () => {
       if (!produtoId) {
+        // Sem produto: landing pages e simuladores continuam disponíveis; só o formulário sai.
         setCtaOptions(prev => ({ ...prev, form: [], custom: [] }));
-        setCtaPrincipal(null);
-        setCtasSecundarios([]);
+        setCtaPrincipal(prev => (prev?.tipo === "form" ? null : prev));
+        setCtasSecundarios(prev => prev.filter(c => c.tipo !== "form"));
         return;
       }
       const sb = supabase as any;
@@ -215,9 +216,12 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
 
       // Padrão: formulário oficial do produto. O simulador de WhatsApp pode ser
       // escolhido manualmente. A landing page continua só como fonte visual/copy.
+      // Se já havia uma landing page ou simulador escolhido, mantém a escolha.
       const first = form[0] || null;
-      setCtaPrincipal(first ? { tipo: first.tipo, id: first.id, url: first.url, label: first.label } : null);
-      setCtasSecundarios([]);
+      setCtaPrincipal(prev => (prev && prev.tipo !== "form")
+        ? prev
+        : (first ? { tipo: first.tipo, id: first.id, url: first.url, label: first.label } : null));
+      setCtasSecundarios(prev => prev.filter(c => c.tipo !== "form"));
     })();
   }, [produtoId]);
 
@@ -237,13 +241,13 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
   };
 
   async function handleGenerate(mode: "all" | "subject" = "all") {
-    if (!produtoId) return toast.error("Escolha um produto primeiro");
     if (!ctaPrincipal) return toast.error("Escolha o botão do e-mail: landing page, formulário oficial do produto ou simulador de WhatsApp.");
+    if (!canGenerateEmail(produtoId, ctaPrincipal)) return toast.error("Sem produto, escolha uma landing page como botão principal.");
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("smart-ops-generate-email-ai", {
         body: {
-          produto_id: produtoId,
+          produto_id: produtoId || undefined,
           cta_principal: ctaPrincipal,
           ctas_secundarios: ctasSecundarios,
           segmento_resumo: JSON.stringify(filters).slice(0, 500),
@@ -268,6 +272,8 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
       if (mode === "all") {
         if (useLandingPage && ctaPrincipal?.tipo === "landing" && src === "catalog_dossier") {
           toast.warning("A LP do produto não foi encontrada — gerado a partir do catálogo.");
+        } else if (src === "landing_page_custom") {
+          toast.success("Email gerado a partir do texto da Landing Page");
         } else if (src === "landing_page_verbatim") {
           toast.success("Email gerado como espelho fiel da Landing Page");
         } else {
@@ -538,7 +544,15 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             </div>
 
             <div>
-              <Label className="text-xs">Produto ({products.length} disponíveis)</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Produto (opcional — {products.length} disponíveis)</Label>
+                {produtoId && (
+                  <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground underline"
+                    onClick={() => setProdutoId("")}>
+                    Sem produto (só landing page)
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input
@@ -549,7 +563,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                 />
               </div>
               <Select value={produtoId} onValueChange={setProdutoId}>
-                <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Nenhum — usar só a landing page escolhida abaixo" /></SelectTrigger>
                 <SelectContent className="max-h-96">
                   {filteredProducts.slice(0, 300).map(p => (
                     <SelectItem key={p.id} value={p.id}>
@@ -561,6 +575,11 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                   )}
                 </SelectContent>
               </Select>
+              {!produtoId && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Sem produto, escolha uma landing page como botão principal: o e-mail é montado com o conteúdo dela.
+                </p>
+              )}
             </div>
 
             <div>
@@ -588,9 +607,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                   })}
                   {!allCtas.length && (
                     <div className="px-2 py-4 text-xs text-muted-foreground text-center">
-                      {produtoId
-                        ? "Nenhuma landing page, formulário oficial ou simulador de WhatsApp com URL encurtada."
-                        : "Selecione um produto primeiro."}
+                      Nenhuma landing page, formulário oficial ou simulador de WhatsApp com URL encurtada.
                     </div>
                   )}
                 </SelectContent>
@@ -655,7 +672,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={() => handleGenerate("all")} disabled={generating || !produtoId || !ctaPrincipal}>
+              <Button onClick={() => handleGenerate("all")} disabled={generating || !canGenerateEmail(produtoId, ctaPrincipal)}>
                 <Sparkles className="w-4 h-4 mr-1" />
                 {generating ? "Gerando com IA..." : "Gerar email com IA →"}
               </Button>
@@ -669,7 +686,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                     onChange={e => setUseLandingPage(e.target.checked)}
                     className="accent-primary"
                   />
-                  Usar a Landing Page do produto como base visual e de copy
+                  Usar a Landing Page como base visual e de copy
                 </label>
                 {useLandingPage && (
                   <Badge variant="secondary" className="text-[10px]">
