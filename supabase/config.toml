@@ -739,3 +739,6 @@ verify_jwt = false
 
 [functions.catalog-images-localize]
 verify_jwt = false
+
+[functions.zernio-wa-button-reply]
+verify_jwt = false
