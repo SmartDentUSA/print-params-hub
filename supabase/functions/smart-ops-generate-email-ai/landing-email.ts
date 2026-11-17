@@ -118,7 +118,9 @@ export function landingToEmail(input: LandingEmailInput): LandingEmail {
       const src = imgSrc(el);
       if (src) {
         const w = Number(el.getAttribute("width") || 0);
-        out.push(image(src, el.getAttribute("alt") || "", w && w < 544 ? Math.max(160, Math.min(544, w)) : 544));
+        // Foto de produto ao lado do texto na página: no e-mail fica menor, acima do texto.
+        const inPhoto = !!el.parentElement && hasClass(el.parentElement, "photo");
+        out.push(image(src, el.getAttribute("alt") || "", inPhoto ? 280 : w && w < 544 ? Math.max(160, Math.min(544, w)) : 544));
       }
       return;
     }
@@ -140,7 +142,8 @@ export function landingToEmail(input: LandingEmailInput): LandingEmail {
       const lead = hasClass(el, "lead");
       if (lead && !preheader) preheader = plainText(el);
       const small = hasClass(el, "legal");
-      out.push(row(`<div style="${F}font-size:${small ? 11 : lead ? 16 : 14}px;line-height:1.55;color:${small ? P.mute : P.text};text-align:center;">${inner}</div>`, "6px 28px"));
+      const strong = tag === "STRONG" || tag === "B";
+      out.push(row(`<div style="${F}font-size:${small ? 11 : lead ? 16 : strong ? 18 : 14}px;line-height:1.55;${strong ? "font-weight:800;" : ""}color:${small ? P.mute : P.text};text-align:center;">${inner}</div>`, "6px 28px"));
       return;
     }
     for (const c of [...el.children]) walk(c as Element);
