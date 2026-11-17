@@ -134,7 +134,7 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                     ))}
                   </tbody>
                 </table>
-                <p className="mt-1 text-xs text-muted-foreground">Cada origem conta os links curtos marcados (?o=email, ?o=sms, ?o=whatsapp, ?o=grupos, ?o=bio), copiados pelo botão "origem" no card do formulário ou inseridos pelas telas de e-mail, SMS e WhatsApp. "Sem origem marcada" reúne os acessos sem marcação. A contagem por origem começa a partir de hoje.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Cada origem conta os links curtos marcados (?o=email, ?o=sms, ?o=whatsapp, ?o=grupos, ?o=bio), copiados pelo botão "origem" no card do formulário ou inseridos pelas telas de e-mail, SMS e WhatsApp. Sem marcação, a origem é deduzida pelo site de onde a pessoa veio (Instagram, Facebook, Google...). "Acesso direto" reúne quem chegou sem nenhuma pista; "Antes da marcação" são acessos anteriores a 16/11 16:18.</p>
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. {sims.length ? "Abaixo do WhatsApp, cada simulador da landing (geral e por produto) com seu identificador; a contagem por simulador começa a partir de hoje. " : ""}{formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
