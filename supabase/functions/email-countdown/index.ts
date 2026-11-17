@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     if (cache.size > 30) cache.clear();
     cache.set(key, gif);
   }
-  return new Response(req.method === "HEAD" ? null : gif, {
+  return new Response(req.method === "HEAD" ? null : (gif as Uint8Array<ArrayBuffer>), {
     headers: { "Content-Type": "image/gif", "Content-Length": String(gif.length), ...NO_CACHE },
   });
 });

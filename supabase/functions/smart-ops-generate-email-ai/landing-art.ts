@@ -6,7 +6,7 @@ import type { LandingArt } from "./custom-landing.ts";
 const BUCKET = "wa-media";
 const EXT: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
 
-async function sha(bytes: Uint8Array): Promise<string> {
+async function sha(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const h = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
   return [...h.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
