@@ -42,3 +42,9 @@ test("campanha comercial lista o simulador de todos os produtos, mesmo sem movim
   assert.equal(rows[1].simulator_id, "p-b0000000-0000-4000-8000-000000000002");
   assert.equal(rows[1].views, 0);
 });
+
+test("catálogo da Base de Conhecimento: produto sem formulário próprio abre o CHATSITE com o produto escolhido", async () => {
+  const { kbCatalogWhatsAppTarget } = await import("./productSimulators");
+  assert.deepEqual(kbCatalogWhatsAppTarget(ELEGOO, null), { formId: "b9d5740b-30cd-4a07-8bcb-92d7bc4a68f4", productId: ELEGOO, simulator: `p-${ELEGOO}` });
+  assert.deepEqual(kbCatalogWhatsAppTarget(ELEGOO, "f0000000-0000-4000-8000-000000000001"), { formId: "f0000000-0000-4000-8000-000000000001" });
+});
