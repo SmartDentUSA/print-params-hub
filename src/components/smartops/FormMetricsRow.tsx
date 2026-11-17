@@ -21,6 +21,9 @@ import { QrCodeButton } from "./QrCodeButton";
 import { ShortLinkOriginMenu } from "./ShortLinkOriginMenu";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import { buildLiaUrl } from "@/lib/attendanceChannel";
+import { isCommercialCampaignForm } from "@/lib/commercialCampaignForm";
+import { ProductSimulatorsPanel } from "./ProductSimulatorsPanel";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { FormMetrics, ShortLinkInfo, ShortLinkTarget } from "./FormMetricsCard";
 
 interface Props {
@@ -164,6 +167,8 @@ export function FormMetricsRow({
   const completion = pct(m.leads, m.unique_visitors);
   const conversion = pct(m.deals_won, m.leads);
   const [showChannels, setShowChannels] = useState(false);
+  const [showProductSims, setShowProductSims] = useState(false);
+  const isCommercial = isCommercialCampaignForm(form);
 
   return (
     <div className="grid grid-cols-12 gap-2 items-center px-3 py-2 border-b hover:bg-muted/30 transition-colors text-sm">
@@ -229,7 +234,31 @@ export function FormMetricsRow({
               </div>
             );
           })()}
+          {isCommercial && (
+            <button
+              type="button"
+              onClick={() => setShowProductSims(true)}
+              className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] bg-muted/40 hover:text-foreground"
+              title="Um simulador de WhatsApp para cada produto do catálogo"
+            >
+              <Link2 className="w-2.5 h-2.5 opacity-60" />
+              Simuladores por produto
+            </button>
+          )}
         </div>
+        {isCommercial && (
+          <Dialog open={showProductSims} onOpenChange={setShowProductSims}>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Simuladores de WhatsApp por produto</DialogTitle>
+                <DialogDescription>
+                  Cada produto do catálogo abre o simulador deste formulário com o produto já escolhido. Todos contam como a mesma origem de conversão ({form.name}).
+                </DialogDescription>
+              </DialogHeader>
+              <ProductSimulatorsPanel forms={[{ id: form.id, name: form.name }]} />
+            </DialogContent>
+          </Dialog>
+        )}
         <div className="flex items-center gap-3 mt-1.5 flex-wrap text-[10px]">
           <span className="text-muted-foreground uppercase tracking-wide">Link da Bio</span>
           <label className="inline-flex items-center gap-1.5">

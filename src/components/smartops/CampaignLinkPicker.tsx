@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { shortenUrl } from "@/utils/shortLink";
 import { buildLiaUrl } from "@/lib/attendanceChannel";
-import { isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
+import { isCommercialCampaignForm, isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
+import { ProductSimulatorsPanel } from "./ProductSimulatorsPanel";
 import { originForCampaignChannel, withClickOrigin } from "@/lib/clickOrigin";
 import {
   ALL_LINK_SECTIONS,
@@ -126,6 +127,16 @@ async function fetchChatLinks(): Promise<DynamicLink[]> {
   }));
 }
 
+/** Formulários ativos de campanha comercial: cada um oferece um simulador por produto do catálogo. */
+async function fetchCommercialForms(): Promise<{ id: string; name: string }[]> {
+  const { data } = await (supabase as any)
+    .from("smartops_forms")
+    .select("id, name, is_commercial_campaign")
+    .eq("active", true)
+    .order("name");
+  return ((data ?? []) as any[]).filter(isCommercialCampaignForm).map((f) => ({ id: f.id, name: f.name }));
+}
+
 interface GroupLink {
   url: string;
   forms: string[];
@@ -210,6 +221,8 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
   const [courseLinks, setCourseLinks] = useState<DynamicLink[]>([]);
   const [groupLinks, setGroupLinks] = useState<GroupLink[]>([]);
   const [shortening, setShortening] = useState<string | null>(null);
+  const [commercialForms, setCommercialForms] = useState<{ id: string; name: string }[]>([]);
+  const [showProductSims, setShowProductSims] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CampaignLink | null>(null);
 
@@ -242,6 +255,7 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
     if (need.chat) fetchChatLinks().then(setChatLinks).catch(() => setChatLinks([]));
     if (need.courses) fetchCourseLinks().then(setCourseLinks).catch(() => setCourseLinks([]));
     if (need.groups) fetchGroupLinks().then(setGroupLinks).catch(() => setGroupLinks([]));
+    if (has("simulator")) fetchCommercialForms().then(setCommercialForms).catch(() => setCommercialForms([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, channel]);
 
@@ -349,7 +363,32 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
             </div>
           )}
 
-          <div className="max-h-[420px] overflow-y-auto">
+          {has("simulator") && commercialForms.length > 0 && (
+            <div className="border-b px-3 py-2">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between text-xs font-medium"
+                onClick={() => setShowProductSims((v) => !v)}
+              >
+                <span className="inline-flex items-center gap-1.5"><MessageCircle className="w-3 h-3" /> Simulador por produto (campanhas comerciais)</span>
+                <span className="text-muted-foreground">{showProductSims ? "Fechar" : "Abrir"}</span>
+              </button>
+              {showProductSims && (
+                <div className="mt-2">
+                  <ProductSimulatorsPanel
+                    forms={commercialForms}
+                    origin={originForCampaignChannel(channel)}
+                    listClassName="max-h-[260px] overflow-y-auto rounded-md border"
+                    onInsert={(url) => {
+                      onInsert(url);
+                      setOpen(false);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          <div className={showProductSims ? "hidden" : "max-h-[420px] overflow-y-auto"}>
             {fetching && visibleLinkCount === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
