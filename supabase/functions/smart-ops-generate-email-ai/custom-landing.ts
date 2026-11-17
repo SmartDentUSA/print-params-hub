@@ -151,12 +151,14 @@ export function renderProductCardsHtml(
 </section>`;
 }
 
-/** Coloca os cards no lugar marcado pela IA; sem marcador, logo antes do fim do corpo. */
+/** Coloca os cards no lugar marcado pela IA; sem marcador, antes do bloco do botão (ou do rodapé). */
 export function insertProductCards(html: string, cardsHtml: string): string {
   if (!cardsHtml) return html.replaceAll(PRODUCT_CARDS_MARKER, "");
   if (html.includes(PRODUCT_CARDS_MARKER)) {
     const [first, ...rest] = html.split(PRODUCT_CARDS_MARKER);
     return first + cardsHtml + rest.join("");
   }
+  const anchor = html.search(/<section\b[^>]*\bdata-section\s*=\s*["'](cta|footer)["']/i);
+  if (anchor >= 0) return html.slice(0, anchor) + cardsHtml + html.slice(anchor);
   return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${cardsHtml}</body>`) : html + cardsHtml;
 }
