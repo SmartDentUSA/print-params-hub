@@ -115,6 +115,16 @@ export default function PublicLandingPage() {
     setLiaOpen(true);
   };
 
+  // Card de produto vindo do e-mail (?sim=<card>): abre direto o simulador daquele produto.
+  const [simFromLinkDone, setSimFromLinkDone] = useState(false);
+  useEffect(() => {
+    if (!lp?.custom_html || simFromLinkDone) return;
+    setSimFromLinkDone(true);
+    const wanted = new URLSearchParams(window.location.search).get("sim")?.trim().toLowerCase();
+    if (wanted && simulators.some((s) => s.id === wanted)) openSimulator(wanted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lp, simulators, simFromLinkDone]);
+
   const inlineFormUrl = useMemo(
     () =>
       lp
