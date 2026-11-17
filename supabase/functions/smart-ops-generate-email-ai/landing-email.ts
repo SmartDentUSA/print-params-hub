@@ -91,7 +91,7 @@ export function landingToEmail(input: LandingEmailInput): LandingEmail {
     const tag = el.tagName;
     if (SKIP_TAGS.has(tag) || el.getAttribute("aria-hidden") === "true" || SKIP_CLASSES.some((c) => hasClass(el, c))) return;
     // Textos que a página preenche por script ("Carregando…", rótulos de fase) ficam de fora.
-    if ([...el.attributes].some((a) => /^data-(hero|bar|dock|fin)-/.test(a.name) || a.name === "data-final-text" && false)) return;
+    if (el.getAttributeNames().some((n) => /^data-(hero|bar|dock|fin|t)-/.test(n) || n === "data-badge")) return;
 
     if (el.querySelector && hasClass(el, "grid") && el.querySelector("article")) {
       const slugs = [...el.querySelectorAll("article")].map((a) => (a as Element).getAttribute("data-slug")?.toLowerCase() || "");

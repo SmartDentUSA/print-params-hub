@@ -8,6 +8,7 @@ import {
   countdownImageUrl, parseLandingCountdownConfig, type CountdownConfig,
 } from "../_shared/email-countdown.ts";
 import { publishLandingArt } from "./landing-art.ts";
+import { landingToEmail } from "./landing-email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -887,6 +888,8 @@ Deno.serve(async (req) => {
     let customLp: CustomLandingContext | null = null;
     let landingCards: EmailProductCard[] = [];
     let landingCountdown: CountdownConfig | null = null;
+    let customHtmlRaw = "";
+    let simulatorIds = new Set<string>();
     if (cta_principal?.tipo === "landing" && cta_principal.id) {
       const { data: lpRow } = await supabase
         .from("smartops_form_landing_pages")
@@ -895,6 +898,9 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (lpRow?.status === "published" && lpRow.custom_html && String(lpRow.custom_html).trim()) {
         customLp = extractCustomLandingText(String(lpRow.custom_html));
+        customHtmlRaw = String(lpRow.custom_html);
+        simulatorIds = new Set((Array.isArray(lpRow.custom_simulators) ? lpRow.custom_simulators as any[] : [])
+          .map((s) => String(s?.id || "").toLowerCase()).filter(Boolean));
         // Cards de produto da landing: arte, descontos e cronômetro da própria página.
         const cards = extractLandingCards(String(lpRow.custom_html));
         if (cards.length) {
@@ -1003,6 +1009,36 @@ Deno.serve(async (req) => {
         plain_text: "",
         produto_context: produtoCtx,
         source: "landing_page_verbatim",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Landing com HTML próprio: o e-mail é a própria página convertida (sem texto da IA).
+    if (customLp && customHtmlRaw && cta_principal?.url && regenerate === "all") {
+      const countdownUrl = landingCountdown
+        ? (kind: "tier" | "fixed" | "end", fixedPct: number) =>
+          countdownImageUrl(Deno.env.get("SUPABASE_URL")!, landingCountdown!, kind, fixedPct)
+        : undefined;
+      const mail = landingToEmail({
+        html: customHtmlRaw,
+        ctaUrl: cta_principal.url,
+        cards: landingCards,
+        simulatorIds,
+        countdown: landingCountdown,
+        countdownUrl,
+        phaseBadge: landingCountdown && landingCountdown.pcts.length > 1
+          ? `${landingCountdown.pcts.join("% → ")}% OFF`
+          : undefined,
+      });
+      console.log("[generate-email-ai] custom landing → landing_page_html", mail.html.length, "bytes");
+      return new Response(JSON.stringify({
+        success: true,
+        subject: mail.subject,
+        preheader: mail.preheader,
+        cta_button_label: mail.buttonLabel,
+        html_body: mail.html,
+        plain_text: "",
+        produto_context: produtoCtx,
+        source: "landing_page_html",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
