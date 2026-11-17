@@ -285,6 +285,8 @@ export interface OfferCardsOptions {
   buttonLabel?: string;
   /** endereço da imagem do cronômetro para o tipo do card; null = sem cronômetro */
   countdownUrl?: (kind: "tier" | "fixed" | "end", fixedPct: number) => string | null;
+  /** false = sem o cronômetro grande no topo da seção */
+  heroTimer?: boolean;
   /** selo dos cards de desconto por fase (ex.: "25% → 15% → 10% OFF"), no lugar de "Fase 1 · 25% OFF" */
   phaseBadge?: string;
 }
@@ -342,10 +344,11 @@ ${rows.join("\n")}
 <tr><td colspan="2" align="center" style="padding:14px;"><a href="${href}" style="${F}display:inline-block;font-size:14px;font-weight:700;color:${C.white};background:${C.green};text-decoration:none;border-radius:999px;padding:12px 22px;">${escHtml(btn)}</a></td></tr>
 </table></td></tr>`;
   };
-  const heroTimer = opts.countdownUrl ? opts.countdownUrl("tier", 0) : null;
+  const heroTimer = opts.countdownUrl && opts.heroTimer !== false ? opts.countdownUrl("tier", 0) : null;
+  const title = opts.title === undefined ? "Escolha o seu produto" : opts.title;
   return `<section data-section="products" data-section-label="Produtos da landing">
 <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.page}" style="max-width:600px;margin:0 auto;background:${C.page};border-radius:18px;">
-<tr><td style="${F}padding:22px 16px 8px;font-size:21px;font-weight:800;color:${C.white};text-align:center;">${escHtml(opts.title || "Escolha o seu produto")}</td></tr>
+${title ? `<tr><td style="${F}padding:22px 16px 8px;font-size:21px;font-weight:800;color:${C.white};text-align:center;">${escHtml(title)}</td></tr>` : '<tr><td style="height:6px;line-height:6px;">&nbsp;</td></tr>'}
 ${heroTimer ? `<tr><td style="padding:4px 20px 8px;">${timerImg(heroTimer, "Contagem regressiva da fase atual")}</td></tr>` : ""}
 ${cards.map(card).join("\n")}
 <tr><td style="height:10px;line-height:10px;">&nbsp;</td></tr>
