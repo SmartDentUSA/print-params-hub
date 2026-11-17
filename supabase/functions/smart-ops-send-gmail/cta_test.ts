@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { forceCtaDestination, officialCtaUrl } from "./cta.ts";
+import { forceCtaDestination, hrefToUrl, officialCtaUrl } from "./cta.ts";
 
 Deno.test("aceita simulador de WhatsApp com URL encurtada oficial e marca origem e-mail", () => {
   const cfg = { cta_principal: { tipo: "whatsapp", url: "https://s.smartdent.com.br/9k8sn6" } };
@@ -41,5 +41,12 @@ Deno.test("sim em outro endereço não sobrevive", () => {
   assertEquals(
     forceCtaDestination('<a href="https://evil.com/v7pmii?sim=x">A</a>', cfg),
     '<a href="https://s.smartdent.com.br/v7pmii?o=email">A</a>',
+  );
+});
+
+Deno.test("rastreio do clique guarda o link real com o produto do card", () => {
+  assertEquals(
+    hrefToUrl("https://s.smartdent.com.br/v7pmii?o=email&amp;sim=model-plus"),
+    "https://s.smartdent.com.br/v7pmii?o=email&sim=model-plus",
   );
 });

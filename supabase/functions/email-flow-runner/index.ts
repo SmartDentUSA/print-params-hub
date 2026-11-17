@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
               const { data: ev } = await log(node.id, "email_sent", { to, subject: d.subject });
               const evId = ev?.id;
               let html = tpl(d.html || "", vars);
-              html = html.replace(/href="(https?:\/\/[^"]+)"/gi, (_m, u) => `href="${funcBase}/email-flow-track?e=${evId}&t=c&u=${encodeURIComponent(u)}"`);
+              html = html.replace(/href="(https?:\/\/[^"]+)"/gi, (_m, u) => `href="${funcBase}/email-flow-track?e=${evId}&t=c&u=${encodeURIComponent(String(u).replace(/&amp;/gi, "&"))}"`);
               const sigMember = d.signature === "seller" ? seller : await getMember(d.signature || null);
               const sig = signatureHtml(sigMember);
               const pixel = `<img src="${funcBase}/email-flow-track?e=${evId}&t=o" width="1" height="1" alt="" style="display:none">`;
