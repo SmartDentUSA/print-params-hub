@@ -1,5 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { extractCustomLandingText, type CustomLandingContext } from "./custom-landing.ts";
+import {
+  extractCustomLandingText, extractLandingCards, insertProductCards, renderProductCardsHtml,
+  PRODUCT_CARDS_MARKER, type CustomLandingContext, type EmailProductCard,
+} from "./custom-landing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -877,14 +880,36 @@ Deno.serve(async (req) => {
 
     // ── Landing page enviada como HTML próprio: usa o texto da própria página ──
     let customLp: CustomLandingContext | null = null;
+    let landingCards: EmailProductCard[] = [];
     if (cta_principal?.tipo === "landing" && cta_principal.id) {
       const { data: lpRow } = await supabase
         .from("smartops_form_landing_pages")
-        .select("status, custom_html")
+        .select("status, custom_html, custom_simulators")
         .eq("id", cta_principal.id)
         .maybeSingle();
       if (lpRow?.status === "published" && lpRow.custom_html && String(lpRow.custom_html).trim()) {
         customLp = extractCustomLandingText(String(lpRow.custom_html));
+        // Cards de produto da landing: foto do catálogo (a arte da landing tem preço).
+        const cards = extractLandingCards(String(lpRow.custom_html));
+        if (cards.length) {
+          const sims = Array.isArray(lpRow.custom_simulators) ? lpRow.custom_simulators as any[] : [];
+          const pidBySlug = new Map<string, string>();
+          for (const s of sims) {
+            if (s?.id && typeof s.product_catalog_id === "string") pidBySlug.set(String(s.id).toLowerCase(), s.product_catalog_id);
+          }
+          const pids = [...new Set(pidBySlug.values())];
+          const imgById = new Map<string, string>();
+          if (pids.length) {
+            const { data: imgs } = await supabase.from("system_a_catalog").select("id, image_url").in("id", pids);
+            for (const r of (imgs || []) as any[]) {
+              if (r?.image_url && /^https:\/\//i.test(r.image_url)) imgById.set(r.id, r.image_url);
+            }
+          }
+          landingCards = cards.map((c) => {
+            const pid = pidBySlug.get(c.slug);
+            return { ...c, imageUrl: pid ? imgById.get(pid) ?? null : null };
+          });
+        }
       }
     }
 
@@ -967,7 +992,9 @@ Deno.serve(async (req) => {
 
     const heroImageForPrompt = (produtoCtx?.image_url as string | undefined) || customLp?.imageUrl || "";
     const landingBlock = customLp
-      ? `\n═══ CONTEÚDO DA LANDING PAGE (fonte principal do e-mail) ═══\nTítulo: ${customLp.title || "-"}\n${customLp.text || "-"}\n`
+      ? `\n═══ CONTEÚDO DA LANDING PAGE (fonte principal do e-mail) ═══\nTítulo: ${customLp.title || "-"}\n${customLp.text || "-"}\n${landingCards.length
+          ? `\nPRODUTOS DA LANDING (${landingCards.length} cards; o sistema insere os cards com foto e botão de cada produto no lugar do marcador ${PRODUCT_CARDS_MARKER}):\n${landingCards.map((c) => `- ${c.name}${c.category ? ` (${c.category})` : ""}`).join("\n")}\n`
+          : ""}`
       : "";
 
     const systemPrompt = `Você é um copywriter sênior da Smart Dent | Fluxo Digital, especializado em odontologia digital (impressão 3D, escaneamento, CAD/CAM). Escreve emails B2B para dentistas e laboratórios.
@@ -987,7 +1014,7 @@ ${produtoCtx
   ? "- OBRIGATÓRIO: cite pelo menos 1 indicação clínica concreta E 1 spec técnica real do dossiê fornecido. NÃO invente números."
   : "- Sem produto específico: use SOMENTE as informações do conteúdo da landing page fornecido. NÃO invente produtos, specs, números ou condições."}
 - PROIBIDO incluir depoimentos, citações de clientes, blocos em itálico com nome de dentista, "Dra. Joyce", "Cliente Smart Dent" ou qualquer prova social. O e-mail vai direto do dossiê ao CTA.
-- Estrutura sugerida: preheader (invisível) → saudação → hero image do produto → hook (1 parágrafo) → 2-3 benefícios com bullets (usando as specs/indicações) → CTA botão (landing page do produto) → rodapé com o CTA secundário (formulário do produto) + assinatura Smart Dent.
+${landingCards.length ? `- OBRIGATÓRIO: escreva o marcador literal ${PRODUCT_CARDS_MARKER} sozinho, entre os benefícios e o CTA principal, fora de qualquer <section>. NÃO liste nem descreva os produtos um a um (os cards entram no marcador).\n` : ""}- Estrutura sugerida: preheader (invisível) → saudação → hero image do produto → hook (1 parágrafo) → 2-3 benefícios com bullets (usando as specs/indicações) → CTA botão (landing page do produto) → rodapé com o CTA secundário (formulário do produto) + assinatura Smart Dent.
 
 SEÇÕES OBRIGATÓRIAS (para o editor visual do usuário):
 - Envolva CADA bloco principal do corpo em \`<section data-section="KEY" data-section-label="Nome amigável">…</section>\`.
@@ -1095,7 +1122,12 @@ Retorne JSON no formato:
       if (!hasSimulatorCta) h = h.replace(/Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, ctaLabel(cta_principal));
       return h;
     };
-    const sanitizedHtml = sanitizeHtml(parsed.html_body || "");
+    // Cards de produto entram depois da limpeza de links: cada um abre o simulador do produto
+    // pelo mesmo link curto do botão principal (?sim=<card>).
+    const cardsHtml = landingCards.length && regenerate !== "subject" && cta_principal?.url
+      ? renderProductCardsHtml(landingCards, cta_principal.url, { title: "Escolha o seu produto" })
+      : "";
+    const sanitizedHtml = insertProductCards(sanitizeHtml(parsed.html_body || ""), cardsHtml);
     let sanitizedText = (parsed.plain_text || "").replaceAll("{{link_wa_vendedor}}", fallbackUrl);
     if (!hasSimulatorCta) {
       sanitizedText = sanitizedText.replace(/Falar\s+(no|agora\s+pelo|via)\s+WhatsApp/gi, ctaLabel(cta_principal) || "");
