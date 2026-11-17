@@ -30,3 +30,15 @@ test("todos os produtos comerciais ativos entram, clientes e inativos ficam fora
   assert.deepEqual(groups.map((g) => g.category), ["SCAN", "IMPRESSÃO 3D"]);
   assert.deepEqual(groups.flatMap((g) => g.items.map((i) => i.name)), ["Scanner X", "Impressora 3D Elegoo Mars 5 Ultra"]);
 });
+
+test("campanha comercial lista o simulador de todos os produtos, mesmo sem movimento, sem repetir", async () => {
+  const { withAllProductSimulators } = await import("./productSimulators");
+  const rows = withAllProductSimulators(
+    [{ simulator_id: `p-${ELEGOO}`, label: `p-${ELEGOO}`, views: 3, leads: 1, conversions: 0, revenue: 0 }],
+    [{ id: ELEGOO, name: "Elegoo Mars 5" }, { id: "b0000000-0000-4000-8000-000000000002", name: "Scanner X" }],
+  );
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows[0], { simulator_id: `p-${ELEGOO}`, label: "Produto: Elegoo Mars 5", views: 3, leads: 1, conversions: 0, revenue: 0 });
+  assert.equal(rows[1].simulator_id, "p-b0000000-0000-4000-8000-000000000002");
+  assert.equal(rows[1].views, 0);
+});

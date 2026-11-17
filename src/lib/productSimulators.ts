@@ -62,3 +62,27 @@ export function groupProductSimulators(rows: CatalogRow[], search = ""): Product
     .sort((a, b) => a[1].order.localeCompare(b[1].order, "pt-BR", { numeric: true }))
     .map(([category, g]) => ({ category, items: g.items.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) }));
 }
+
+export interface SimulatorMetricRow { simulator_id: string; label: string; views: number; leads: number; conversions: number; revenue: number }
+
+/**
+ * Comparativo por canal das campanhas comerciais: acrescenta um simulador zerado para cada
+ * produto do catálogo que ainda não teve movimento, para todos aparecerem (não só os usados).
+ * Rótulos "Produto: <nome>" também nos que já tinham movimento.
+ */
+export function withAllProductSimulators(rows: SimulatorMetricRow[], products: { id: string; name: string }[]): SimulatorMetricRow[] {
+  const names = new Map(products.map((p) => [p.id, p.name]));
+  const seen = new Set<string>();
+  const out = rows.map((r) => {
+    const pid = productIdFromSimulator(r.simulator_id);
+    if (!pid) return r;
+    seen.add(pid);
+    return r.label === r.simulator_id && names.has(pid) ? { ...r, label: `Produto: ${names.get(pid)}` } : r;
+  });
+  for (const p of products) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push({ simulator_id: productSimulatorId(p.id), label: `Produto: ${p.name}`, views: 0, leads: 0, conversions: 0, revenue: 0 });
+  }
+  return out;
+}
