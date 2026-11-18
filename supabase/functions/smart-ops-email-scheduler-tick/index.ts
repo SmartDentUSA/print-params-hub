@@ -1,19 +1,20 @@
 // Round-robin Gmail email dispatcher.
 // Runs every minute via pg_cron. Enforces:
-//  - global 499/day cap (America/Sao_Paulo)
-//  - send window 07:30–19:00 (America/Sao_Paulo)
-//  - 1 email per active campaign per tick (fair rotation)
+//  - daily batches 07:30/12:00/15:00/17:30 (batches.ts, America/Sao_Paulo)
+//  - send window ends 19:00 (America/Sao_Paulo)
+//  - up to PER_TICK emails per tick, rotating across active campaigns
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { DAILY_CAP, EMAIL_BATCHES, remainingNow, roundRobin } from "./batches.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const DAILY_CAP = 499;
-const WINDOW_START_MIN = 7 * 60 + 30;  // 07:30
-const WINDOW_END_MIN   = 19 * 60;      // 19:00
+const WINDOW_START_MIN = EMAIL_BATCHES[0].startMin; // 07:30
+const WINDOW_END_MIN   = 19 * 60;                    // 19:00
+const PER_TICK = 5; // ~100 e-mails em 20 minutos por lote
 
 function nowSaoPauloMinutes(): number {
   // Get HH:MM in America/Sao_Paulo without pulling in a tz lib
@@ -44,9 +45,10 @@ Deno.serve(async (req) => {
     // Today's Gmail sent count (America/Sao_Paulo day)
     const { data: statusJson } = await supabase.rpc("fn_email_queue_status");
     const sentToday = Number((statusJson as any)?.sent_today ?? 0);
-    const remaining = Math.max(0, DAILY_CAP - sentToday);
+    const remaining = Math.min(PER_TICK, remainingNow(cur, sentToday));
     if (remaining <= 0) {
-      return new Response(JSON.stringify({ ok: true, skipped: "cap_reached", sent_today: sentToday }), {
+      const skipped = sentToday >= DAILY_CAP ? "cap_reached" : "waiting_next_batch";
+      return new Response(JSON.stringify({ ok: true, skipped, sent_today: sentToday }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -68,20 +70,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // For each active campaign pick the oldest queued row
-    const picks: Array<{ campaign_id: string; send_log_id: string }> = [];
+    // Oldest queued rows of each campaign, interleaved 1 per campaign per round
+    const queues: Array<Array<{ campaign_id: string; send_log_id: string }>> = [];
     for (const cid of activeIds) {
-      if (picks.length >= remaining) break;
-      const { data: nextLog } = await supabase
+      const { data: rows } = await supabase
         .from("campaign_send_log")
         .select("id")
         .eq("source_campaign_id", cid)
         .eq("status", "queued")
         .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (nextLog?.id) picks.push({ campaign_id: cid, send_log_id: nextLog.id });
+        .limit(remaining);
+      queues.push((rows || []).map((r: any) => ({ campaign_id: cid, send_log_id: r.id })));
     }
+    const picks = roundRobin(queues, remaining);
 
     const projectRef = (Deno.env.get("SUPABASE_URL") || "").match(/https?:\/\/([^.]+)/)?.[1] || "";
     const funcUrl = `https://${projectRef}.supabase.co/functions/v1/smart-ops-send-gmail`;
@@ -147,6 +148,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true,
       window: "07:30-19:00",
+      batches: EMAIL_BATCHES.map((b) => `${b.label}:${b.size}`),
       sent_today_before: sentToday,
       remaining_before: remaining,
       active_campaigns: activeIds.length,
