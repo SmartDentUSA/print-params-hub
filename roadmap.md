@@ -120,4 +120,4 @@
 - [x] Fluxo Instagram PRO (comentário exato, todas as postagens): 3 respostas "veja seu direct" e DM com https://www.smartdent.com.br/r/gfv6fy (trocado de /r/bwf6dg a pedido); ativo na Zernio (6afd8e48dc845e78e3a4dd52) e link conferido. Comentário real ainda não testado.
 - [x] Fluxo Instagram BLACK (comentário exato): DM com o cupom vigente (BLACKBD25 até 20/11, BLACKBD15 21–25/11, BLACKBD10 26–30/11) e desligamento após 30/11; 7 testes, simulação das 4 datas, ativo na Zernio com BLACKBD25 e troca diária às 00h01/06h01. Comentário real ainda não testado.
 
-- [ ] Card de Eventos: mostrar cupons utilizados da campanha (pedido 18/11)
+- [ ] Card de Eventos: mostrar cupons utilizados da campanha (pedido 18/11); leitura na loja às 08h, 12h e 17h30 (São Paulo)
