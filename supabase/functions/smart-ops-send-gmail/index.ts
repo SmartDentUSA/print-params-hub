@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { forceCtaDestination, hrefToUrl } from "./cta.ts";
 import { applyEcommerceFilters } from "../_shared/campaign-ecommerce-filters.ts";
+import { applyEngagementFilters } from "../_shared/campaign-engagement-filters.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,6 +117,8 @@ function applyCampaignFilters(q: any, f: Record<string, any>): any {
   if (f.temperatura && f.temperatura_lead == null) q = q.eq("temperatura", f.temperatura);
   // E-commerce (Loja Integrada) — mesma regra da tela de campanhas
   q = applyEcommerceFilters(q, f);
+  // Histórico de campanhas (recebeu/abriu/clicou) e conversões — mesma regra da tela de campanhas
+  q = applyEngagementFilters(q, f);
   return q;
 }
 
@@ -437,17 +440,25 @@ Deno.serve(async (req) => {
     }
 
     // ────────── Mode: ENQUEUE — resolve audience and queue for the scheduler ──────────
-    let q = supabase.from("lia_attendances")
-      .select("id, nome, email")
-      .is("merged_into", null)
-      .not("email", "is", null)
-      .neq("email", "")
-      .eq("email_bounced", false)
-      .limit(5000);
-    q = applyCampaignFilters(q, filters || {});
-    const { data: leadsData, error: leadsErr } = await q;
-    if (leadsErr) throw leadsErr;
-    const leads = (leadsData || []).filter((l: any) => String(l.email || "").trim());
+    // O banco devolve no máximo 1.000 linhas por consulta: lê o público em páginas,
+    // senão uma lista maior era cortada em 1.000 sem aviso (a tela mostrava o total real).
+    const leadsData: any[] = [];
+    for (let from = 0; from < 50000; from += 1000) {
+      let q = supabase.from("lia_attendances")
+        .select("id, nome, email")
+        .is("merged_into", null)
+        .not("email", "is", null)
+        .neq("email", "")
+        .eq("email_bounced", false)
+        .order("id")
+        .range(from, from + 999);
+      q = applyCampaignFilters(q, filters || {});
+      const { data: page, error: leadsErr } = await q;
+      if (leadsErr) throw leadsErr;
+      leadsData.push(...(page || []));
+      if (!page || page.length < 1000) break;
+    }
+    const leads = leadsData.filter((l: any) => String(l.email || "").trim());
     console.log("[send-gmail] enqueue filters=", JSON.stringify(filters || {}), "audience=", leads.length);
 
     if (dry_run) {

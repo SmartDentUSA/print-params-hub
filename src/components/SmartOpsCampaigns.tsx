@@ -29,6 +29,7 @@ import { MetaFormMappingsPanel } from "@/components/smartops/meta-forms/MetaForm
 import { EmailCampaignWizard } from "@/components/smartops/EmailCampaignWizard";
 import { EcommerceSegmentFields } from "@/components/smartops/EcommerceSegmentFields";
 import { applyWaSairFilter } from "@/lib/waSairFilter";
+import { applyEngagementFilters, ENGAGEMENT_ACTIONS } from "@/lib/campaignEngagementFilters";
 import { waOfficialCounts, dropMirroredCampaigns, waGroupStatus, type WaGroupStats } from "@/lib/campaignHistory";
 import {
   EMPTY_ECOMMERCE_FORM, applyEcommerceFilters, ecommerceFiltersToForm, ecommerceFormToFilters,
@@ -518,6 +519,11 @@ function CreateCampaign({
   const [temTelefone, setTemTelefone] = useState("all");      // telefone_normalized IS NOT NULL
   const [aceitaContato, setAceitaContato] = useState("all");  // do_not_contact
   const [waSair, setWaSair] = useState("all");                // respondeu SAIR (WhatsApp Oficial)
+  const [engCampanha, setEngCampanha] = useState("none");     // histórico: any_email | any_wa | id da campanha
+  const [engAcao, setEngAcao] = useState("recebeu");          // recebeu, abriu, clicou...
+  const [convForm, setConvForm] = useState("none");           // converteu no formulário (histórico completo)
+  const [engCampaignOptions, setEngCampaignOptions] = useState<{ id: string; nome: string; canal: string }[]>([]);
+  const [convFormOptions, setConvFormOptions] = useState<string[]>([]);
   const [ltvMin, setLtvMin] = useState("");                   // ltv_total >=
   const [scoreMin, setScoreMin] = useState("");               // intelligence_score_total >=
   const [ecom, setEcom] = useState<EcommerceFormState>(EMPTY_ECOMMERCE_FORM); // Loja Integrada
@@ -621,6 +627,11 @@ function CreateCampaign({
     if (aceitaContato !== "all") f.aceita_contato = aceitaContato;
     // Resolvido só no navegador (WhatsApp Oficial e SMS); e-mail e Evolution resolvem o público no servidor.
     if (waSair !== "all" && (sendChannel === "whatsapp_oficial" || sendChannel === "sms")) f.wa_sair = waSair;
+    // Histórico de campanhas/conversões: resolvido no navegador (WhatsApp Oficial, SMS) e no envio de e-mail.
+    if (sendChannel === "whatsapp_oficial" || sendChannel === "sms" || sendChannel === "email") {
+      if (engCampanha !== "none") { f.eng_campanha = engCampanha; f.eng_acao = engAcao; }
+      if (convForm !== "none") f.conv_form = convForm;
+    }
     const ltvNum = parseFloat(ltvMin); if (!isNaN(ltvNum) && ltvNum > 0) f.ltv_min = ltvNum;
     const scoreNum = parseFloat(scoreMin); if (!isNaN(scoreNum) && scoreNum > 0) f.score_min = scoreNum;
     Object.assign(f, ecommerceFormToFilters(ecom));
@@ -632,7 +643,7 @@ function CreateCampaign({
     marcaScanner, marcaImpressora, temFresadora, temCad,
     imprimeModelos, imprimePlacas, imprimeGuias, imprimeResinasLd,
     reuniaoAgendada, inadimplente, recompraAlert, sdrCompleto,
-    temEmail, temTelefone, aceitaContato, waSair, sendChannel, ltvMin, scoreMin, ecom,
+    temEmail, temTelefone, aceitaContato, waSair, engCampanha, engAcao, convForm, sendChannel, ltvMin, scoreMin, ecom,
   ]);
 
   // Apply a saved segment's filters into state
@@ -674,6 +685,9 @@ function CreateCampaign({
     setTemTelefone(f.tem_telefone ?? "all");
     setAceitaContato(f.aceita_contato ?? "all");
     setWaSair(f.wa_sair ?? "all");
+    setEngCampanha(f.eng_campanha ?? "none");
+    setEngAcao(f.eng_acao ?? "recebeu");
+    setConvForm(f.conv_form ?? "none");
     setLtvMin(f.ltv_min != null ? String(f.ltv_min) : "");
     setScoreMin(f.score_min != null ? String(f.score_min) : "");
     setEcom(ecommerceFiltersToForm(f));
@@ -748,6 +762,8 @@ function CreateCampaign({
     if (f.score_min != null) q = q.gte("intelligence_score_total", Number(f.score_min));
     // ── E-commerce (Loja Integrada) ──────────────────────────────────────────
     q = applyEcommerceFilters(q, f);
+    // ── Histórico de campanhas e conversões ─────────────────────────────────
+    q = applyEngagementFilters(q, f);
     return q;
   };
 
@@ -876,6 +892,18 @@ function CreateCampaign({
   const [marcaImpressoraOptions, setMarcaImpressoraOptions] = useState<string[]>([]);
 
   useEffect(() => { setSelectedContent(preSelectedContent); }, [preSelectedContent]);
+
+  // Opções do filtro "Histórico de campanhas e conversões"
+  useEffect(() => {
+    (async () => {
+      const { data: camps } = await supabase.from("campaigns")
+        .select("id, nome, canal, created_at").in("canal", ["email", "whatsapp_oficial"])
+        .order("created_at", { ascending: false }).limit(60);
+      setEngCampaignOptions((camps || []).map((c: any) => ({ id: c.id, nome: c.nome || "(sem nome)", canal: c.canal })));
+      const { data: forms } = await supabase.from("smartops_forms").select("name").order("name").limit(1000);
+      setConvFormOptions(Array.from(new Set((forms || []).map((r: any) => String(r.name || "").trim()).filter(Boolean))));
+    })();
+  }, []);
 
   // Hydrate wizard state from a draft campaign and jump to step 3
   useEffect(() => {
@@ -2012,6 +2040,52 @@ function CreateCampaign({
                 )}
               </div>
             </div>
+
+            {(sendChannel === "whatsapp_oficial" || sendChannel === "sms" || sendChannel === "email") && (
+              <div className="space-y-2">
+                <div className="text-sm font-semibold">Histórico de campanhas e conversões</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Campanha anterior</label>
+                    <Select value={engCampanha} onValueChange={setEngCampanha}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Não filtrar</SelectItem>
+                        <SelectItem value="any_email">Qualquer campanha de e-mail</SelectItem>
+                        <SelectItem value="any_wa">Qualquer campanha de WhatsApp Oficial</SelectItem>
+                        {engCampaignOptions.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.canal === "email" ? "📧" : "📲"} {c.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">O lead…</label>
+                    <Select value={engAcao} onValueChange={setEngAcao} disabled={engCampanha === "none"}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {ENGAGEMENT_ACTIONS.map(a => <SelectItem key={a.v} value={a.v}>{a.l}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Converteu no formulário (qualquer data)</label>
+                    <Select value={convForm} onValueChange={setConvForm}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Não filtrar</SelectItem>
+                        {Array.from(new Set([...convFormOptions, ...formNameOptions])).sort().map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  "Abriu" vale para e-mail aberto e WhatsApp Oficial lido; "clicou" só existe no e-mail. O lead continua em todas as listas.
+                </p>
+              </div>
+            )}
 
             {/* ── Grupo 5: E-commerce (Loja Integrada) ───────────────── */}
             <EcommerceSegmentFields value={ecom} onChange={setEcom} />

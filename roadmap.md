@@ -121,3 +121,5 @@
 - [x] Fluxo Instagram BLACK (comentário exato): DM com o cupom vigente (BLACKBD25 até 20/11, BLACKBD15 21–25/11, BLACKBD10 26–30/11) e desligamento após 30/11; 7 testes, simulação das 4 datas, ativo na Zernio com BLACKBD25 e troca diária às 00h01/06h01. Comentário real ainda não testado.
 
 - [x] Card de Eventos: visualizações das LPs, leads, valor convertido e cupons utilizados (leitura na loja às 08h, 12h e 17h30). Tela não verificada logada.
+- [x] Timeline do lead: WhatsApp Oficial enviado/entregue/lido/recusado por contato, nome da campanha e links do e-mail abertos; filtro de público por histórico de campanhas e conversões (18/11)
+- [ ] Black001: 1.737 contatos ficaram fora (corte de 1.000) — aguardando decisão do usuário
