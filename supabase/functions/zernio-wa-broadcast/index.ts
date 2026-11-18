@@ -46,6 +46,7 @@ async function checkRemoteImage(url: string): Promise<string | null> {
   }
 }
 
+const LEAD_ID_CHUNK = 150;
 const idOf = (v: any): string => (!v ? '' : typeof v === 'object' ? (v._id ?? v.id ?? '') : String(v));
 const digits = (p: string | null | undefined) => String(p ?? '').replace(/\D/g, '');
 function e164(p: string | null | undefined): string | null {
@@ -199,10 +200,11 @@ Deno.serve(async (req) => {
 
       // Leads canônicos com telefone
       const leads: any[] = [];
-      for (let i = 0; i < leadIds.length; i += 500) {
+      // IDs vão na URL da consulta: 500 UUIDs passam de 18 KB e a requisição nem sai; 150 ficam em ~5,5 KB.
+      for (let i = 0; i < leadIds.length; i += LEAD_ID_CHUNK) {
         const { data, error } = await admin.from('lia_attendances')
           .select(`id,telefone_normalized,telefone_raw,${LEAD_COLS}`)
-          .in('id', leadIds.slice(i, i + 500)).is('merged_into', null);
+          .in('id', leadIds.slice(i, i + LEAD_ID_CHUNK)).is('merged_into', null);
         if (error) throw error;
         leads.push(...(data ?? []));
       }
