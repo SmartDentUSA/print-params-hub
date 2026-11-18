@@ -113,4 +113,5 @@
 - [x] Simuladores WhatsApp: quem não tem impressora 3D não recebe a pergunta de cura nem as de impressão (condições restauradas/remapeadas)
 - [x] E-mails de campanha: rotina religada com 4 lotes diários (100 às 07:30, 100 às 12:00, 100 às 15:00, 99 às 17:30); 7 testes dos horários aprovados e rotina respondendo; primeiro lote real ainda não observado.
 - [x] WhatsApp oficial fora do histórico: na Zernio só existem 2 disparos de "Enviar teste" (1 destinatário cada), que por regra não criam campanha; nenhuma campanha oficial foi agendada.
-- [ ] WhatsApp oficial: campanha grande com {{1}} = primeiro nome é barrada antes de criar (1 envio separado por nome distinto, ~392 a cada 600 leads; limite 400). Aguardando escolha do usuário: nome resolvido pela Zernio por contato ou mensagem sem nome.
+- [x] WhatsApp oficial: nome do lead agora é preenchido pela Zernio em cada contato (1 envio por lote, não 1 por nome); 26 testes aprovados e teste real ao lead Danilo entregue.
+- [ ] Confirmar no celular do Danilo (+55 31 99762-5357) que o teste das 00h17 mostra "Danilo" e não o telefone — a Zernio não devolve o texto renderizado.

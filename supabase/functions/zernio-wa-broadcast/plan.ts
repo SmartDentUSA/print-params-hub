@@ -196,3 +196,39 @@ export function phoneVariants(e164Digits: string): string[] {
   if (rest.length === 8 && /^[6-9]/.test(rest)) return [d, `55${ddd}9${rest}`];
   return [d];
 }
+
+/** Campos de nome que a Zernio preenche por destinatário (variableMapping field "name"). */
+export const CONTACT_NAME_FIELDS = ['primeiro_nome', 'nome'];
+
+/** Posição da variável preenchida pelo nome do contato na Zernio (a primeira de nome), ou -1. */
+export function pickNameVarIndex(vmap: { source?: string; value?: string }[]): number {
+  return vmap.findIndex((v) => v?.source === 'field' && CONTACT_NAME_FIELDS.includes(String(v.value)));
+}
+
+/** Nome gravado no contato da Zernio: valor do lead ou o padrão de primeiro nome. */
+export function contactNameFor(value: string): string {
+  const v = String(value ?? '').trim();
+  return !v || v === '-' ? TOKEN_DEFAULTS.primeiro_nome : v.slice(0, 120);
+}
+
+/** Valores que separam envios: a posição do nome fica fixa porque a Zernio resolve por destinatário. */
+export function groupKeyValues(values: string[], nameIdx: number): string[] {
+  return values.map((v, i) => (i === nameIdx ? '' : v));
+}
+
+/** Contatos da Zernio cujo nome difere do nome que a mensagem precisa mostrar. */
+export function namesToPatch(
+  recipients: { contactId?: string | null; platformIdentifier?: string | null; contactName?: string | null }[],
+  wanted: Map<string, string>,
+): { contactId: string; name: string }[] {
+  const out: { contactId: string; name: string }[] = [];
+  const seen = new Set<string>();
+  for (const r of recipients) {
+    const phone = String(r.platformIdentifier ?? '').replace(/\D/g, '');
+    const name = wanted.get(phone);
+    if (!r.contactId || !name || seen.has(r.contactId)) continue;
+    seen.add(r.contactId);
+    if (String(r.contactName ?? '').trim() !== name) out.push({ contactId: r.contactId, name });
+  }
+  return out;
+}

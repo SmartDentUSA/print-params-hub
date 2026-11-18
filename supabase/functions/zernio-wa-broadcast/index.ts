@@ -8,7 +8,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import {
   MAX_TEST_PHONES, MEDIA_HEADERS, TEST_LEAD_ID, broadcastKeepsHeaderMedia, checkHeaderImage, isPublicHttpsUrl,
-  fillTokens, phoneVariants, planSlots, resolveButtons, templateMeta, validateDailyAndCost, validateSchedule,
+  contactNameFor, fillTokens, groupKeyValues, namesToPatch, phoneVariants, pickNameVarIndex, planSlots, resolveButtons,
+  templateMeta, validateDailyAndCost, validateSchedule,
 } from './plan.ts';
 import { buildButtonReplies, resolveFormIdForLink } from '../_shared/wa-button-replies.ts';
 
@@ -19,6 +20,8 @@ const json = (b: unknown, s = 200) =>
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Mesma janela padrão de campaigns.send_window_start/end (horário de São Paulo). */
 const SEND_WINDOW: [string, string] = ['07:30', '19:00'];
+/** Gravar o nome de cada contato na Zernio leva ~30 s a cada 1.000 leads; acima disso o envio passaria do tempo. */
+const MAX_NAMED_LEADS = 4000;
 
 class MediaNotAccepted extends Error {
   constructor() { super('A Zernio não confirmou a imagem da campanha neste envio. Nada foi enviado, para não sair a imagem-amostra do template.'); }
@@ -180,6 +183,11 @@ Deno.serve(async (req) => {
         if (v?.source === 'field' && !FIELDS[v.value]) return json({ error: `campo inválido: ${v?.value}` }, 400);
         if (v?.source !== 'field' && v?.source !== 'literal') return json({ error: 'variableMap inválido' }, 400);
       }
+      // A variável de nome é preenchida pela Zernio com o nome do contato, por destinatário; assim nomes
+      // diferentes não viram envios separados (antes: 1 envio por nome, barrando públicos acima de ~600).
+      const nameIdx = pickNameVarIndex(vmap);
+      if (nameIdx >= 0 && leadIds.length > MAX_NAMED_LEADS)
+        return json({ error: `Com o nome do lead na mensagem, cada disparo aceita até ${MAX_NAMED_LEADS.toLocaleString('pt-BR')} leads. Divida o público em mais de uma campanha.` }, 400);
 
       // Leads canônicos com telefone
       const leads: any[] = [];
@@ -214,7 +222,8 @@ Deno.serve(async (req) => {
         const groups = new Map<string, { values: string[]; leads: any[] }>();
         for (const l of sl.leads) {
           const values = vmap.map((v) => resolveVar(v, l));
-          const k = JSON.stringify(values);
+          if (nameIdx >= 0) l.contactName = contactNameFor(values[nameIdx]);
+          const k = JSON.stringify(groupKeyValues(values, nameIdx));
           if (!groups.has(k)) groups.set(k, { values, leads: [] });
           groups.get(k)!.leads.push(l);
         }
@@ -233,7 +242,8 @@ Deno.serve(async (req) => {
         }
         if (values.length) {
           components.push({ type: 'body', parameters: values.map((_, i) => ({ type: 'text', text: `{{${i + 1}}}` })) });
-          template.variableMapping = Object.fromEntries(values.map((v, i) => [String(i + 1), { field: 'custom', customValue: v }]));
+          template.variableMapping = Object.fromEntries(values.map((v, i) =>
+            [String(i + 1), i === nameIdx ? { field: 'name' } : { field: 'custom', customValue: v }]));
         }
         if (btn.components.length) {
           components.push(...btn.components);
@@ -257,6 +267,36 @@ Deno.serve(async (req) => {
         return bid as string;
       };
 
+      // A Zernio cria o contato com o telefone como nome; grava o nome da mensagem em cada contato antes do
+      // envio/agendamento. Se algum falhar, o envio do grupo é cancelado para nunca sair telefone no lugar do nome.
+      const fixContactNames = async (bid: string, list: any[]) => {
+        if (nameIdx < 0) return;
+        const wanted = new Map<string, string>(list.map((l) => [l.phone, l.contactName]));
+        const recipients: any[] = [];
+        for (let skip = 0; ; skip += 500) {
+          const r = await z(`/broadcasts/${bid}/recipients?limit=500&skip=${skip}`);
+          recipients.push(...(r.recipients ?? []));
+          if (!r.pagination?.hasMore) break;
+        }
+        const todo = namesToPatch(recipients, wanted);
+        let failed = 0;
+        for (let i = 0; i < todo.length; i += 20) {
+          await Promise.all(todo.slice(i, i + 20).map(async (t) => {
+            try { await z(`/contacts/${t.contactId}`, { method: 'PATCH', body: JSON.stringify({ name: t.name }) }); }
+            catch { try { await z(`/contacts/${t.contactId}`, { method: 'PATCH', body: JSON.stringify({ name: t.name }) }); } catch { failed++; } }
+          }));
+        }
+        if (failed) {
+          await z(`/broadcasts/${bid}`, { method: 'DELETE' }).catch(() => null);
+          throw new Error(`Não foi possível gravar o nome de ${failed} contato(s) na Zernio; este grupo não foi enviado.`);
+        }
+      };
+      const textFor = (g: { values: string[] }, l: any) => {
+        const vals = g.values.map((v, i) => (i === nameIdx ? l.contactName : v));
+        return (vals.length ? `template:${templateName} | ${vals.join(' | ')}` : `template:${templateName}`)
+          + (mediaHeader ? ` | ${meta.headerType.toLowerCase()}:${headerMediaUrl}` : '');
+      };
+
       if (isTest) {
         try {
           let added = 0;
@@ -264,6 +304,7 @@ Deno.serve(async (req) => {
           for (const g of slots.flatMap((sl) => sl.groups)) {
             const bid = await createBroadcast(`TESTE · ${name} · ${nowDate.toISOString().slice(0, 16)}`, g.values);
             const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST', body: JSON.stringify({ phones: g.leads.map((l) => `+${l.phone}`) }) });
+            await fixContactNames(bid, g.leads);
             await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
             added += Number(r.added ?? 0); ids.push(bid);
           }
@@ -330,15 +371,14 @@ Deno.serve(async (req) => {
                 body: JSON.stringify({ phones: g.leads.slice(i, i + 500).map((l) => `+${l.phone}`) }) });
               added += r.added ?? 0; skipped += r.skipped ?? 0;
             }
+            await fixContactNames(bid, g.leads);
             if (sl.at) await z(`/broadcasts/${bid}/schedule`, { method: 'POST', body: JSON.stringify({ scheduledAt: sl.at }) });
             else await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
             broadcasts.push(bid); slotIds.push(bid);
-            const text = (g.values.length ? `template:${templateName} | ${g.values.join(' | ')}` : `template:${templateName}`)
-              + (mediaHeader ? ` | ${meta.headerType.toLowerCase()}:${headerMediaUrl}` : '');
             for (let i = 0; i < g.leads.length; i += 500) {
               await admin.from('campaign_send_log').insert(g.leads.slice(i, i + 500).map((l) => ({
                 campaign_id: session.id, source_campaign_id: camp?.id ?? null, lead_id: l.id, nome: l.nome, telefone: l.phone,
-                provider: 'zernio_cloud_api', provider_message_id: bid, content_sent: text,
+                provider: 'zernio_cloud_api', provider_message_id: bid, content_sent: textFor(g, l),
                 ...(sl.at ? { status: 'scheduled', scheduled_at: sl.at } : { status: 'sent', sent_at: nowDate.toISOString() }),
               })));
             }
