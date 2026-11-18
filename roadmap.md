@@ -115,6 +115,6 @@
 - [x] WhatsApp oficial fora do histórico: na Zernio só existem 2 disparos de "Enviar teste" (1 destinatário cada), que por regra não criam campanha; nenhuma campanha oficial foi agendada.
 - [x] WhatsApp oficial: nome do lead agora é preenchido pela Zernio em cada contato (1 envio por lote, não 1 por nome); 26 testes aprovados e teste real ao lead Danilo entregue.
 - [ ] Confirmar no celular do Danilo (+55 31 99762-5357) que o teste das 00h17 mostra "Danilo" e não o telefone — a Zernio não devolve o texto renderizado.
-- [ ] Campanhas: filtro "Respondeu SAIR (WhatsApp Oficial)" na escolha do público (excluir / somente), sem tirar ninguém das listas.
-- [ ] Teste no celular do Danilo Henrique (+55 19 99261-2348, informado pelo usuário) do envio oficial + SAIR na timeline e no filtro.
-- [ ] Fluxo Instagram palavra PRO: 3 respostas "veja seu direct" no comentário e DM com https://www.smartdent.com.br/r/bwf6dg.
+- [x] Campanhas: filtro "Respondeu SAIR (WhatsApp Oficial)" (Todos/Excluir/Somente) no WhatsApp Oficial e SMS, sem tirar ninguém das listas; 2 testes, contagem do servidor conferida e simulação no lead de teste (36.009 → 36.008 excluindo, 1 somente) apagada. Tela logada não conferida (Supabase externo sem sessão).
+- [ ] Teste no celular do Danilo Henrique (+55 19 99261-2348): mensagem entregue 08:51 com nome Danilo; aguarda a resposta SAIR real para conferir timeline e filtro.
+- [x] Fluxo Instagram PRO (comentário exato, todas as postagens): 3 respostas "veja seu direct" e DM com https://www.smartdent.com.br/r/bwf6dg; ativo na Zernio (6afd8e48dc845e78e3a4dd52) e link conferido. Comentário real ainda não testado.
