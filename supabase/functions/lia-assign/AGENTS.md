@@ -1,0 +1,1 @@
+- lia-assign main `new_deal` path clears the lead's inherited piperun_id when PipeRun shows no open Vendas/Estagnados/CS deal (and the deals fetch succeeded), so the cached-deal validator, Golden Rule gate and create lock decide; keeping an inherited closed/CS id silently skipped deal creation for returning clients.

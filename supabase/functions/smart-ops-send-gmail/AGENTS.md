@@ -1,0 +1,2 @@
+- Campaign audience history filters (`eng_campanha`/`eng_acao` over campaign_send_log, `conv_form` over form_submission activity) live in `src/lib/campaignEngagementFilters.ts`, mirrored byte-for-byte in `_shared/campaign-engagement-filters.ts` for smart-ops-send-gmail (test enforces equality); Evolution resolves audiences elsewhere, so the screen offers them only for WhatsApp Oficial, SMS and e-mail.
+- smart-ops-send-gmail reads e-mail audiences in 1,000-row pages; a single query is capped at 1,000 rows by the API and silently truncated larger campaigns.

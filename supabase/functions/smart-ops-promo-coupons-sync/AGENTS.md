@@ -1,0 +1,1 @@
+- `smart-ops-promo-coupons-sync` mode `link` only reads Loja Integrada coupons and stores `li_coupon_id` by exact code (case-insensitive), clearing sync errors; use it when coupons were created manually in the store, so nothing is written to the store.

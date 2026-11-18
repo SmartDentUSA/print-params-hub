@@ -1,0 +1,1 @@
+- Sentinela daily e-mail report (sentinela-email-report, cron 03:00 UTC) classifies groups by name/links into internal, client, nurturing and external and identifies senders via team/lead WhatsApp LID or phone; the recipient is fixed server-side because the endpoint is called unauthenticated.

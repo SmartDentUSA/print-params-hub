@@ -1,0 +1,1 @@
+- smart-ops-ingest-lead: when several leads share the phone it picks the one whose e-mail matches the submission (`phone-match.ts`), compares e-mails case-insensitively, and only replaces a placeholder e-mail when no other lead owns it; the unique lower(email) index otherwise rejected the whole registration.

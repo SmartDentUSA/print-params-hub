@@ -1,0 +1,1 @@
+- Instagram Reels options from the post editor travel on each channel (`ig_share_to_feed`, `ig_reel_cover_url`) and social-publish-worker maps them to Zernio `platformSpecificData.shareToFeed`/`instagramThumbnail` for reels only; Story link stickers are not offered because Instagram's publishing API does not support them.

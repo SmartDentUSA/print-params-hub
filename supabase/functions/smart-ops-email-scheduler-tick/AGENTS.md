@@ -1,0 +1,1 @@
+- `smart-ops-email-scheduler-tick` releases campaign e-mails only through the cumulative daily batches in its `batches.ts` (unsent balance rolls to the next batch, a few per tick rotating across campaigns); change batch times/sizes there and mirror them in `fn_email_queue_status`, so the screen and the sender never disagree.
