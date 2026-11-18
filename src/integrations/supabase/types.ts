@@ -40415,6 +40415,19 @@ export type Database = {
         }[]
       }
       fn_vitality_gen_tick: { Args: never; Returns: undefined }
+      fn_wa_group_campaign_stats: {
+        Args: { p_ids: string[] }
+        Returns: {
+          campaign_id: string
+          failed: number
+          groups: number
+          last_sent_at: string
+          pending: number
+          sent: number
+          skipped: number
+          total: number
+        }[]
+      }
       fn_wa_reactivate_group: { Args: { p_group_jid: string }; Returns: Json }
       fn_wa_reprocess_undelivered: {
         Args: { p_campaign_id: string }

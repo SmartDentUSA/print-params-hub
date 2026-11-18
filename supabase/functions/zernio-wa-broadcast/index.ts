@@ -515,6 +515,12 @@ Deno.serve(async (req) => {
         ...(done ? { status: (sum.failed ?? 0) > 0 ? 'completed_with_errors' : 'completed', completed_at: new Date().toISOString() } : {}),
         results: { ...s!.results, summary: sum },
       }).eq('id', s!.id);
+      // Espelho em `campaigns` com os mesmos números reais (Copilot e relatórios leem dali).
+      if (s?.results?.campaign_id) await admin.from('campaigns').update({
+        total_sent: (sum.sent ?? 0) + (sum.delivered ?? 0) + (sum.read ?? 0), total_failed: sum.failed ?? 0,
+        total_delivered: (sum.delivered ?? 0) + (sum.read ?? 0),
+        ...(done ? { status: (sum.failed ?? 0) > 0 ? 'completed_with_errors' : 'completed', completed_at: new Date().toISOString() } : {}),
+      }).eq('id', s.results.campaign_id);
       return json({ summary: sum });
     }
 

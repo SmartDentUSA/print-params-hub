@@ -29,6 +29,7 @@ import { MetaFormMappingsPanel } from "@/components/smartops/meta-forms/MetaForm
 import { EmailCampaignWizard } from "@/components/smartops/EmailCampaignWizard";
 import { EcommerceSegmentFields } from "@/components/smartops/EcommerceSegmentFields";
 import { applyWaSairFilter } from "@/lib/waSairFilter";
+import { waOfficialCounts, dropMirroredCampaigns, waGroupStatus, type WaGroupStats } from "@/lib/campaignHistory";
 import {
   EMPTY_ECOMMERCE_FORM, applyEcommerceFilters, ecommerceFiltersToForm, ecommerceFormToFilters,
   type EcommerceFormState,
@@ -161,6 +162,7 @@ const channelColors: Record<string, string> = {
   youtube: "bg-red-100 text-red-800 border-red-300",
   web: "bg-cyan-100 text-cyan-800 border-cyan-300",
   sms: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  whatsapp_grupos: "bg-teal-100 text-teal-800 border-teal-300",
 };
 
 const statusColors: Record<string, string> = {
@@ -173,6 +175,7 @@ const statusColors: Record<string, string> = {
   completed_with_errors: "bg-orange-100 text-orange-800",
   failed: "bg-red-100 text-red-800",
   cancelled: "bg-red-100 text-red-800",
+  paused: "bg-muted text-muted-foreground",
 };
 
 const statusLabels: Record<string, string> = {
@@ -185,6 +188,7 @@ const statusLabels: Record<string, string> = {
   completed_with_errors: "Concluída c/ falhas",
   failed: "Falha total",
   cancelled: "Cancelada",
+  paused: "Pausada",
 };
 
 function formatDate(d: string | null) {
@@ -2365,10 +2369,12 @@ function CampaignHistory() {
   const [smsAttribution, setSmsAttribution] = useState<SmsAttribution | null>(null);
   const [emailStats, setEmailStats] = useState<Record<string, EmailStats>>({});
   const [conversions, setConversions] = useState<Record<string, { conversions: number; deals_created: number; won_deals?: number; revenue?: number }>>({});
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     (async () => {
-      const [newRes, legacyRes] = await Promise.all([
+      setLoading(true);
+      const [newRes, legacyRes, groupRes] = await Promise.all([
         supabase
           .from("campaigns" as any)
           .select("id,nome,descricao,canal,status,lead_filter,audience_count,total_leads,total_sent,total_failed,total_delivered,started_at,completed_at,created_at,created_by,mensagem_template")
@@ -2378,7 +2384,13 @@ function CampaignHistory() {
         supabase
           .from("campaign_sessions")
           .select("*")
-          .in("status", ["queued", "running", "completed", "completed_with_errors", "failed"])
+          .in("status", ["queued", "scheduled", "running", "completed", "completed_with_errors", "failed"])
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase
+          .from("wa_campaigns" as any)
+          .select("id,name,status,wa_type,campaign_type,started_at,finished_at,created_at")
+          .neq("status", "draft")
           .order("created_at", { ascending: false })
           .limit(100),
       ]);
@@ -2412,7 +2424,39 @@ function CampaignHistory() {
         ...c,
         results: { ...(c.results || {}), _source: "campaign_sessions" },
       }));
-      const merged = [...fromNew, ...fromLegacy].sort((a, b) =>
+
+      // WhatsApp Oficial: números reais vêm da Zernio (soma de todos os lotes); a sessão guarda o resumo.
+      await Promise.all(fromLegacy.map(async (c) => {
+        const r = c.results as any;
+        const ids = r?.broadcast_ids ?? (r?.broadcast_id ? [r.broadcast_id] : []);
+        if (c.channel !== "whatsapp_oficial" || !ids.length) return;
+        if (!["scheduled", "running", "queued"].includes(c.status ?? "") && r?.summary) return;
+        const { data } = await supabase.functions.invoke("zernio-wa-broadcast", { body: { action: "status", campaignId: c.id } });
+        if (data?.summary) c.results = { ...r, summary: data.summary };
+      }));
+
+      // Grupos de WhatsApp: números reais da fila de mensagens.
+      const groupRows = ((groupRes.data as any[]) || []);
+      const stats: Record<string, WaGroupStats> = {};
+      if (groupRows.length) {
+        const { data: st } = await supabase.rpc("fn_wa_group_campaign_stats" as any, { p_ids: groupRows.map((g) => g.id) });
+        for (const r of ((st as any[]) || [])) stats[r.campaign_id] = r;
+      }
+      const fromGroups: CampaignSession[] = groupRows.map((g) => {
+        const s = stats[g.id];
+        return {
+          id: g.id, name: g.name, description: null,
+          status: waGroupStatus(g.status, s), channel: "whatsapp_grupos",
+          content_id: null, content_type: null, lead_filters: null,
+          lead_count: s?.groups ?? 0, lead_ids: null,
+          sent_count: s?.sent ?? 0, failed_count: s?.failed ?? 0,
+          results: { _source: "wa_campaigns", groups: s?.groups ?? 0, messages: s?.total ?? 0, queued: s?.pending ?? 0, skipped: s?.skipped ?? 0 },
+          scheduled_at: null, started_at: g.started_at, completed_at: g.finished_at,
+          created_at: g.created_at, created_by: null,
+        } as CampaignSession;
+      });
+
+      const merged = [...dropMirroredCampaigns(fromNew, fromLegacy), ...fromLegacy, ...fromGroups].sort((a, b) =>
         (b.created_at ?? "").localeCompare(a.created_at ?? "")
       );
       setCampaigns(merged);
@@ -2445,11 +2489,31 @@ function CampaignHistory() {
       for (const [id, s] of convEntries) if (s) cmap[id] = s;
       setConversions(cmap);
     })();
-  }, []);
+  }, [reloadKey]);
 
   const openDetail = async (c: CampaignSession) => {
     setSelectedCampaign(c);
     setSmsAttribution(null);
+    if (c.results?._source === "wa_campaigns") {
+      const { data: q } = await supabase
+        .from("wa_message_queue")
+        .select("id, group_jid, status, sent_at, scheduled_at, error_message, sequence_no")
+        .eq("campaign_id", c.id)
+        .order("sequence_no", { ascending: true })
+        .limit(1000);
+      const jids = [...new Set(((q as any[]) || []).map((r) => r.group_jid).filter(Boolean))];
+      const { data: gs } = jids.length
+        ? await supabase.from("wa_groups" as any).select("group_jid, name").in("group_jid", jids)
+        : { data: [] as any[] };
+      const names = new Map(((gs as any[]) || []).map((g) => [g.group_jid, g.name]));
+      setSendLogs(((q as any[]) || []).map((r) => ({
+        id: r.id, campaign_id: c.id, lead_id: r.id,
+        status: ["sending", "blocked_session"].includes(r.status) ? "pending" : r.status,
+        sent_at: r.sent_at ?? r.scheduled_at, error_message: r.error_message,
+        nome: `${names.get(r.group_jid) ?? r.group_jid} · msg ${r.sequence_no ?? "—"}`, telefone: null,
+      })));
+      return;
+    }
     let logsQuery = supabase
       .from("campaign_send_log")
       .select("id, campaign_id, source_campaign_id, lead_id, status, sent_at, error_message, nome, telefone, email, provider_status, provider_detail_code, provider_detail_message, opened_at, clicked_at, bounced_at, bounce_reason");
@@ -2483,6 +2547,12 @@ function CampaignHistory() {
 
   return (
     <>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-muted-foreground">WhatsApp Oficial atualiza pela Zernio; grupos pela fila de envio.</p>
+        <Button variant="ghost" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
+          <RefreshCw className="w-3.5 h-3.5 mr-1" /> Atualizar
+        </Button>
+      </div>
       <div className="border rounded-lg overflow-auto">
         <table className="w-full text-sm">
           <thead>
@@ -2505,13 +2575,15 @@ function CampaignHistory() {
             {campaigns.map(c => {
               const es = emailStats[c.id];
               const isEmail = (c.channel || "").toLowerCase() === "email";
-              const total   = isEmail ? (es?.total ?? c.lead_count ?? 0) : (c.lead_count ?? 0);
-              const queued  = isEmail ? (es?.queued ?? 0) : 0;
-              const sent    = isEmail ? (es?.sent ?? 0) : (c.sent_count ?? 0);
-              const opened  = isEmail ? (es?.opened ?? 0) : 0;
+              const isGroups = c.channel === "whatsapp_grupos";
+              const wa = c.channel === "whatsapp_oficial" && (c.results as any)?.summary ? waOfficialCounts((c.results as any).summary) : null;
+              const total   = isEmail ? (es?.total ?? c.lead_count ?? 0) : isGroups ? ((c.results as any)?.messages ?? 0) : (c.lead_count ?? 0);
+              const queued  = isEmail ? (es?.queued ?? 0) : wa ? wa.queued : isGroups ? ((c.results as any)?.queued ?? 0) : 0;
+              const sent    = isEmail ? (es?.sent ?? 0) : wa ? wa.sent : (c.sent_count ?? 0);
+              const opened  = isEmail ? (es?.opened ?? 0) : wa ? wa.read : 0;
               const clicked = isEmail ? (es?.clicked ?? 0) : 0;
               const bounced = isEmail ? (es?.bounced ?? 0) : 0;
-              const failed  = isEmail ? (es?.failed ?? c.failed_count ?? 0) : (c.failed_count ?? 0);
+              const failed  = isEmail ? (es?.failed ?? c.failed_count ?? 0) : wa ? wa.failed : (c.failed_count ?? 0);
               const conv    = conversions[c.id]?.conversions ?? 0;
               const pctOf = (num: number, den: number) => den > 0 ? `${Math.round((num / den) * 100)}%` : "—";
               const sendRate  = total > 0 ? `${Math.round((sent / total) * 100)}%` : "—";
@@ -2524,17 +2596,21 @@ function CampaignHistory() {
                   <td className="p-3 font-medium">{c.name}</td>
                   <td className="p-3"><Badge variant="outline" className={channelColors[c.channel || ""] || ""}>{c.channel || "—"}</Badge></td>
                   <td className="p-3"><Badge className={statusColors[c.status || "draft"]}>{statusLabels[c.status || "draft"]}</Badge></td>
-                  <td className="p-3 text-right">{total || "—"}</td>
                   <td className="p-3 text-right">
-                    {isEmail ? (queued > 0 ? <span className="text-amber-600 font-medium">{queued}</span> : "—") : "—"}
+                    {isGroups
+                      ? <><div>{c.lead_count || "—"} grupo{c.lead_count === 1 ? "" : "s"}</div><div className="text-[10px] text-muted-foreground">{total} mensagens</div></>
+                      : (total || "—")}
+                  </td>
+                  <td className="p-3 text-right">
+                    {queued > 0 ? <span className="text-amber-600 font-medium">{queued}</span> : "—"}
                   </td>
                   <td className="p-3 text-right">
                     <div>{sent || "—"}</div>
                     <div className="text-[10px] text-muted-foreground">{sendRate}</div>
                   </td>
                   <td className="p-3 text-right">
-                    <div>{isEmail ? (opened > 0 ? <span className="text-blue-600">{opened}</span> : "—") : "—"}</div>
-                    {isEmail && <div className="text-[10px] text-muted-foreground">{openRate}</div>}
+                    <div>{isEmail || wa ? (opened > 0 ? <span className="text-blue-600">{opened}</span> : "—") : "—"}</div>
+                    {(isEmail || wa) && <div className="text-[10px] text-muted-foreground">{wa ? `lidos ${openRate}` : openRate}</div>}
                   </td>
                   <td className="p-3 text-right">
                     <div>{isEmail ? (clicked > 0 ? <span className="text-emerald-600">{clicked}</span> : "—") : "—"}</div>
@@ -2579,26 +2655,29 @@ function CampaignHistory() {
 
                 {(() => {
                   const isEmail = (selectedCampaign.channel || "").toLowerCase() === "email";
+                  const isGroups = selectedCampaign.channel === "whatsapp_grupos";
+                  const r = selectedCampaign.results as any;
+                  const wa = selectedCampaign.channel === "whatsapp_oficial" && r?.summary ? waOfficialCounts(r.summary) : null;
                   const es = emailStats[selectedCampaign.id];
-                  const total = isEmail ? (es?.total ?? selectedCampaign.lead_count ?? 0) : (selectedCampaign.lead_count ?? 0);
-                  const sent = isEmail ? (es?.sent ?? 0) : (selectedCampaign.sent_count ?? 0);
-                  const failed = isEmail ? (es?.failed ?? selectedCampaign.failed_count ?? 0) : (selectedCampaign.failed_count ?? 0);
-                  const queued = isEmail ? (es?.queued ?? 0) : 0;
+                  const total = isEmail ? (es?.total ?? selectedCampaign.lead_count ?? 0) : isGroups ? (r?.messages ?? 0) : (selectedCampaign.lead_count ?? 0);
+                  const sent = isEmail ? (es?.sent ?? 0) : wa ? wa.sent : (selectedCampaign.sent_count ?? 0);
+                  const failed = isEmail ? (es?.failed ?? selectedCampaign.failed_count ?? 0) : wa ? wa.failed : (selectedCampaign.failed_count ?? 0);
+                  const queued = isEmail ? (es?.queued ?? 0) : wa ? wa.queued : isGroups ? (r?.queued ?? 0) : 0;
                   const opened = isEmail ? (es?.opened ?? 0) : 0;
                   const clicked = isEmail ? (es?.clicked ?? 0) : 0;
                   const bounced = isEmail ? (es?.bounced ?? 0) : 0;
                   const pct = (n: number) => sent > 0 ? ` (${Math.round((n / sent) * 100)}%)` : "";
                   return (
-                    <div className={`grid ${isEmail ? "grid-cols-4" : "grid-cols-3"} gap-3`}>
+                    <div className={`grid ${isEmail || wa || isGroups ? "grid-cols-4" : "grid-cols-3"} gap-3`}>
                       <div className="text-center p-3 border rounded">
                         <p className="text-2xl font-bold">{total}</p>
-                        <p className="text-xs text-muted-foreground">Leads</p>
+                        <p className="text-xs text-muted-foreground">{isGroups ? `Mensagens · ${selectedCampaign.lead_count ?? 0} grupos` : "Leads"}</p>
                       </div>
                       <div className="text-center p-3 border rounded">
                         <p className="text-2xl font-bold text-green-600">{sent}</p>
                         <p className="text-xs text-muted-foreground">Enviados</p>
                       </div>
-                      {isEmail && (
+                      {(isEmail || wa || isGroups) && (
                         <div className="text-center p-3 border rounded">
                           <p className="text-2xl font-bold text-amber-600">{queued}</p>
                           <p className="text-xs text-muted-foreground">Na fila</p>
@@ -2608,6 +2687,18 @@ function CampaignHistory() {
                         <p className="text-2xl font-bold text-red-600">{failed}</p>
                         <p className="text-xs text-muted-foreground">Falhas</p>
                       </div>
+                      {wa && (
+                        <>
+                          <div className="text-center p-3 border rounded col-span-2">
+                            <p className="text-2xl font-bold text-green-600">{wa.delivered}<span className="text-xs text-muted-foreground font-normal">{pct(wa.delivered)}</span></p>
+                            <p className="text-xs text-muted-foreground">Entregues</p>
+                          </div>
+                          <div className="text-center p-3 border rounded col-span-2">
+                            <p className="text-2xl font-bold text-blue-600">{wa.read}<span className="text-xs text-muted-foreground font-normal">{pct(wa.read)}</span></p>
+                            <p className="text-xs text-muted-foreground">Lidos</p>
+                          </div>
+                        </>
+                      )}
                       {isEmail && (
                         <>
                           <div className="text-center p-3 border rounded col-span-2">
