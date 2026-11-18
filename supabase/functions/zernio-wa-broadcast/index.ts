@@ -281,8 +281,8 @@ Deno.serve(async (req) => {
       // destinatários; 3) a cópia é conferida antes de enviar. Se algo falhar, o grupo não é enviado.
       const listRecipients = async (bid: string) => {
         const recipients: any[] = [];
-        for (let skip = 0; ; skip += 500) {
-          const r = await z(`/broadcasts/${bid}/recipients?limit=500&skip=${skip}`);
+        for (let skip = 0; ; skip += 200) {
+          const r = await z(`/broadcasts/${bid}/recipients?limit=200&skip=${skip}`);
           recipients.push(...(r.recipients ?? []));
           if (!r.pagination?.hasMore) break;
         }
