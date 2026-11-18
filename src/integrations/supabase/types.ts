@@ -40447,6 +40447,37 @@ export type Database = {
         Args: { p_broadcast: string; p_rows: Json; p_session: string }
         Returns: number
       }
+      fn_wa_official_campaign_engagement: {
+        Args: { p_ids: string[] }
+        Returns: {
+          buttons: Json
+          clicked: number
+          delivered: number
+          failed: number
+          leads: number
+          no_action: number
+          read_count: number
+          sair: number
+          session_id: string
+        }[]
+      }
+      fn_wa_official_campaign_recipients: {
+        Args: { p_session: string }
+        Returns: {
+          buttons: string[]
+          delivered_at: string
+          error_message: string
+          first_click_at: string
+          lead_id: string
+          nome: string
+          provider_status: string
+          read_at: string
+          sair_at: string
+          sent_at: string
+          status: string
+          telefone: string
+        }[]
+      }
       fn_wa_reactivate_group: { Args: { p_group_jid: string }; Returns: Json }
       fn_wa_reprocess_undelivered: {
         Args: { p_campaign_id: string }
