@@ -9,6 +9,7 @@ import ZernioAdsTab from "@/components/campaigns/ZernioAdsTab";
 import { PushAppTab } from "@/components/campaigns/PushAppTab";
 import WhatsAppTemplateMapper, { callWaBroadcast, type WaAccount } from "@/components/campaigns/WhatsAppTemplateMapper";
 import EmailFlowsTab from "@/components/campaigns/emailflows/EmailFlowsTab";
+import WaOfficialHistoryTab from "@/components/campaigns/WaOfficialHistoryTab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -3061,6 +3062,7 @@ export function SmartOpsCampaigns() {
           <TabsTrigger value="criar">Criar Campanha</TabsTrigger>
           <TabsTrigger value="rascunhos">Rascunhos</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
+          <TabsTrigger value="historico-wa">Histórico WhatsApp API</TabsTrigger>
           <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
           <TabsTrigger value="formularios-meta">Origens</TabsTrigger>
           <TabsTrigger value="anuncios">Anúncios</TabsTrigger>
@@ -3085,6 +3087,9 @@ export function SmartOpsCampaigns() {
         </TabsContent>
         <TabsContent value="historico">
           <CampaignHistory />
+        </TabsContent>
+        <TabsContent value="historico-wa">
+          <WaOfficialHistoryTab />
         </TabsContent>
         <TabsContent value="grupos-wa">
           <SmartOpsWaGroupCampaigns />

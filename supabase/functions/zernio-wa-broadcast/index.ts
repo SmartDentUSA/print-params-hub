@@ -401,6 +401,7 @@ Deno.serve(async (req) => {
         header_type: meta.headerType, header_media_url: mediaHeader ? headerMediaUrl : null,
         per_hour: perHour, per_day: perDay, scheduled_at: startAt, button_links: btn.stored, button_replies: buttonReplies,
         cost_per_message: costPerMessage, estimated_cost: estimatedCost,
+        template_buttons: meta.buttons.map((b) => ({ type: b.type, text: b.text })),
       };
 
       if (campaignId) {
@@ -504,6 +505,14 @@ Deno.serve(async (req) => {
         for (const [k, v] of Object.entries(r.summary ?? {})) sum[k] = (sum[k] ?? 0) + (Number(v) || 0);
         if (Number(r.summary?.failed) > 0) failedByBid.set(bid, Number(r.summary.failed));
       }
+      // Botões do template na ordem aprovada (Botão 1, Botão 2…) para o histórico; campanhas antigas não guardavam.
+      let templateButtons = s?.results?.template_buttons;
+      if (!Array.isArray(templateButtons) && s?.results?.account_id && s?.results?.template) {
+        const tb = await z(`/whatsapp/templates?accountId=${encodeURIComponent(s.results.account_id)}&status=APPROVED`).catch(() => null);
+        const raw = (tb?.templates ?? tb?.data ?? []).find((t: any) => t.name === s.results.template
+          && (!s.results.language || t.language === s.results.language));
+        if (raw) templateButtons = templateMeta(raw).buttons.map((b) => ({ type: b.type, text: b.text }));
+      }
       const nowIso = new Date().toISOString();
       const slots: { at: string | null; broadcast_ids?: string[] }[] = Array.isArray(s?.results?.slots) ? s!.results.slots : [];
       // Lotes cujo horário já passou saíram pela Zernio: data real de envio = horário do lote (conversão usa sent_at).
@@ -533,7 +542,7 @@ Deno.serve(async (req) => {
         ...(!done && slots.some((sl) => sl.at) ? { status: slots.some((sl) => sl.at && sl.at <= nowIso) ? 'running' : 'scheduled' } : {}),
         sent_count: (sum.sent ?? 0) + (sum.delivered ?? 0) + (sum.read ?? 0), failed_count: sum.failed ?? 0,
         ...(done ? { status: (sum.failed ?? 0) > 0 ? 'completed_with_errors' : 'completed', completed_at: new Date().toISOString() } : {}),
-        results: { ...s!.results, summary: sum },
+        results: { ...s!.results, summary: sum, ...(Array.isArray(templateButtons) ? { template_buttons: templateButtons } : {}) },
       }).eq('id', s!.id);
       // Espelho em `campaigns` com os mesmos números reais (Copilot e relatórios leem dali).
       if (s?.results?.campaign_id) await admin.from('campaigns').update({
@@ -541,7 +550,7 @@ Deno.serve(async (req) => {
         total_delivered: (sum.delivered ?? 0) + (sum.read ?? 0),
         ...(done ? { status: (sum.failed ?? 0) > 0 ? 'completed_with_errors' : 'completed', completed_at: new Date().toISOString() } : {}),
       }).eq('id', s.results.campaign_id);
-      return json({ summary: sum });
+      return json({ summary: sum, template_buttons: Array.isArray(templateButtons) ? templateButtons : null });
     }
 
     return json({ error: `ação desconhecida: ${action}` }, 400);

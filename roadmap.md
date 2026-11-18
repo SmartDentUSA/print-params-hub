@@ -123,3 +123,4 @@
 - [x] Card de Eventos: visualizações das LPs, leads, valor convertido e cupons utilizados (leitura na loja às 08h, 12h e 17h30). Tela não verificada logada.
 - [x] Timeline do lead: WhatsApp Oficial enviado/entregue/lido/recusado por contato, nome da campanha e links do e-mail abertos; filtro de público por histórico de campanhas e conversões (18/11)
 - [ ] Black001: 1.737 contatos ficaram fora (corte de 1.000) — aguardando decisão do usuário
+- [x] Histórico WhatsApp API em aba própria: disparos, sucesso, falha, em andamento, Botão 1/Botão 2, SAIR, não clicou, leads, custo previsto e real, com lista de leads e CSV por grupo. Números conferidos no banco (0001 - WhtasAPI: 10 + 1 cliques, 1 SAIR); tela logada não conferida (Supabase externo sem sessão).
