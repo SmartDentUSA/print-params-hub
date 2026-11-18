@@ -12,6 +12,7 @@ import {
   templateMeta, validateDailyAndCost, validateSchedule,
 } from './plan.ts';
 import { buildButtonReplies, resolveFormIdForLink } from '../_shared/wa-button-replies.ts';
+import { type PendingAttempt, recordFailedAttempt, shouldRecordFailure } from './attempts.ts';
 
 const ZERNIO = 'https://zernio.com/api/v1';
 const json = (b: unknown, s = 200) =>
@@ -108,6 +109,9 @@ Deno.serve(async (req) => {
   try { p = await req.json(); } catch { /* */ }
   const action = String(p.action ?? '');
 
+  // Disparo real que falhar antes de existir a sessão da campanha é registrado no histórico com o motivo.
+  let attempt: PendingAttempt | null = null;
+  const res = await (async () => {
   try {
     if (action === 'accounts') {
       const b = await z('/accounts');
@@ -142,6 +146,10 @@ Deno.serve(async (req) => {
       const leadIds: string[] = isTest ? (testPhones.length ? [] : [TEST_LEAD_ID]) : p.leadIds;
       if (!accountId || !profileId || !templateName || !language || !name || !Array.isArray(leadIds) || (!leadIds.length && !testPhones.length))
         return json({ error: 'accountId, profileId, templateName, language, name e leadIds são obrigatórios' }, 400);
+      if (!isTest) attempt = {
+        name: String(name), description: description ?? null, userId: u.user.id, leadIds, accountId: String(accountId),
+        templateName: String(templateName), language: String(language),
+      };
       if (leadIds.length > 10000) return json({ error: 'máximo 10.000 leads por disparo' }, 400);
       const nowDate = new Date();
       const perHour = isTest || p.perHour == null || p.perHour === '' ? null : Number(p.perHour);
@@ -348,6 +356,7 @@ Deno.serve(async (req) => {
         ...(isScheduled ? { scheduled_at: startAt } : { started_at: nowDate.toISOString() }),
         created_by: u.user.id,
       }).select('id').maybeSingle();
+      if (attempt) attempt.campaignRowId = camp?.id ?? null;
 
       const { data: session, error: sErr } = await admin.from('campaign_sessions').insert({
         name, channel: 'whatsapp_oficial', status: isScheduled ? 'scheduled' : 'running',
@@ -356,6 +365,7 @@ Deno.serve(async (req) => {
         results: { ...baseResults, campaign_id: camp?.id ?? null },
       }).select('id').single();
       if (sErr) throw sErr;
+      attempt = null; // a partir daqui a própria sessão registra falhas e resultado
 
       const broadcasts: string[] = [];
       const slotLog: { at: string | null; broadcast_ids: string[]; leads: number }[] = [];
@@ -456,4 +466,10 @@ Deno.serve(async (req) => {
     console.error('[zernio-wa-broadcast]', e);
     return json({ error: String((e as Error).message ?? e) }, 500);
   }
+  })();
+  if (attempt && shouldRecordFailure(res.status)) {
+    const body = await res.clone().json().catch(() => ({}));
+    await recordFailedAttempt(admin, attempt, String(body?.error ?? `Erro ${res.status}`));
+  }
+  return res;
 });

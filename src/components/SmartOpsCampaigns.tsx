@@ -2551,6 +2551,12 @@ function CampaignHistory() {
                   {selectedCampaign.channel && <Badge variant="outline" className={channelColors[selectedCampaign.channel] || ""}>{selectedCampaign.channel}</Badge>}
                 </div>
                 {selectedCampaign.description && <p className="text-muted-foreground">{selectedCampaign.description}</p>}
+                {selectedCampaign.status === "failed" && typeof (selectedCampaign.results as any)?.error === "string" && (
+                  <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-destructive">
+                    <p className="text-xs font-semibold">Motivo do erro</p>
+                    <p className="text-sm">{(selectedCampaign.results as any).error}</p>
+                  </div>
+                )}
 
                 {(() => {
                   const isEmail = (selectedCampaign.channel || "").toLowerCase() === "email";
