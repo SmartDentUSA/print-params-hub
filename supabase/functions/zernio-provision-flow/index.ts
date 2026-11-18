@@ -113,8 +113,9 @@ Deno.serve(async (req) => {
     // ---- cupom por fase: troca a DM conforme a validade dos cupons (promotional_coupons) e
     // desliga a automação quando todos venceram. Idempotente; chamado pela rotina diária.
     if (body?.apply_coupon_phases) {
-      const today = /^\d{4}-\d{2}-\d{2}$/.test(String(body.today ?? "")) ? String(body.today) : saoPauloToday();
+      // Outra data só em simulação: a troca real sempre usa a data de hoje em São Paulo.
       const dryRun = body.dry_run === true;
+      const today = dryRun && /^\d{4}-\d{2}-\d{2}$/.test(String(body.today ?? "")) ? String(body.today) : saoPauloToday();
       const { data: flows, error: fErr } = await supabase
         .from("social_flows")
         .select("id, name, is_active, nodes, zernio_automation_id, zernio_automation_config")
