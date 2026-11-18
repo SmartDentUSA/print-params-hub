@@ -163,14 +163,12 @@ Deno.serve(async (req) => {
       const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
       // Rotina automática (chave de serviço, validada contra o Auth) ou alguém da equipe.
       let allowed = token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      if (!allowed) {
-        try {
-          const claims = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-          if (claims?.role === "service_role") {
-            const { error } = await createClient(Deno.env.get("SUPABASE_URL")!, token).auth.admin.listUsers({ page: 1, perPage: 1 });
-            allowed = !error;
-          }
-        } catch (_) { /* não é JWT */ }
+      if (!allowed && token) {
+        // Aceita qualquer chave secreta válida do projeto (formato JWT antigo ou sb_secret_):
+        // só ela consegue usar a administração do Auth; sessão de usuário comum recebe erro.
+        const { error } = await createClient(Deno.env.get("SUPABASE_URL")!, token, { auth: { persistSession: false } })
+          .auth.admin.listUsers({ page: 1, perPage: 1 }).catch((e) => ({ error: e }));
+        allowed = !error;
       }
       if (!allowed) {
         const { data: u } = await supabase.auth.getUser(token);
