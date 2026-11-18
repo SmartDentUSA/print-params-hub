@@ -1,0 +1,1 @@
+alter function public.fn_event_landing_views(uuid) security invoker;

@@ -39315,6 +39315,15 @@ export type Database = {
         Args: { p_form_data: Json; p_labels: string[] }
         Returns: string
       }
+      fn_event_landing_views: {
+        Args: { p_event_id?: string }
+        Returns: {
+          event_id: string
+          landing_pages: number
+          lp_unique_visitors: number
+          lp_views: number
+        }[]
+      }
       fn_event_lead_stats: {
         Args: { p_event_id?: string }
         Returns: {
