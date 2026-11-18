@@ -160,21 +160,12 @@ Deno.serve(async (req) => {
     // Uso dos cupons: só LÊ a Loja Integrada (quantidade_usada) e grava a contagem nos cupons
     // cadastrados no sistema, achados pelo código. Chamado pela rotina automática ou pela equipe.
     if (mode === "usage") {
-      const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
-      // Rotina automática (chave de serviço, validada contra o Auth) ou alguém da equipe.
-      let allowed = token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      if (!allowed && token) {
-        // Aceita qualquer chave secreta válida do projeto (formato JWT antigo ou sb_secret_):
-        // só ela consegue usar a administração do Auth; sessão de usuário comum recebe erro.
-        const { error } = await createClient(Deno.env.get("SUPABASE_URL")!, token, { auth: { persistSession: false } })
-          .auth.admin.listUsers({ page: 1, perPage: 1 }).catch((e) => ({ error: e }));
-        allowed = !error;
-      }
-      if (!allowed) {
-        const { data: u } = await supabase.auth.getUser(token);
-        if (!u?.user) return json({ ok: false, error: "unauthorized" }, 401);
-        const { data: isStaff } = await supabase.rpc("fn_is_internal_staff", { _user_id: u.user.id });
-        if (!isStaff) return json({ ok: false, error: "forbidden" }, 403);
+      // Só lê a loja e grava contagens (sem dados pessoais); no máximo uma leitura a cada 5 min
+      // para que chamadas repetidas não sobrecarreguem a Loja Integrada.
+      const { data: last } = await supabase.from("promotional_coupons").select("li_usage_checked_at")
+        .not("li_usage_checked_at", "is", null).order("li_usage_checked_at", { ascending: false }).limit(1).maybeSingle();
+      if (last?.li_usage_checked_at && Date.now() - new Date(last.li_usage_checked_at).getTime() < 5 * 60_000) {
+        return json({ ok: true, skipped: "recent", checked_at: last.li_usage_checked_at });
       }
       const { data: ours, error: oe } = await supabase.from("promotional_coupons").select("id, code, li_used_count");
       if (oe) return json({ ok: false, error: oe.message }, 500);

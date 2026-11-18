@@ -90,6 +90,9 @@ type EventStats = {
   landing_pages: number;
   lp_views: number;
   lp_unique_visitors: number;
+  coupons_used: number;
+  coupons_used_list: { code: string; qtd: number }[];
+  coupons_checked_at: string | null;
 };
 
 const emptyStats: EventStats = {
@@ -109,6 +112,9 @@ const emptyStats: EventStats = {
   landing_pages: 0,
   lp_views: 0,
   lp_unique_visitors: 0,
+  coupons_used: 0,
+  coupons_used_list: [],
+  coupons_checked_at: null,
   won_value: 0,
   coupons_discount: 0,
   coupons_freight: 0,
@@ -184,7 +190,7 @@ export function SmartOpsEvents() {
       (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null }),
       (supabase as any)
         .from("promotional_tables")
-        .select("id, event_id, promotional_coupons(id, free_shipping)")
+        .select("id, event_id, promotional_coupons(id, code, free_shipping, li_used_count, li_usage_checked_at)")
         .not("event_id", "is", null),
       (supabase as any).rpc("fn_event_landing_views", { p_event_id: null }),
     ]);
@@ -210,6 +216,9 @@ export function SmartOpsEvents() {
         landing_pages: 0,
         lp_views: 0,
         lp_unique_visitors: 0,
+        coupons_used: 0,
+        coupons_used_list: [],
+        coupons_checked_at: null,
       };
     }
     for (const v of (lpViews || []) as any[]) {
@@ -224,7 +233,16 @@ export function SmartOpsEvents() {
       for (const c of (t.promotional_coupons || []) as any[]) {
         if (c.free_shipping) cur.coupons_freight += 1;
         else cur.coupons_discount += 1;
+        const used = Number(c.li_used_count) || 0;
+        if (used > 0) {
+          cur.coupons_used += used;
+          cur.coupons_used_list = [...cur.coupons_used_list, { code: String(c.code), qtd: used }];
+        }
+        if (c.li_usage_checked_at && (!cur.coupons_checked_at || c.li_usage_checked_at > cur.coupons_checked_at)) {
+          cur.coupons_checked_at = c.li_usage_checked_at;
+        }
       }
+      cur.coupons_used_list = [...cur.coupons_used_list].sort((a, b) => b.qtd - a.qtd);
       map[t.event_id] = cur;
     }
     setStats(map);
@@ -435,6 +453,30 @@ export function SmartOpsEvents() {
                           <div className="text-[10px] text-muted-foreground">leads que compraram</div>
                         </div>
                       </div>
+
+                      {!!(st?.coupons_discount || st?.coupons_freight) && (
+                        <div>
+                          <div className="text-[11px] uppercase text-muted-foreground mb-1">Cupons utilizados na loja</div>
+                          <div className="text-sm font-semibold">
+                            {st!.coupons_used} uso{st!.coupons_used === 1 ? "" : "s"}
+                            <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                              de {st!.coupons_discount + st!.coupons_freight} cupons
+                            </span>
+                          </div>
+                          {st!.coupons_used_list.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {st!.coupons_used_list.slice(0, 8).map((c) => (
+                                <Badge key={c.code} variant="secondary" className="text-[10px] font-normal">{c.code} · {c.qtd}</Badge>
+                              ))}
+                            </div>
+                          )}
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {st!.coupons_checked_at
+                              ? `Loja Integrada · atualizado ${new Date(st!.coupons_checked_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} (08h, 12h e 17h30)`
+                              : "Aguardando a primeira leitura da loja (08h, 12h e 17h30)"}
+                          </div>
+                        </div>
+                      )}
 
                       <div>
                         <div className="text-[11px] uppercase text-muted-foreground mb-1">
