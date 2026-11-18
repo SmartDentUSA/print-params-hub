@@ -87,6 +87,9 @@ type EventStats = {
   won_value: number;
   coupons_discount: number;
   coupons_freight: number;
+  landing_pages: number;
+  lp_views: number;
+  lp_unique_visitors: number;
 };
 
 const emptyStats: EventStats = {
@@ -103,6 +106,9 @@ const emptyStats: EventStats = {
   imprime_guias_sim: 0,
   won_leads: 0,
   won_deals: 0,
+  landing_pages: 0,
+  lp_views: 0,
+  lp_unique_visitors: 0,
   won_value: 0,
   coupons_discount: 0,
   coupons_freight: 0,
@@ -174,12 +180,13 @@ export function SmartOpsEvents() {
   const [stats, setStats] = useState<Record<string, EventStats>>({});
 
   async function loadStats() {
-    const [{ data: leadStats }, { data: tables }] = await Promise.all([
+    const [{ data: leadStats }, { data: tables }, { data: lpViews }] = await Promise.all([
       (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null }),
       (supabase as any)
         .from("promotional_tables")
         .select("id, event_id, promotional_coupons(id, free_shipping)")
         .not("event_id", "is", null),
+      (supabase as any).rpc("fn_event_landing_views", { p_event_id: null }),
     ]);
     const map: Record<string, EventStats> = {};
     for (const s of (leadStats || []) as any[]) {
@@ -200,8 +207,17 @@ export function SmartOpsEvents() {
         won_value: Number(s.won_value) || 0,
         coupons_discount: 0,
         coupons_freight: 0,
-
+        landing_pages: 0,
+        lp_views: 0,
+        lp_unique_visitors: 0,
       };
+    }
+    for (const v of (lpViews || []) as any[]) {
+      const cur = map[v.event_id] || { ...emptyStats };
+      cur.landing_pages = Number(v.landing_pages) || 0;
+      cur.lp_views = Number(v.lp_views) || 0;
+      cur.lp_unique_visitors = Number(v.lp_unique_visitors) || 0;
+      map[v.event_id] = cur;
     }
     for (const t of (tables || []) as any[]) {
       const cur = map[t.event_id] || { ...emptyStats };
@@ -389,6 +405,20 @@ export function SmartOpsEvents() {
 
                       <div className="grid grid-cols-2 gap-2">
                         <div className="rounded-md bg-muted/50 p-2">
+                          <div className="text-[11px] uppercase text-muted-foreground">Visualizações das LPs</div>
+                          <div className="text-2xl font-bold leading-none">{(st?.lp_views ?? 0).toLocaleString("pt-BR")}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {st?.landing_pages
+                              ? `${(st.lp_unique_visitors ?? 0).toLocaleString("pt-BR")} visitantes · ${st.landing_pages} landing page${st.landing_pages === 1 ? "" : "s"}`
+                              : "Nenhuma landing page publicada"}
+                          </div>
+                        </div>
+                        <div className="rounded-md bg-muted/50 p-2">
+                          <div className="text-[11px] uppercase text-muted-foreground">Valor convertido</div>
+                          <div className="text-xl font-bold leading-none">{brl(st?.won_value ?? 0)}</div>
+                          <div className="text-[10px] text-muted-foreground">{(st?.won_deals ?? 0)} negócio{st?.won_deals === 1 ? "" : "s"} ganho{st?.won_deals === 1 ? "" : "s"}</div>
+                        </div>
+                        <div className="rounded-md bg-muted/50 p-2">
                           <div className="text-[11px] uppercase text-muted-foreground">Leads gerados</div>
                           <div className="text-2xl font-bold leading-none">{st?.total_leads ?? 0}</div>
                         </div>
@@ -402,9 +432,7 @@ export function SmartOpsEvents() {
                                 : ""}
                             </span>
                           </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {(st?.won_deals ?? 0)} negócios · {brl(st?.won_value ?? 0)}
-                          </div>
+                          <div className="text-[10px] text-muted-foreground">leads que compraram</div>
                         </div>
                       </div>
 
