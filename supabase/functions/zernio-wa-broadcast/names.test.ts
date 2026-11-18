@@ -34,3 +34,17 @@ Deno.test('só corrige contatos com nome diferente, um por contato', () => {
   ], wanted);
   assertEquals(r, [{ contactId: 'c1', name: 'Danilo' }]);
 });
+
+import { chunk as chunkList, RECIPIENTS_PER_BROADCAST, wantedNameMap } from './plan.ts';
+
+Deno.test('envio da Zernio cabe numa página de 200 destinatários', () => {
+  assertEquals(RECIPIENTS_PER_BROADCAST, 200);
+  const blocks = chunkList(Array.from({ length: 500 }, (_, i) => i), RECIPIENTS_PER_BROADCAST);
+  assertEquals(blocks.map((b) => b.length), [200, 200, 100]);
+});
+
+Deno.test('nome esperado acha o telefone com e sem o 9º dígito', () => {
+  const m = wantedNameMap([{ phone: '5519992612348', contactName: 'Danilo' }]);
+  assertEquals(m.get('5519992612348'), 'Danilo');
+  assertEquals(m.get('551992612348'), 'Danilo');
+});

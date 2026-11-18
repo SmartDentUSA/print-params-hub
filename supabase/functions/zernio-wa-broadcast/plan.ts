@@ -216,6 +216,25 @@ export function groupKeyValues(values: string[], nameIdx: number): string[] {
   return values.map((v, i) => (i === nameIdx ? '' : v));
 }
 
+/** Máximo de destinatários por envio na Zernio: a listagem aceita até 200 por página e a paginação por
+ * `skip` repete e pula destinatários, então cada envio precisa caber numa única página para ser conferido. */
+export const RECIPIENTS_PER_BROADCAST = 200;
+
+/** Divide uma lista em blocos de até `size` itens, mantendo a ordem. */
+export function chunk<T>(list: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+/** Nome esperado por telefone, aceitando a grafia com e sem o 9º dígito que a Zernio pode gravar. */
+export function wantedNameMap(list: { phone: string; contactName: string }[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const l of list) m.set(l.phone, l.contactName);
+  for (const l of list) for (const v of phoneVariants(l.phone)) if (!m.has(v)) m.set(v, l.contactName);
+  return m;
+}
+
 /** Contatos da Zernio cujo nome difere do nome que a mensagem precisa mostrar. */
 export function namesToPatch(
   recipients: { contactId?: string | null; platformIdentifier?: string | null; contactName?: string | null }[],

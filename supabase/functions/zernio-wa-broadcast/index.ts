@@ -8,7 +8,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import {
   MAX_TEST_PHONES, MEDIA_HEADERS, TEST_LEAD_ID, broadcastKeepsHeaderMedia, checkHeaderImage, isPublicHttpsUrl,
-  contactNameFor, fillTokens, groupKeyValues, namesToPatch, phoneVariants, pickNameVarIndex, planSlots, resolveButtons,
+  chunk, contactNameFor, fillTokens, groupKeyValues, namesToPatch, phoneVariants, RECIPIENTS_PER_BROADCAST, wantedNameMap, pickNameVarIndex, planSlots, resolveButtons,
   templateMeta, validateDailyAndCost, validateSchedule,
 } from './plan.ts';
 import { buildButtonReplies, resolveFormIdForLink } from '../_shared/wa-button-replies.ts';
@@ -95,15 +95,29 @@ Deno.serve(async (req) => {
   const { data: isStaff } = await admin.rpc('fn_is_internal_staff', { _user_id: u.user.id });
   if (!isStaff) return json({ error: 'forbidden' }, 403);
 
+  // A Zernio limita pedidos por minuto (600 nesta conta): espera quando a cota está acabando e,
+  // se mesmo assim vier 429, aguarda o Retry-After e tenta de novo, em vez de derrubar o grupo.
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const z = async (path: string, init?: RequestInit) => {
-    const r = await fetch(`${ZERNIO}${path}`, {
-      ...init,
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    });
-    const t = await r.text();
-    let b: any = {}; try { b = JSON.parse(t); } catch { b = { raw: t }; }
-    if (!r.ok) throw new Error(`Zernio ${path} ${r.status}: ${b?.error ?? t.slice(0, 300)}`);
-    return b;
+    for (let attemptNo = 0; ; attemptNo++) {
+      const r = await fetch(`${ZERNIO}${path}`, {
+        ...init,
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      });
+      const t = await r.text();
+      if (r.status === 429 && attemptNo < 6) {
+        const wait = Math.min(Number(r.headers.get('retry-after')) || 10, 65);
+        await sleep((wait + 1) * 1000);
+        continue;
+      }
+      let b: any = {}; try { b = JSON.parse(t); } catch { b = { raw: t }; }
+      if (!r.ok) throw new Error(`Zernio ${path} ${r.status}: ${b?.error ?? t.slice(0, 300)}`);
+      const remaining = Number(r.headers.get('x-ratelimit-remaining'));
+      const reset = Number(r.headers.get('x-ratelimit-reset'));
+      if (Number.isFinite(remaining) && remaining < 25 && Number.isFinite(reset) && reset > 0)
+        await sleep(Math.min(Math.max(reset * 1000 - Date.now(), 0) + 500, 65_000));
+      return b;
+    }
   };
 
   let p: any = {};
@@ -237,7 +251,8 @@ Deno.serve(async (req) => {
           if (!groups.has(k)) groups.set(k, { values, leads: [] });
           groups.get(k)!.leads.push(l);
         }
-        return { at: sl.at, groups: [...groups.values()] };
+        return { at: sl.at, groups: [...groups.values()].flatMap((g) =>
+          chunk(g.leads, RECIPIENTS_PER_BROADCAST).map((leads) => ({ values: g.values, leads }))) };
       });
       const totalBroadcasts = slots.reduce((a, sl) => a + sl.groups.length, 0);
       if (totalBroadcasts > 400) return json({ error: `O disparo geraria ${totalBroadcasts} envios distintos (máx. 400). Use campos com menos variação ou um limite por hora maior.` }, 400);
@@ -281,27 +296,34 @@ Deno.serve(async (req) => {
       // novo nasce com o telefone como nome; corrigir o contato depois não muda a cópia. Por isso: 1) um rascunho
       // de preparo (nunca enviado) cria/acha os contatos e grava o nome; 2) só então o envio real recebe os
       // destinatários; 3) a cópia é conferida antes de enviar. Se algo falhar, o grupo não é enviado.
-      const listRecipients = async (bid: string) => {
-        const recipients: any[] = [];
-        for (let skip = 0; ; skip += 200) {
-          const r = await z(`/broadcasts/${bid}/recipients?limit=200&skip=${skip}`);
-          recipients.push(...(r.recipients ?? []));
-          if (!r.pagination?.hasMore) break;
-        }
+      // Cada envio tem no máximo RECIPIENTS_PER_BROADCAST destinatários e é lido numa página só, porque a
+      // paginação da Zernio repete e pula destinatários (nomes ficavam sem conferir).
+      const listRecipients = async (bid: string, expected: number) => {
+        const r = await z(`/broadcasts/${bid}/recipients?limit=${RECIPIENTS_PER_BROADCAST}`);
+        const recipients: any[] = r.recipients ?? [];
+        const total = Number(r.pagination?.total ?? recipients.length);
+        if (r.pagination?.hasMore || total !== recipients.length || recipients.length > expected)
+          throw new Error(`A Zernio listou ${recipients.length} de ${total} destinatário(s); este grupo não foi enviado.`);
         return recipients;
       };
-      const wantedNames = (list: any[]) => new Map<string, string>(list.map((l) => [l.phone, l.contactName]));
       const addPhones = async (bid: string, list: any[]) => {
-        let a = 0, sk = 0;
-        for (let i = 0; i < list.length; i += 500) {
-          const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST',
-            body: JSON.stringify({ phones: list.slice(i, i + 500).map((l) => `+${l.phone}`) }) });
-          a += Number(r.added ?? 0); sk += Number(r.skipped ?? 0);
-        }
-        return { added: a, skipped: sk };
+        const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST',
+          body: JSON.stringify({ phones: list.map((l) => `+${l.phone}`) }) });
+        return { added: Number(r.added ?? 0), skipped: Number(r.skipped ?? 0) };
       };
-      const prepareContactNames = async (list: any[]) => {
-        if (nameIdx < 0) return;
+      const addContacts = async (bid: string, contactIds: string[]) => {
+        const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST', body: JSON.stringify({ contactIds }) });
+        return { added: Number(r.added ?? 0), skipped: Number(r.skipped ?? 0) };
+      };
+      // Devolve os contatos exatos (já com o nome certo) que vão entrar no envio real; sem nome na mensagem,
+      // devolve null e o envio recebe os telefones direto.
+      const prepareContactNames = async (list: any[]): Promise<string[] | null> => {
+        if (nameIdx < 0) return null;
+        // Números novos nascem já com o nome (um pedido para o bloco todo); os existentes são ignorados aqui.
+        const bulk = await z('/contacts/bulk', { method: 'POST', body: JSON.stringify({
+          profileId, accountId, contacts: list.map((l) => ({ name: l.contactName, platformIdentifier: l.phone })),
+        }) }).catch((e) => { console.error('[zernio-wa-broadcast] criação em lote falhou', e); return null; });
+        if (bulk?.errors?.length) console.warn('[zernio-wa-broadcast] contatos recusados', JSON.stringify(bulk.errors).slice(0, 1000));
         const probe = await z('/broadcasts', { method: 'POST', body: JSON.stringify({
           profileId, accountId, platform: 'whatsapp', name: `PREPARO (não enviar) · ${name}`.slice(0, 200),
           template: { name: templateName, language },
@@ -310,26 +332,32 @@ Deno.serve(async (req) => {
         if (!pid) throw new Error('Zernio não retornou o rascunho de preparo dos nomes');
         try {
           await addPhones(pid, list);
-          const todo = namesToPatch(await listRecipients(pid), wantedNames(list));
+          const recipients = await listRecipients(pid, list.length);
+          const todo = namesToPatch(recipients, wantedNameMap(list));
           let failed = 0;
-          for (let i = 0; i < todo.length; i += 20) {
-            await Promise.all(todo.slice(i, i + 20).map(async (t) => {
+          for (let i = 0; i < todo.length; i += 10) {
+            await Promise.all(todo.slice(i, i + 10).map(async (t) => {
               try { await z(`/contacts/${t.contactId}`, { method: 'PATCH', body: JSON.stringify({ name: t.name }) }); }
-              catch { try { await z(`/contacts/${t.contactId}`, { method: 'PATCH', body: JSON.stringify({ name: t.name }) }); } catch { failed++; } }
+              catch { failed++; }
             }));
           }
           if (failed) throw new Error(`Não foi possível gravar o nome de ${failed} contato(s) na Zernio; este grupo não foi enviado.`);
+          return [...new Set(recipients.map((r: any) => String(r.contactId ?? '')).filter(Boolean))];
         } finally {
           await z(`/broadcasts/${pid}`, { method: 'DELETE' }).catch(() => null);
         }
       };
-      const verifyRecipientNames = async (bid: string, list: any[]) => {
-        if (nameIdx < 0) return;
-        const wrong = namesToPatch(await listRecipients(bid), wantedNames(list));
-        if (wrong.length) {
-          await z(`/broadcasts/${bid}`, { method: 'DELETE' }).catch(() => null);
-          throw new Error(`A Zernio não gravou o nome de ${wrong.length} contato(s) no envio; este grupo não foi enviado.`);
+      // Envio real: entra com os mesmos contatos preparados e confere a cópia do nome antes de enviar.
+      const fillRecipients = async (bid: string, list: any[], contactIds: string[] | null) => {
+        const r = contactIds ? await addContacts(bid, contactIds) : await addPhones(bid, list);
+        if (nameIdx >= 0) {
+          const wrong = namesToPatch(await listRecipients(bid, list.length), wantedNameMap(list));
+          if (wrong.length) {
+            await z(`/broadcasts/${bid}`, { method: 'DELETE' }).catch(() => null);
+            throw new Error(`A Zernio não gravou o nome de ${wrong.length} contato(s) no envio; este grupo não foi enviado.`);
+          }
         }
+        return r;
       };
       const textFor = (g: { values: string[] }, l: any) => {
         const vals = g.values.map((v, i) => (i === nameIdx ? l.contactName : v));
@@ -342,10 +370,9 @@ Deno.serve(async (req) => {
           let added = 0;
           const ids: string[] = [];
           for (const g of slots.flatMap((sl) => sl.groups)) {
-            await prepareContactNames(g.leads);
+            const cids = await prepareContactNames(g.leads);
             const bid = await createBroadcast(`TESTE · ${name} · ${nowDate.toISOString().slice(0, 16)}`, g.values);
-            const r = await addPhones(bid, g.leads);
-            await verifyRecipientNames(bid, g.leads);
+            const r = await fillRecipients(bid, g.leads, cids);
             await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
             added += r.added; ids.push(bid);
           }
@@ -408,10 +435,9 @@ Deno.serve(async (req) => {
         const slotIds: string[] = [];
         for (const g of sl.groups) {
           try {
-            await prepareContactNames(g.leads);
+            const cids = await prepareContactNames(g.leads);
             const bid = await createBroadcast(`${name} · ${session.id.slice(0, 8)} · ${broadcasts.length + 1}`, g.values);
-            const r = await addPhones(bid, g.leads);
-            await verifyRecipientNames(bid, g.leads);
+            const r = await fillRecipients(bid, g.leads, cids);
             added += r.added; skipped += r.skipped;
             if (sl.at) await z(`/broadcasts/${bid}/schedule`, { method: 'POST', body: JSON.stringify({ scheduledAt: sl.at }) });
             else await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
