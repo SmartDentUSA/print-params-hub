@@ -33035,6 +33035,182 @@ export type Database = {
           },
         ]
       }
+      wa_official_sair_leads: {
+        Row: {
+          first_reply_at: string
+          last_reply_at: string
+          lead_id: string
+          replies: number
+        }
+        Insert: {
+          first_reply_at?: string
+          last_reply_at?: string
+          lead_id: string
+          replies?: number
+        }
+        Update: {
+          first_reply_at?: string
+          last_reply_at?: string
+          lead_id?: string
+          replies?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_official_sair_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wa_provider_session_health: {
         Row: {
           consecutive_errors: number

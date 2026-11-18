@@ -28,6 +28,7 @@ import { SmartOpsWaGroupCampaigns } from "@/components/smartops/wa-groups/SmartO
 import { MetaFormMappingsPanel } from "@/components/smartops/meta-forms/MetaFormMappingsPanel";
 import { EmailCampaignWizard } from "@/components/smartops/EmailCampaignWizard";
 import { EcommerceSegmentFields } from "@/components/smartops/EcommerceSegmentFields";
+import { applyWaSairFilter } from "@/lib/waSairFilter";
 import {
   EMPTY_ECOMMERCE_FORM, applyEcommerceFilters, ecommerceFiltersToForm, ecommerceFormToFilters,
   type EcommerceFormState,
@@ -512,6 +513,7 @@ function CreateCampaign({
   const [temEmail, setTemEmail] = useState("all");            // email IS NOT NULL
   const [temTelefone, setTemTelefone] = useState("all");      // telefone_normalized IS NOT NULL
   const [aceitaContato, setAceitaContato] = useState("all");  // do_not_contact
+  const [waSair, setWaSair] = useState("all");                // respondeu SAIR (WhatsApp Oficial)
   const [ltvMin, setLtvMin] = useState("");                   // ltv_total >=
   const [scoreMin, setScoreMin] = useState("");               // intelligence_score_total >=
   const [ecom, setEcom] = useState<EcommerceFormState>(EMPTY_ECOMMERCE_FORM); // Loja Integrada
@@ -613,6 +615,8 @@ function CreateCampaign({
     if (temEmail !== "all") f.tem_email = temEmail;
     if (temTelefone !== "all") f.tem_telefone = temTelefone;
     if (aceitaContato !== "all") f.aceita_contato = aceitaContato;
+    // Resolvido só no navegador (WhatsApp Oficial e SMS); e-mail e Evolution resolvem o público no servidor.
+    if (waSair !== "all" && (sendChannel === "whatsapp_oficial" || sendChannel === "sms")) f.wa_sair = waSair;
     const ltvNum = parseFloat(ltvMin); if (!isNaN(ltvNum) && ltvNum > 0) f.ltv_min = ltvNum;
     const scoreNum = parseFloat(scoreMin); if (!isNaN(scoreNum) && scoreNum > 0) f.score_min = scoreNum;
     Object.assign(f, ecommerceFormToFilters(ecom));
@@ -624,7 +628,7 @@ function CreateCampaign({
     marcaScanner, marcaImpressora, temFresadora, temCad,
     imprimeModelos, imprimePlacas, imprimeGuias, imprimeResinasLd,
     reuniaoAgendada, inadimplente, recompraAlert, sdrCompleto,
-    temEmail, temTelefone, aceitaContato, ltvMin, scoreMin, ecom,
+    temEmail, temTelefone, aceitaContato, waSair, sendChannel, ltvMin, scoreMin, ecom,
   ]);
 
   // Apply a saved segment's filters into state
@@ -665,6 +669,7 @@ function CreateCampaign({
     setTemEmail(f.tem_email ?? "all");
     setTemTelefone(f.tem_telefone ?? "all");
     setAceitaContato(f.aceita_contato ?? "all");
+    setWaSair(f.wa_sair ?? "all");
     setLtvMin(f.ltv_min != null ? String(f.ltv_min) : "");
     setScoreMin(f.score_min != null ? String(f.score_min) : "");
     setEcom(ecommerceFiltersToForm(f));
@@ -733,6 +738,7 @@ function CreateCampaign({
     if (f.tem_telefone === "no")  q = q.is("telefone_normalized", null);
     if (f.aceita_contato === "yes") q = q.or("do_not_contact.is.null,do_not_contact.eq.false");
     if (f.aceita_contato === "no")  q = q.eq("do_not_contact", true);
+    if (f.wa_sair === "exclude" || f.wa_sair === "only") q = applyWaSairFilter(q, f.wa_sair);
     // ── Score / LTV ──────────────────────────────────────────────────────────
     if (f.ltv_min != null)   q = q.gte("ltv_total", Number(f.ltv_min));
     if (f.score_min != null) q = q.gte("intelligence_score_total", Number(f.score_min));
@@ -1987,6 +1993,19 @@ function CreateCampaign({
                     </SelectContent>
                   </Select>
                 </div>
+                {(sendChannel === "whatsapp_oficial" || sendChannel === "sms") && (
+                  <div>
+                    <label className="text-sm font-medium">Respondeu SAIR (WhatsApp Oficial)</label>
+                    <Select value={waSair} onValueChange={setWaSair}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="exclude">Excluir quem respondeu</SelectItem>
+                        <SelectItem value="only">Somente quem respondeu</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
 
