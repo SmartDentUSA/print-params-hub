@@ -161,8 +161,18 @@ Deno.serve(async (req) => {
     // cadastrados no sistema, achados pelo código. Chamado pela rotina automática ou pela equipe.
     if (mode === "usage") {
       const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      if (token !== serviceKey) {
+      // Rotina automática (chave de serviço, validada contra o Auth) ou alguém da equipe.
+      let allowed = token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (!allowed) {
+        try {
+          const claims = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+          if (claims?.role === "service_role") {
+            const { error } = await createClient(Deno.env.get("SUPABASE_URL")!, token).auth.admin.listUsers({ page: 1, perPage: 1 });
+            allowed = !error;
+          }
+        } catch (_) { /* não é JWT */ }
+      }
+      if (!allowed) {
         const { data: u } = await supabase.auth.getUser(token);
         if (!u?.user) return json({ ok: false, error: "unauthorized" }, 401);
         const { data: isStaff } = await supabase.rpc("fn_is_internal_staff", { _user_id: u.user.id });
