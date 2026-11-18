@@ -21047,6 +21047,8 @@ export type Database = {
           li_coupon_id: string | null
           li_sync_error: string | null
           li_synced_at: string | null
+          li_usage_checked_at: string | null
+          li_used_count: number | null
           promotional_table_id: string
           seller_name: string | null
           team_member_id: string | null
@@ -21068,6 +21070,8 @@ export type Database = {
           li_coupon_id?: string | null
           li_sync_error?: string | null
           li_synced_at?: string | null
+          li_usage_checked_at?: string | null
+          li_used_count?: number | null
           promotional_table_id: string
           seller_name?: string | null
           team_member_id?: string | null
@@ -21089,6 +21093,8 @@ export type Database = {
           li_coupon_id?: string | null
           li_sync_error?: string | null
           li_synced_at?: string | null
+          li_usage_checked_at?: string | null
+          li_used_count?: number | null
           promotional_table_id?: string
           seller_name?: string | null
           team_member_id?: string | null

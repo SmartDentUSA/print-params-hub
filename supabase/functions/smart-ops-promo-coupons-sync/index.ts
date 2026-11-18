@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const tableId = String(body?.promotional_table_id || "").trim();
     const mode = String(body?.mode || "sync");
-    if (!tableId && mode !== "categories") {
+    if (!tableId && mode !== "categories" && mode !== "usage") {
       return json({ ok: false, error: "promotional_table_id é obrigatório" }, 400);
     }
 
@@ -156,6 +156,38 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Uso dos cupons: só LÊ a Loja Integrada (quantidade_usada) e grava a contagem nos cupons
+    // cadastrados no sistema, achados pelo código. Chamado pela rotina automática ou pela equipe.
+    if (mode === "usage") {
+      const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      if (token !== serviceKey) {
+        const { data: u } = await supabase.auth.getUser(token);
+        if (!u?.user) return json({ ok: false, error: "unauthorized" }, 401);
+        const { data: isStaff } = await supabase.rpc("fn_is_internal_staff", { _user_id: u.user.id });
+        if (!isStaff) return json({ ok: false, error: "forbidden" }, 403);
+      }
+      const { data: ours, error: oe } = await supabase.from("promotional_coupons").select("id, code, li_used_count");
+      if (oe) return json({ ok: false, error: oe.message }, 500);
+      const usedByCode = new Map<string, number>();
+      for (let offset = 0; offset < 5000; offset += 100) {
+        const parsed = await liRequest(`/cupom?limit=100&offset=${offset}&format=json`, "GET", null, apiKey, appKey) as
+          { objects?: Array<Record<string, unknown>> };
+        const objs = parsed?.objects || [];
+        for (const o of objs) usedByCode.set(String(o.codigo ?? "").trim().toUpperCase(), Number(o.quantidade_usada) || 0);
+        if (objs.length < 100) break;
+      }
+      const now = new Date().toISOString();
+      let updated = 0;
+      for (const c of ours ?? []) {
+        const used = usedByCode.get(String(c.code).trim().toUpperCase());
+        if (used === undefined) continue;
+        await supabase.from("promotional_coupons").update({ li_used_count: used, li_usage_checked_at: now }).eq("id", c.id);
+        updated++;
+      }
+      return json({ ok: true, store_coupons: usedByCode.size, updated });
+    }
 
     // Vincula cupons criados manualmente na loja: só LÊ a Loja Integrada e grava
     // o ID encontrado pelo código (sem criar nem alterar nada na loja).
