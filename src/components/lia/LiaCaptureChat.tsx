@@ -152,7 +152,11 @@ export default function LiaCaptureChat({ formId, campaign, product, productId = 
         } catch { /* ignore */ }
       }
       setMsgs([{ from: "lia", text: c.greeting || "Olá!", createdAt: Date.now() }]);
-      await say(c.opening);
+      // A apresentação (produto/campanha) vai numa mensagem e a pergunta do telefone na seguinte.
+      const phoneAsk = "Qual é o seu telefone de contato?";
+      const intro = String(c.opening ?? "").replace(phoneAsk, "").trim();
+      if (intro) await say(intro);
+      await say(phoneAsk);
       trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "open", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product, simulator_id: simulator });
     }).catch(() => { if (!cancelled) setMsgs([{ from: "lia", text: "Não consegui iniciar o atendimento agora. Tente novamente em instantes." }]); });
     return () => { cancelled = true; };

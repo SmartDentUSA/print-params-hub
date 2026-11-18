@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { campaignButtons, campaignDisplayName, campaignMessageName, presetInterest, GROUP_REDIRECT_MS, isCommercialCampaignName, matchInterest } from "./commercial-campaign.ts";
+import { campaignButtons, campaignDisplayName, campaignMessageName, campaignOpening, presetInterest, GROUP_REDIRECT_MS, isCommercialCampaignName, matchInterest } from "./commercial-campaign.ts";
 
 const buttons = campaignButtons(true, [
   { label: "Resinas" }, { label: "Scanner intraoral", product_catalog_id: "abc", product_name: "Scanner X" },
@@ -92,4 +92,10 @@ Deno.test("seller WhatsApp text has no article and names the campaign without th
     "Olá Daniele, vi a campanha BlackFriday e quero saber mais sobre Caracterização. Meu atendimento já foi registrado com o número 123");
   assertEquals(sellerWhatsAppText({ sellerFirst: "Ana", item: "Impressora 3D Elegoo Mars 5 Ultra", ticket: "9" }),
     "Olá Ana, quero saber mais sobre Impressora 3D Elegoo Mars 5 Ultra. Meu atendimento já foi registrado com o número 9");
+});
+
+Deno.test("campaignOpening cita o produto do link e mantém a frase da campanha sem produto", () => {
+  assertEquals(campaignOpening("Black 26", "Cimento UNIKK Veneer A2"), "Vamos lá, vou te mandar todas as informações sobre Cimento UNIKK Veneer A2 da campanha Black 26. Qual é o seu telefone de contato?");
+  assertEquals(campaignOpening("BlackFriday 16 a 20"), "Vamos lá, vou te mandar todas as informações da campanha BlackFriday. Qual é o seu telefone de contato?");
+  assertEquals(campaignOpening("Campanha Verão", "NanoClean"), "Vamos lá, vou te mandar todas as informações sobre NanoClean da Campanha Verão. Qual é o seu telefone de contato?");
 });

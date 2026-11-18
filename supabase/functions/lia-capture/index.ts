@@ -19,7 +19,7 @@ import { cleanPersonName } from "../_shared/piperun-field-map.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
-import { campaignButtons, campaignDisplayName, campaignMessageName, chosenItemLabel, DEFAULT_INTEREST_QUESTION, GROUP_REDIRECT_MS, isCommercialCampaignForm, matchInterest, presetInterest, sellerWhatsAppText, simulatorItemLabel, type PresetInterest } from "./commercial-campaign.ts";
+import { campaignButtons, campaignDisplayName, campaignMessageName, campaignOpening, chosenItemLabel, DEFAULT_INTEREST_QUESTION, GROUP_REDIRECT_MS, isCommercialCampaignForm, matchInterest, presetInterest, sellerWhatsAppText, simulatorItemLabel, type PresetInterest } from "./commercial-campaign.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -170,7 +170,7 @@ async function resolveContext(body: any) {
     ? "# CHAT - Qualificação Curso - Profissional"
     : campaignSlug && !formId ? `# CHAT - Campanha - ${campaignName || campaignSlug}` : `# CHAT - Landing - ${label}`;
   opening = commercial
-    ? `Vamos lá, vou te mandar todas as informações ${/^campanha\b/i.test(campaignMessageName(commercial.display_name)) ? "da" : "da campanha"} ${campaignMessageName(commercial.display_name)}. Qual é o seu telefone de contato?`
+    ? campaignOpening(commercial.display_name, commercialPreset ? (itemLabel || commercialPreset.product_name || commercialPreset.label) : null)
     : `Vamos lá, vou te mandar todas as informações sobre o ${label}. Qual é o seu telefone de contato?`;
 
   // Perguntas de qualificação: do formulário de origem ou de um formulário de captação padrão

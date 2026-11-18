@@ -39,6 +39,14 @@ export function campaignMessageName(name: unknown) {
   return cleaned || raw;
 }
 
+/** Abertura da conversa: cita o item quando o link já trouxe o produto; sem item, fala só da campanha. */
+export function campaignOpening(campaign: unknown, item?: string | null) {
+  const name = campaignMessageName(campaign);
+  const of = `${/^campanha\b/i.test(name) ? "da" : "da campanha"} ${name}`;
+  const about = item ? `sobre ${item} ${of}` : of;
+  return `Vamos lá, vou te mandar todas as informações ${about}. Qual é o seu telefone de contato?`;
+}
+
 export function campaignButtons(enabled: unknown, buttons: unknown): { label: string; product_catalog_id: string | null; product_name: string | null }[] {
   if (!enabled || !Array.isArray(buttons)) return [];
   return (buttons as CaptureButton[])
