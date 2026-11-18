@@ -275,28 +275,58 @@ Deno.serve(async (req) => {
         return bid as string;
       };
 
-      // A Zernio cria o contato com o telefone como nome; grava o nome da mensagem em cada contato antes do
-      // envio/agendamento. Se algum falhar, o envio do grupo é cancelado para nunca sair telefone no lugar do nome.
-      const fixContactNames = async (bid: string, list: any[]) => {
-        if (nameIdx < 0) return;
-        const wanted = new Map<string, string>(list.map((l) => [l.phone, l.contactName]));
+      // A Zernio copia o nome do contato para o destinatário no instante em que ele entra no envio, e o contato
+      // novo nasce com o telefone como nome; corrigir o contato depois não muda a cópia. Por isso: 1) um rascunho
+      // de preparo (nunca enviado) cria/acha os contatos e grava o nome; 2) só então o envio real recebe os
+      // destinatários; 3) a cópia é conferida antes de enviar. Se algo falhar, o grupo não é enviado.
+      const listRecipients = async (bid: string) => {
         const recipients: any[] = [];
         for (let skip = 0; ; skip += 500) {
           const r = await z(`/broadcasts/${bid}/recipients?limit=500&skip=${skip}`);
           recipients.push(...(r.recipients ?? []));
           if (!r.pagination?.hasMore) break;
         }
-        const todo = namesToPatch(recipients, wanted);
-        let failed = 0;
-        for (let i = 0; i < todo.length; i += 20) {
-          await Promise.all(todo.slice(i, i + 20).map(async (t) => {
-            try { await z(`/contacts/${t.contactId}`, { method: 'PATCH', body: JSON.stringify({ name: t.name }) }); }
-            catch { try { await z(`/contacts/${t.contactId}`, { method: 'PATCH', body: JSON.stringify({ name: t.name }) }); } catch { failed++; } }
-          }));
+        return recipients;
+      };
+      const wantedNames = (list: any[]) => new Map<string, string>(list.map((l) => [l.phone, l.contactName]));
+      const addPhones = async (bid: string, list: any[]) => {
+        let a = 0, sk = 0;
+        for (let i = 0; i < list.length; i += 500) {
+          const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST',
+            body: JSON.stringify({ phones: list.slice(i, i + 500).map((l) => `+${l.phone}`) }) });
+          a += Number(r.added ?? 0); sk += Number(r.skipped ?? 0);
         }
-        if (failed) {
+        return { added: a, skipped: sk };
+      };
+      const prepareContactNames = async (list: any[]) => {
+        if (nameIdx < 0) return;
+        const probe = await z('/broadcasts', { method: 'POST', body: JSON.stringify({
+          profileId, accountId, platform: 'whatsapp', name: `PREPARO (não enviar) · ${name}`.slice(0, 200),
+          template: { name: templateName, language },
+        }) });
+        const pid = probe?.broadcast?.id;
+        if (!pid) throw new Error('Zernio não retornou o rascunho de preparo dos nomes');
+        try {
+          await addPhones(pid, list);
+          const todo = namesToPatch(await listRecipients(pid), wantedNames(list));
+          let failed = 0;
+          for (let i = 0; i < todo.length; i += 20) {
+            await Promise.all(todo.slice(i, i + 20).map(async (t) => {
+              try { await z(`/contacts/${t.contactId}`, { method: 'PATCH', body: JSON.stringify({ name: t.name }) }); }
+              catch { try { await z(`/contacts/${t.contactId}`, { method: 'PATCH', body: JSON.stringify({ name: t.name }) }); } catch { failed++; } }
+            }));
+          }
+          if (failed) throw new Error(`Não foi possível gravar o nome de ${failed} contato(s) na Zernio; este grupo não foi enviado.`);
+        } finally {
+          await z(`/broadcasts/${pid}`, { method: 'DELETE' }).catch(() => null);
+        }
+      };
+      const verifyRecipientNames = async (bid: string, list: any[]) => {
+        if (nameIdx < 0) return;
+        const wrong = namesToPatch(await listRecipients(bid), wantedNames(list));
+        if (wrong.length) {
           await z(`/broadcasts/${bid}`, { method: 'DELETE' }).catch(() => null);
-          throw new Error(`Não foi possível gravar o nome de ${failed} contato(s) na Zernio; este grupo não foi enviado.`);
+          throw new Error(`A Zernio não gravou o nome de ${wrong.length} contato(s) no envio; este grupo não foi enviado.`);
         }
       };
       const textFor = (g: { values: string[] }, l: any) => {
@@ -310,11 +340,12 @@ Deno.serve(async (req) => {
           let added = 0;
           const ids: string[] = [];
           for (const g of slots.flatMap((sl) => sl.groups)) {
+            await prepareContactNames(g.leads);
             const bid = await createBroadcast(`TESTE · ${name} · ${nowDate.toISOString().slice(0, 16)}`, g.values);
-            const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST', body: JSON.stringify({ phones: g.leads.map((l) => `+${l.phone}`) }) });
-            await fixContactNames(bid, g.leads);
+            const r = await addPhones(bid, g.leads);
+            await verifyRecipientNames(bid, g.leads);
             await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
-            added += Number(r.added ?? 0); ids.push(bid);
+            added += r.added; ids.push(bid);
           }
           if (buttonReplies.length) {
             const { error: rErr } = await admin.from('wa_button_reply_rules').insert({
@@ -375,13 +406,11 @@ Deno.serve(async (req) => {
         const slotIds: string[] = [];
         for (const g of sl.groups) {
           try {
+            await prepareContactNames(g.leads);
             const bid = await createBroadcast(`${name} · ${session.id.slice(0, 8)} · ${broadcasts.length + 1}`, g.values);
-            for (let i = 0; i < g.leads.length; i += 500) {
-              const r = await z(`/broadcasts/${bid}/recipients`, { method: 'POST',
-                body: JSON.stringify({ phones: g.leads.slice(i, i + 500).map((l) => `+${l.phone}`) }) });
-              added += r.added ?? 0; skipped += r.skipped ?? 0;
-            }
-            await fixContactNames(bid, g.leads);
+            const r = await addPhones(bid, g.leads);
+            await verifyRecipientNames(bid, g.leads);
+            added += r.added; skipped += r.skipped;
             if (sl.at) await z(`/broadcasts/${bid}/schedule`, { method: 'POST', body: JSON.stringify({ scheduledAt: sl.at }) });
             else await z(`/broadcasts/${bid}/send`, { method: 'POST', body: '{}' });
             broadcasts.push(bid); slotIds.push(bid);
