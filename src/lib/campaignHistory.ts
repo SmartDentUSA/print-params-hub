@@ -14,12 +14,21 @@ export function waOfficialCounts(summary: ZernioSummary | null | undefined) {
   };
 }
 
-/** A linha de `campaigns` do WhatsApp Oficial é espelho da sessão (que guarda os lotes): mostra só a sessão. */
-export function dropMirroredCampaigns<T extends { id: string; channel?: string | null }>(
-  campaigns: T[], sessions: { results?: any }[],
+/**
+ * Um disparo registrado em `campaigns` e também em `campaign_sessions` aparece uma vez só (fica a sessão):
+ * WhatsApp Oficial liga pela `results.campaign_id`; SMS cria as duas linhas com o mesmo nome e canal em poucos minutos.
+ */
+const MIRROR_WINDOW_MS = 10 * 60_000;
+export function dropMirroredCampaigns<T extends { id: string; name?: string | null; channel?: string | null; created_at?: string | null }>(
+  campaigns: T[], sessions: { name?: string | null; channel?: string | null; created_at?: string | null; results?: any }[],
 ): T[] {
-  const mirrored = new Set(sessions.map((s) => s.results?.campaign_id).filter(Boolean));
-  return campaigns.filter((c) => !mirrored.has(c.id));
+  const linked = new Set(sessions.map((s) => s.results?.campaign_id).filter(Boolean));
+  const time = (v?: string | null) => (v ? new Date(v).getTime() : NaN);
+  return campaigns.filter((c) => {
+    if (linked.has(c.id)) return false;
+    return !sessions.some((s) => s.channel && s.channel === c.channel && (s.name ?? "").trim() === (c.name ?? "").trim()
+      && Math.abs(time(s.created_at) - time(c.created_at)) <= MIRROR_WINDOW_MS);
+  });
 }
 
 export type WaGroupStats = { groups: number; total: number; sent: number; pending: number; failed: number; skipped: number };

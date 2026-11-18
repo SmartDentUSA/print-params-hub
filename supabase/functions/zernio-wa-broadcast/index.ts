@@ -498,15 +498,35 @@ Deno.serve(async (req) => {
       const ids: string[] = s?.results?.broadcast_ids ?? (s?.results?.broadcast_id ? [s.results.broadcast_id] : []);
       if (!ids.length) return json({ error: 'broadcast não encontrado' }, 404);
       const sum: Record<string, number> = {};
+      const failedByBid = new Map<string, number>();
       for (const bid of ids) {
         const r = await z(`/broadcasts/${bid}/recipients?limit=1`);
         for (const [k, v] of Object.entries(r.summary ?? {})) sum[k] = (sum[k] ?? 0) + (Number(v) || 0);
+        if (Number(r.summary?.failed) > 0) failedByBid.set(bid, Number(r.summary.failed));
       }
       const nowIso = new Date().toISOString();
-      // Lotes cujo horário já passou foram entregues à Meta pela Zernio.
-      await admin.from('campaign_send_log').update({ status: 'sent' }).eq('campaign_id', s!.id)
-        .eq('status', 'scheduled').lte('scheduled_at', nowIso);
-      const slots: { at: string | null }[] = Array.isArray(s?.results?.slots) ? s!.results.slots : [];
+      const slots: { at: string | null; broadcast_ids?: string[] }[] = Array.isArray(s?.results?.slots) ? s!.results.slots : [];
+      // Lotes cujo horário já passou saíram pela Zernio: data real de envio = horário do lote (conversão usa sent_at).
+      for (const sl of slots) {
+        if (!sl.at || sl.at > nowIso) continue;
+        await admin.from('campaign_send_log').update({ status: 'sent', sent_at: sl.at }).eq('campaign_id', s!.id)
+          .eq('status', 'scheduled').eq('scheduled_at', sl.at);
+      }
+      // Quem a Meta recusou fica como falha, com o motivo, e sem data de envio.
+      for (const [bid] of failedByBid) {
+        const r = await z(`/broadcasts/${bid}/recipients?limit=200&status=failed`).catch(() => null);
+        const byReason = new Map<string, string[]>();
+        for (const x of (r?.recipients ?? [])) {
+          const phone = String(x.platformIdentifier ?? '').replace(/\D/g, '');
+          if (!phone) continue;
+          const reason = `${x.errorCode ?? ''} ${x.error ?? 'Recusado pela Meta'}`.trim().slice(0, 500);
+          byReason.set(reason, [...(byReason.get(reason) ?? []), phone]);
+        }
+        for (const [reason, phones] of byReason) {
+          await admin.from('campaign_send_log').update({ status: 'failed', sent_at: null, error_message: reason })
+            .eq('campaign_id', s!.id).eq('provider_message_id', bid).in('telefone', phones).neq('status', 'failed');
+        }
+      }
       const futureSlot = slots.some((sl) => sl.at && sl.at > nowIso);
       const done = (sum.pending ?? 0) === 0 && !futureSlot;
       await admin.from('campaign_sessions').update({

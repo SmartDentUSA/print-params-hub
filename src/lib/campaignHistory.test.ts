@@ -30,3 +30,12 @@ test("grupos: terminou com parte enviada e parte com falha", () => {
 test("grupos: campanha em erro com parte enviada não aparece como em execução", () => {
   assert.equal(waGroupStatus("error", { groups: 54, total: 54, sent: 12, pending: 34, failed: 8, skipped: 0 }), "completed_with_errors");
 });
+
+test("SMS gravado em campanha e sessão com o mesmo nome (segundos de diferença) aparece uma vez", () => {
+  const out = dropMirroredCampaigns(
+    [{ id: "a618", name: "MEDIT", channel: "sms", created_at: "2026-10-09T20:34:38Z" },
+     { id: "outra", name: "MEDIT", channel: "sms", created_at: "2026-10-12T10:00:00Z" }],
+    [{ name: "MEDIT", channel: "sms", created_at: "2026-10-09T20:34:40Z", results: {} }],
+  );
+  assert.deepEqual(out.map((c) => c.id), ["outra"]);
+});
