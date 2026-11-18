@@ -827,7 +827,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
             <div className="border-t pt-3 space-y-2 text-xs">
               <div className="font-medium text-foreground">Fila inteligente de envio</div>
               <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                <li>Até <b>499 e-mails/dia</b> no Gmail conectado (limite oficial ~500/dia).</li>
+                <li>Até <b>399 e-mails/dia</b> em 4 lotes: <b>100 às 07:30</b>, <b>100 às 12:00</b>, <b>100 às 15:00</b> e <b>99 às 17:30</b>.</li>
                 <li>Janela: <b>{queueStatus?.window_start ?? "07:30"}–{queueStatus?.window_end ?? "19:00"}</b> (America/Sao_Paulo).</li>
                 <li>Se houver várias campanhas ativas, a fila envia <b>1 e-mail de cada em rodízio</b> até completar todas.</li>
                 <li>Aberturas e cliques são rastreados automaticamente.</li>
@@ -897,7 +897,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
                     <div className="font-semibold text-base">{metrics?.erros ?? 0}</div>
                   </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-2">Atualiza a cada 30s. Fila envia entre 07:30–19:00 (America/Sao_Paulo), respeitando 499/dia.</p>
+                <p className="text-[11px] text-muted-foreground mt-2">Atualiza a cada 30s. Fila envia em lotes: 100 às 07:30, 100 às 12:00, 100 às 15:00 e 99 às 17:30 (America/Sao_Paulo).</p>
               </CardContent>
             </Card>
           )}

@@ -111,3 +111,5 @@
 - [x] Bio: card da BLACK26 mostra só o link da landing (botão "Falar com um Especialista" desligado por card, com opção na tela da Bio) e aparece acima dos destaques fixos; 2 testes aprovados e ordem/ausência do botão conferidas em desktop e 390px. Frontend precisa de publicação.
 
 - [x] Simuladores WhatsApp: quem não tem impressora 3D não recebe a pergunta de cura nem as de impressão (condições restauradas/remapeadas)
+- [x] E-mails de campanha: rotina religada com 4 lotes diários (100 às 07:30, 100 às 12:00, 100 às 15:00, 99 às 17:30); 7 testes dos horários aprovados e rotina respondendo; primeiro lote real ainda não observado.
+- [x] WhatsApp oficial fora do histórico: na Zernio só existem 2 disparos de "Enviar teste" (1 destinatário cada), que por regra não criam campanha; nenhuma campanha oficial foi agendada.
