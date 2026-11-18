@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { postBinding } from "./post-binding.ts";
+import { fillCouponTemplate, pickCouponPhase, saoPauloToday } from "./coupon-phase.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,6 +108,67 @@ Deno.serve(async (req) => {
         logs: await get(`${ZERNIO_BASE}/${id}/logs`),
       };
       return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ---- cupom por fase: troca a DM conforme a validade dos cupons (promotional_coupons) e
+    // desliga a automação quando todos venceram. Idempotente; chamado pela rotina diária.
+    if (body?.apply_coupon_phases) {
+      const today = /^\d{4}-\d{2}-\d{2}$/.test(String(body.today ?? "")) ? String(body.today) : saoPauloToday();
+      const dryRun = body.dry_run === true;
+      const { data: flows, error: fErr } = await supabase
+        .from("social_flows")
+        .select("id, name, is_active, nodes, zernio_automation_id, zernio_automation_config")
+        .eq("channel", "instagram")
+        .not("zernio_automation_config->coupon_codes", "is", null);
+      if (fErr) throw fErr;
+      const results: any[] = [];
+      for (const f of flows ?? []) {
+        const c: any = f.zernio_automation_config ?? {};
+        const codes: string[] = Array.isArray(c.coupon_codes) ? c.coupon_codes.map((x: unknown) => String(x)) : [];
+        if (!codes.length || !c.dm_template) continue;
+        const { data: coupons, error: cErr } = await supabase
+          .from("promotional_coupons")
+          .select("code, discount_type, discount_value, valid_from, valid_until, active")
+          .in("code", codes);
+        if (cErr) { results.push({ flow_id: f.id, ok: false, error: cErr.message }); continue; }
+        const phase = pickCouponPhase((coupons ?? []) as any, today);
+        if (phase.status === "active") {
+          const dm = fillCouponTemplate(String(c.dm_template), phase.coupon);
+          if (!f.is_active || (dm === c.dm_message && c.current_coupon === phase.coupon.code && f.zernio_automation_id)) {
+            results.push({ flow_id: f.id, ok: true, coupon: phase.coupon.code, changed: false, active: f.is_active });
+            continue;
+          }
+          const config = { ...c, dm_message: dm, current_coupon: phase.coupon.code, current_coupon_since: today };
+          const payload = buildPayload({ ...f, zernio_automation_config: config });
+          if (dryRun) { results.push({ flow_id: f.id, ok: true, dry_run: true, coupon: phase.coupon.code, dm }); continue; }
+          const res = f.zernio_automation_id
+            ? await zernioCall(zernioKey, `${ZERNIO_BASE}/${f.zernio_automation_id}`, "PATCH", { ...payload, isActive: true })
+            : await zernioCall(zernioKey, ZERNIO_BASE, "POST", payload);
+          const zid = res.data?.automation?.id ?? res.data?.id ?? f.zernio_automation_id ?? null;
+          if (!res.ok || !zid) { results.push({ flow_id: f.id, ok: false, status: res.status, response: res.data }); continue; }
+          const nodes = Array.isArray(f.nodes) ? (f.nodes as any[]).map((n) => n?.data?.nodeType === "send_dm"
+            ? { ...n, data: { ...n.data, config: { ...(n.data.config ?? {}), message: dm } } } : n) : f.nodes;
+          await supabase.from("social_flows").update({
+            zernio_automation_id: zid, zernio_automation_config: config, nodes, updated_at: new Date().toISOString(),
+          }).eq("id", f.id);
+          results.push({ flow_id: f.id, ok: true, coupon: phase.coupon.code, changed: true });
+        } else if (phase.status === "ended" && f.is_active) {
+          if (dryRun) { results.push({ flow_id: f.id, ok: true, dry_run: true, ended: true }); continue; }
+          if (f.zernio_automation_id) {
+            const res = await zernioCall(zernioKey, `${ZERNIO_BASE}/${f.zernio_automation_id}`, "PATCH", { isActive: false });
+            if (!res.ok) { results.push({ flow_id: f.id, ok: false, status: res.status, response: res.data }); continue; }
+          }
+          await supabase.from("social_flows").update({
+            is_active: false, zernio_automation_config: { ...c, ended_on: today }, updated_at: new Date().toISOString(),
+          }).eq("id", f.id);
+          results.push({ flow_id: f.id, ok: true, ended: true });
+        } else {
+          results.push({ flow_id: f.id, ok: true, status: phase.status, changed: false });
+        }
+      }
+      return new Response(JSON.stringify({ ok: true, today, results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // ---- modo lote: cria (ou atualiza, com resync) os flows IG ativos
