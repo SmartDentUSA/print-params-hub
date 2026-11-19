@@ -454,3 +454,13 @@ export async function driveGetThumbnailLink(fileId: string, size = 1600): Promis
     return null;
   }
 }
+
+/** Renomeia arquivo ou pasta do Drive. */
+export async function driveRename(fileId: string, name: string): Promise<void> {
+  const resp = await fetch(`${GATEWAY_BASE}/drive/v3/files/${encodeURIComponent(fileId)}?supportsAllDrives=true`, {
+    method: "PATCH",
+    headers: { ...gwHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!resp.ok) throw new Error(`Drive rename ${resp.status}: ${await resp.text()}`);
+}

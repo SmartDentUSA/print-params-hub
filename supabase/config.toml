@@ -748,3 +748,6 @@ verify_jwt = false
 
 [functions.email-countdown]
 verify_jwt = false
+
+[functions.wa-field-capture]
+verify_jwt = false

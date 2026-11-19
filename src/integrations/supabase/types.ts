@@ -7702,6 +7702,128 @@ export type Database = {
         }
         Relationships: []
       }
+      field_capture_items: {
+        Row: {
+          created_at: string
+          drive_file_id: string | null
+          drive_file_url: string | null
+          error: string | null
+          id: string
+          inbox_id: string | null
+          kind: string
+          mime_type: string | null
+          session_id: string
+          text_content: string | null
+          transcript: string | null
+          wa_message_id: string
+        }
+        Insert: {
+          created_at?: string
+          drive_file_id?: string | null
+          drive_file_url?: string | null
+          error?: string | null
+          id?: string
+          inbox_id?: string | null
+          kind: string
+          mime_type?: string | null
+          session_id: string
+          text_content?: string | null
+          transcript?: string | null
+          wa_message_id: string
+        }
+        Update: {
+          created_at?: string
+          drive_file_id?: string | null
+          drive_file_url?: string | null
+          error?: string | null
+          id?: string
+          inbox_id?: string | null
+          kind?: string
+          mime_type?: string | null
+          session_id?: string
+          text_content?: string | null
+          transcript?: string | null
+          wa_message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_capture_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "field_capture_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      field_capture_sessions: {
+        Row: {
+          account_id: string
+          capture_type: string | null
+          conversation_id: string | null
+          created_at: string
+          drive_folder_id: string | null
+          drive_folder_url: string | null
+          error: string | null
+          event_id: string | null
+          extracted: Json | null
+          id: string
+          last_message_at: string
+          lead_id: string | null
+          opportunity_name: string | null
+          reminded_at: string | null
+          result: Json | null
+          sender_phone: string
+          status: string
+          summary: string | null
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          capture_type?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          drive_folder_id?: string | null
+          drive_folder_url?: string | null
+          error?: string | null
+          event_id?: string | null
+          extracted?: Json | null
+          id?: string
+          last_message_at?: string
+          lead_id?: string | null
+          opportunity_name?: string | null
+          reminded_at?: string | null
+          result?: Json | null
+          sender_phone: string
+          status?: string
+          summary?: string | null
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          capture_type?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          drive_folder_id?: string | null
+          drive_folder_url?: string | null
+          error?: string | null
+          event_id?: string | null
+          extracted?: Json | null
+          id?: string
+          last_message_at?: string
+          lead_id?: string | null
+          opportunity_name?: string | null
+          reminded_at?: string | null
+          result?: Json | null
+          sender_phone?: string
+          status?: string
+          summary?: string | null
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gate2_config_toml_snapshot: {
         Row: {
           notes: string | null
@@ -40383,6 +40505,7 @@ export type Database = {
         Args: { p_name: string; p_photo: string; p_professional_id: string }
         Returns: number
       }
+      fn_team_member_by_phone: { Args: { p_phone: string }; Returns: string }
       fn_team_seller_stats: {
         Args: { _months?: number }
         Returns: {

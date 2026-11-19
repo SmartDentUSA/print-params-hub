@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.fn_dispatch_field_capture() FROM PUBLIC, anon, authenticated;

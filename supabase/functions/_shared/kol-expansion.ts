@@ -43,9 +43,23 @@ export function kolExpansionOrigin(eventName: string | null | undefined): string
   return name ? `[KOLEXPANSÃO] - ${name}`.slice(0, 190) : "[KOLEXPANSÃO]";
 }
 
-/** Etapa "Interesse" do funil; sem ela, a primeira etapa pela ordem. */
+/** Funil PipeRun "Oportunidades do evento" (captura pelo WhatsApp Oficial), mesma dona. */
+export const EVENT_OPPORTUNITY_PIPELINE_ID = 109841;
+
+/** Origem do deal de oportunidade: "[OPORTUNIDADE EVENTO] - {nome do evento}". */
+export function eventOpportunityOrigin(eventName: string | null | undefined): string {
+  const name = String(eventName ?? "").trim();
+  return name ? `[OPORTUNIDADE EVENTO] - ${name}`.slice(0, 190) : "[OPORTUNIDADE EVENTO]";
+}
+
+/** Etapa "Interesse" do funil KOL; sem ela, a primeira etapa pela ordem. */
 export function kolExpansionStageId(stages: Array<{ id: unknown; name?: unknown; order?: unknown; pipeline_id?: unknown }>): number | null {
-  const list = stages.filter((s) => Number(s.pipeline_id) === KOL_EXPANSION_PIPELINE_ID);
+  return pipelineStageId(stages, KOL_EXPANSION_PIPELINE_ID);
+}
+
+/** Etapa "Interesse" do funil informado; sem ela, a primeira etapa pela ordem. */
+export function pipelineStageId(stages: Array<{ id: unknown; name?: unknown; order?: unknown; pipeline_id?: unknown }>, pipelineId: number): number | null {
+  const list = stages.filter((s) => Number(s.pipeline_id) === pipelineId);
   if (!list.length) return null;
   const named = list.find((s) => /^interess/i.test(norm(s.name)));
   if (named) return Number(named.id);

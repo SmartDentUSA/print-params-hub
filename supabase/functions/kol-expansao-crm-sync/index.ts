@@ -12,8 +12,9 @@ import {
 } from "../_shared/piperun-field-map.ts";
 import { findPersonByContact, validateCachedPerson, isValidEmailTld } from "../_shared/piperun-person-resolver.ts";
 import {
-  KOL_EXPANSION_OWNER_PIPERUN_ID as OWNER_ID, KOL_EXPANSION_PIPELINE_ID as PIPELINE_ID,
-  KOL_EXPANSION_PARTICIPATION_FIELD, kolExpansionInterest, kolExpansionOrigin, kolExpansionStageId,
+  KOL_EXPANSION_OWNER_PIPERUN_ID as OWNER_ID, KOL_EXPANSION_PIPELINE_ID as KOL_PIPELINE_ID,
+  KOL_EXPANSION_PARTICIPATION_FIELD, kolExpansionInterest, kolExpansionOrigin, pipelineStageId,
+  EVENT_OPPORTUNITY_PIPELINE_ID, eventOpportunityOrigin,
 } from "../_shared/kol-expansion.ts";
 
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -51,16 +52,20 @@ Deno.serve(async (req) => {
     if (!token) return json({ error: "PIPERUN_API_KEY ausente" }, 500);
 
     const { data: form } = await admin.from("smartops_forms").select("id, name, event_id, form_purpose").eq("id", formId).maybeSingle();
-    if (!form || form.form_purpose !== "kol_expansao") return json({ error: "formulário não é de KOL" }, 400);
+    if (!form || !["kol_expansao", "oportunidade_evento"].includes(form.form_purpose)) return json({ error: "formulário não é de KOL nem de oportunidade" }, 400);
+    // Oportunidade do evento (captura WhatsApp): mesmo fluxo, funil 109841, mesma dona.
+    const isOpportunity = form.form_purpose === "oportunidade_evento";
+    const PIPELINE_ID = isOpportunity ? EVENT_OPPORTUNITY_PIPELINE_ID : KOL_PIPELINE_ID;
     let eventName: string | null = null;
     if (form.event_id) {
       const { data: ev } = await admin.from("smartops_events").select("name").eq("id", form.event_id).maybeSingle();
       eventName = ev?.name ?? null;
     }
-    const origin = kolExpansionOrigin(eventName);
+    const origin = isOpportunity ? eventOpportunityOrigin(eventName) : kolExpansionOrigin(eventName);
     const participation = customFields[KOL_EXPANSION_PARTICIPATION_FIELD] ??
       responses.find((r: any) => /como voc[eê] gostaria de participar/i.test(String(r?.label ?? "")))?.value;
-    const interest = kolExpansionInterest(participation);
+    const explicitProduct = String(body?.produto_interesse ?? "").trim().slice(0, 200) || null;
+    const interest = explicitProduct ?? kolExpansionInterest(participation);
 
     const { data: lead } = await admin.from("lia_attendances")
       .select("id, nome, email, telefone_normalized, telefone_raw, pessoa_piperun_id, piperun_pipeline_id")
@@ -103,12 +108,12 @@ Deno.serve(async (req) => {
     let createdDeal = false;
     if (!dealId) {
       const stages = await piperunGet(token, "stages", { pipeline_id: PIPELINE_ID, show: 100 });
-      const stageId = kolExpansionStageId(((stages.data as any)?.data ?? []) as any[]);
+      const stageId = pipelineStageId(((stages.data as any)?.data ?? []) as any[], PIPELINE_ID);
       if (!stageId) return json({ ok: false, error: `etapa Interesse do funil ${PIPELINE_ID} não encontrada` }, 502);
       const originId = await resolveOriginId(token, origin);
       const suffix = digits(phone).slice(-8);
       const payload: Record<string, unknown> = {
-        title: `KOL Expansão — ${nome || email}${nome.split(/\s+/).length < 2 && suffix ? ` (${suffix})` : ""}`.slice(0, 150),
+        title: `${isOpportunity ? "Oportunidade evento" : "KOL Expansão"} — ${nome || email}${nome.split(/\s+/).length < 2 && suffix ? ` (${suffix})` : ""}`.slice(0, 150),
         person_id: personId, pipeline_id: PIPELINE_ID, stage_id: stageId, owner_id: OWNER_ID, user_id: OWNER_ID, deleted: 0,
       };
       if (originId) payload.origin_id = originId;
@@ -126,7 +131,7 @@ Deno.serve(async (req) => {
       .filter((r: any) => r && r.label && r.value !== undefined && r.value !== "")
       .map((r: any) => `<b>${esc(String(r.label).slice(0, 120))}:</b> ${esc(String(r.value).slice(0, 1000))}`);
     const note = [
-      `<b>🦷 Interesse em ser KOL — Chairside Print</b>`,
+      isOpportunity ? `<b>📌 Oportunidade do evento</b>` : `<b>🦷 Interesse em ser KOL — Chairside Print</b>`,
       `<b>Formulário:</b> ${esc(form.name)}`,
       eventName ? `<b>Evento:</b> ${esc(eventName)}` : null,
       `<b>Origem:</b> ${esc(origin)}`,
@@ -143,17 +148,17 @@ Deno.serve(async (req) => {
     const nowIso = new Date().toISOString();
     await admin.from("lead_activity_log").insert({
       lead_id: leadId,
-      event_type: "kol_expansao_interesse",
+      event_type: isOpportunity ? "oportunidade_evento" : "kol_expansao_interesse",
       event_timestamp: nowIso,
       source_channel: "formulario",
       entity_type: "piperun_deal",
       entity_id: String(dealId),
       entity_name: form.name,
       event_data: {
-        label: `Interesse em ser KOL${eventName ? ` (${eventName})` : ""} — deal #${dealId} no funil KOL Expansão`,
+        label: `${isOpportunity ? "Oportunidade do evento" : "Interesse em ser KOL"}${eventName ? ` (${eventName})` : ""} — deal #${dealId} no funil ${PIPELINE_ID}`,
         deal_id: dealId, pipeline_id: PIPELINE_ID, owner_id: OWNER_ID, event_id: form.event_id, origin, produto_interesse: interest, created_deal: createdDeal,
       },
-      dedupe_hash: `kol_expansao:${leadId}:${dealId}:${nowIso.slice(0, 16)}`,
+      dedupe_hash: `${form.form_purpose}:${leadId}:${dealId}:${nowIso.slice(0, 16)}`,
     }).then(() => {}, () => {});
 
     return json({ ok: true, deal_id: dealId, person_id: personId, created_deal: createdDeal, origin, produto_interesse: interest });

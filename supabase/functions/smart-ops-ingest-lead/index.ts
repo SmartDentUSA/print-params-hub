@@ -1748,7 +1748,7 @@ Deno.serve(async (req) => {
       // intocáveis.
       try {
         const canonPipelineId = Number((existingLead as Record<string, unknown>).piperun_pipeline_id ?? 0);
-        if (canonPipelineId === 72938 && formName && formPurpose !== "distribuicao" && formPurpose !== "kol_expansao") {
+        if (canonPipelineId === 72938 && formName && formPurpose !== "distribuicao" && formPurpose !== "kol_expansao" && formPurpose !== "oportunidade_evento") {
           const effectiveConversionKey =
             conversionKey ||
             (dedupeId ? `meta:redelivery:${String(dedupeId)}` : `form:${formName}:${new Date().toISOString()}`);
@@ -2012,12 +2012,14 @@ Deno.serve(async (req) => {
     // Vai direto para o funil Exportação (39047) com o proprietário de distribuição.
     const isDistribuicaoForm = formPurpose === "distribuicao";
     // Interessados em ser KOL (evento): funil KOL Expansão 109840, fora da Golden Rule.
-    const isKolExpansaoForm = formPurpose === "kol_expansao";
+    // Oportunidade do evento (captura WhatsApp) usa a mesma rota, no funil 109841.
+    const isKolExpansaoForm = formPurpose === "kol_expansao" || formPurpose === "oportunidade_evento";
     const liaAssignPromise = isKolExpansaoForm
       ? dispatchAsync("kol-expansao-crm-sync", {
           lead_id: leadId,
           form_id: payload.form_id || null,
           form_responses: payload.form_responses || [],
+          produto_interesse: formPurpose === "oportunidade_evento" ? (payload.produto_interesse || null) : null,
           custom_fields: (payload.raw_payload && typeof payload.raw_payload === "object")
             ? (payload.raw_payload as Record<string, unknown>).custom_fields ?? null
             : null,
