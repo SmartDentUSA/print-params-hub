@@ -791,6 +791,13 @@ export default function PublicFormPage() {
       }
     }
 
+    // Interessados em ser KOL: WhatsApp ou e-mail, conforme a preferência da pessoa.
+    if (form.form_purpose === "kol_expansao" && !payload.telefone_raw && !payload.email) {
+      toast_inline("Informe seu WhatsApp ou seu e-mail.");
+      setSubmitting(false);
+      return;
+    }
+
     // UTMs from URL
     const utmKeys = ["utm_source", "utm_medium", "utm_campaign", "utm_term"];
     for (const key of utmKeys) {
