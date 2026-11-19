@@ -355,6 +355,24 @@ async function sellerCard(leadId: string, body: any) {
   };
 }
 
+// Conversa terminada no formulário KOL Expansão: reenvia as respostas ao funil KOL
+// (mesmo deal aberto) para gravar produto de interesse e nota completa.
+async function syncKolExpansion(leadId: string, formId: string, origin: string) {
+  try {
+    const { data: rows } = await sb.from("lead_activity_log").select("event_data, event_timestamp")
+      .eq("lead_id", leadId).eq("event_type", "form_response").eq("event_data->>form_name", origin)
+      .order("event_timestamp", { ascending: true }).limit(80);
+    const seen = new Map<string, string>();
+    for (const r of rows ?? []) { const d = (r as any).event_data ?? {}; if (d.label) seen.set(String(d.label), String(d.value ?? "")); }
+    const form_responses = [...seen].map(([label, value]) => ({ label, value }));
+    await fetch(`${SUPABASE_URL}/functions/v1/kol-expansao-crm-sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+      body: JSON.stringify({ lead_id: leadId, form_id: formId, form_responses }),
+    });
+  } catch (e) { console.error("[lia-capture] kol expansion sync failed", e); }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method" }, 405);
@@ -392,7 +410,8 @@ Deno.serve(async (req) => {
         source: "form",
         form_name: ctx.origin,
         form_id: ctx.form_id,
-        form_purpose: ctx.form_purpose === "distribuicao" ? "distribuicao" : "captacao",
+        // Distribuição e KOL Expansão têm funis próprios no CRM (nunca o Funil de vendas).
+        form_purpose: ctx.form_purpose === "distribuicao" || ctx.form_purpose === "kol_expansao" ? ctx.form_purpose : "captacao",
         ...(ctx.form_purpose === "distribuicao" && ctx.event_id ? { distribuicao_event_id: ctx.event_id } : {}),
         // Campanha comercial: grava o evento na inscrição para o card do evento contar leads e conversões.
         ...(ctx.commercial_campaign && ctx.event_id ? { event_id: ctx.event_id } : {}),
@@ -438,7 +457,8 @@ Deno.serve(async (req) => {
       }
       // Nota "Resumo do Lead" no CRM logo na criação (mesmo comportamento dos formulários),
       // mesmo que o lead nunca responda as perguntas de qualificação.
-      EdgeRuntime.waitUntil(syncFormNote(sb, leadId).catch(async (error) => {
+      // KOL Expansão: a nota vai no deal do funil KOL (kol-expansao-crm-sync), nunca no deal de vendas do lead.
+      if (ctx.form_purpose !== "kol_expansao") EdgeRuntime.waitUntil(syncFormNote(sb, leadId).catch(async (error) => {
         console.error("[lia-capture] CRM note sync on create failed", error);
         await sb.from("system_health_logs").insert({ function_name: "lia-capture", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id: leadId, stage: "create" } });
       }));
@@ -482,6 +502,12 @@ Deno.serve(async (req) => {
         dedupe_hash: `lia_answer:${body.lead_id}:${field.field_id ?? field.db_column}:${normLabel(shown)}`,
       });
       if (tlError && tlError.code !== "23505") console.warn("[lia-capture] timeline insert failed", tlError.code);
+      const answerCtx = await resolveContext(context).catch(() => null);
+      if (answerCtx?.form_purpose === "kol_expansao" && answerCtx.form_id) {
+        const remaining = await pendingQuestions(body.lead_id, context);
+        if (!remaining.length) EdgeRuntime.waitUntil(syncKolExpansion(body.lead_id, answerCtx.form_id, answerCtx.origin));
+        return json({ ok: true, questions: remaining });
+      }
       EdgeRuntime.waitUntil(syncFormNote(sb, body.lead_id).catch(async (error) => {
         console.error("[lia-capture] CRM note refresh failed", error);
         await sb.from("system_health_logs").insert({ function_name: "lia-capture", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id: body.lead_id } });
