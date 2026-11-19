@@ -39,3 +39,65 @@ export function fileName(base: string, n: number, mime: string | null | undefine
   const ext = EXT[String(mime ?? "").split(";")[0]] ?? (String(mime ?? "").split("/")[1] || "bin");
   return `${base.replace(/[\\/:*?"<>|]+/g, " ").trim()} - ${String(n).padStart(2, "0")}.${ext}`;
 }
+
+// ---------- Conferência antes de criar o lead ----------
+export type ConfirmField = "nome" | "telefone" | "email";
+export type ConfirmChoice = { kind: "edit"; field: ConfirmField } | { kind: "ok" } | null;
+type Contact = { nome?: string; telefone?: string; email?: string; empresa?: string; cidade?: string; estado?: string; pais?: string };
+
+/** Menu da conferência: 1 nome, 2 telefone, 3 e-mail, 4 dados corretos. */
+export function parseConfirmChoice(text: string): ConfirmChoice {
+  const t = norm(text);
+  if (t === "1") return { kind: "edit", field: "nome" };
+  if (t === "2") return { kind: "edit", field: "telefone" };
+  if (t === "3") return { kind: "edit", field: "email" };
+  if (t === "4" || t === "OK" || t === "SIM" || t === "CORRETO" || t === "CORRETOS" || t === "DADOS CORRETOS") return { kind: "ok" };
+  return null;
+}
+
+/** Valida o valor digitado pelo vendedor para o campo escolhido. */
+export function validateEdit(field: ConfirmField, text: string): { value: string } | { error: string } {
+  const v = text.trim();
+  if (field === "nome") return v.length >= 2 && v.length <= 120 ? { value: v.replace(/\s+/g, " ") } : { error: "Nome inválido. Digite o nome completo:" };
+  if (field === "telefone") {
+    const d = v.replace(/\D/g, "");
+    return d.length >= 10 && d.length <= 15 ? { value: d } : { error: "Telefone inválido. Digite com DDD (e código do país, se for de fora do Brasil):" };
+  }
+  return /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(v) ? { value: v.toLowerCase() } : { error: "E-mail inválido. Digite o e-mail correto:" };
+}
+
+/** Correções do vendedor sempre prevalecem sobre o que a IA leu. */
+export function applyEdits<T extends Contact>(lead: T, edits: Partial<Record<ConfirmField, string>> | null | undefined): T {
+  const out = { ...lead };
+  for (const f of ["nome", "telefone", "email"] as ConfirmField[]) {
+    const v = edits?.[f];
+    if (typeof v === "string" && v.trim()) (out as any)[f] = v;
+  }
+  return out;
+}
+
+export const hasContact = (l: Contact) => String(l.email ?? "").includes("@") || String(l.telefone ?? "").replace(/\D/g, "").length >= 10;
+
+export const EDIT_PROMPT: Record<ConfirmField, string> = {
+  nome: "Digite o *nome* correto:",
+  telefone: "Digite o *telefone* correto, com DDD:",
+  email: "Digite o *e-mail* correto:",
+};
+
+/** Resumo enviado ao vendedor depois do FIM, antes de criar o lead. */
+export function confirmSummary(typeLabel: string, l: Contact): string {
+  const tel = String(l.telefone ?? "").replace(/\D/g, "");
+  const local = [l.cidade, l.estado, l.pais].map((s) => String(s ?? "").trim()).filter(Boolean).join(" / ");
+  const lines = [
+    `📋 *Confira os dados lidos* (${typeLabel})`,
+    "",
+    `👤 Nome: ${l.nome?.trim() || "—"}`,
+    `📱 Telefone: ${tel ? `+${tel}` : "—"}`,
+    `✉️ E-mail: ${l.email?.trim() || "—"}`,
+  ];
+  if (l.empresa?.trim()) lines.push(`🏢 Empresa: ${l.empresa.trim()}`);
+  if (local) lines.push(`📍 Local: ${local}`);
+  if (!hasContact(l)) lines.push("", "⚠️ Falta telefone ou e-mail: use 2 ou 3.");
+  lines.push("", "1 - Editar nome", "2 - Editar telefone", "3 - Editar e-mail", "4 - Dados corretos");
+  return lines.join("\n");
+}

@@ -7759,6 +7759,8 @@ export type Database = {
         Row: {
           account_id: string
           capture_type: string | null
+          confirm_edits: Json
+          confirm_step: string | null
           conversation_id: string | null
           created_at: string
           drive_folder_id: string | null
@@ -7781,6 +7783,8 @@ export type Database = {
         Insert: {
           account_id: string
           capture_type?: string | null
+          confirm_edits?: Json
+          confirm_step?: string | null
           conversation_id?: string | null
           created_at?: string
           drive_folder_id?: string | null
@@ -7803,6 +7807,8 @@ export type Database = {
         Update: {
           account_id?: string
           capture_type?: string | null
+          confirm_edits?: Json
+          confirm_step?: string | null
           conversation_id?: string | null
           created_at?: string
           drive_folder_id?: string | null

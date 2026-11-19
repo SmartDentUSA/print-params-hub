@@ -25,3 +25,30 @@ Deno.test("nome da oportunidade e dos arquivos", () => {
   assertEquals(opportunityName("", "", "5516997501531"), "Contato 1531");
   assertEquals(fileName("João Silva", 1, "image/jpeg"), "João Silva - 01.jpg");
 });
+
+import { parseConfirmChoice, validateEdit, applyEdits, hasContact, confirmSummary } from "./logic.ts";
+
+Deno.test("conferência: 1 nome, 2 telefone, 3 e-mail, 4 dados corretos", () => {
+  assertEquals(parseConfirmChoice("1"), { kind: "edit", field: "nome" });
+  assertEquals(parseConfirmChoice("2"), { kind: "edit", field: "telefone" });
+  assertEquals(parseConfirmChoice("3"), { kind: "edit", field: "email" });
+  assertEquals(parseConfirmChoice("4"), { kind: "ok" });
+  assertEquals(parseConfirmChoice("Dados corretos"), { kind: "ok" });
+  assertEquals(parseConfirmChoice("5"), null);
+});
+
+Deno.test("conferência: valida o que o vendedor digita", () => {
+  assertEquals(validateEdit("telefone", "(704) 308-9396"), { value: "7043089396" });
+  assertEquals("error" in validateEdit("telefone", "12345"), true);
+  assertEquals(validateEdit("email", " MDGuerra@SmartDentUSA.com "), { value: "mdguerra@smartdentusa.com" });
+  assertEquals("error" in validateEdit("email", "mdguerra@"), true);
+  assertEquals(validateEdit("nome", "  Marcelo   Del Guerra "), { value: "Marcelo Del Guerra" });
+});
+
+Deno.test("conferência: correção do vendedor prevalece sobre a leitura", () => {
+  const l = applyEdits({ nome: "Marcelo", telefone: "7043089396", email: "x@y.com" }, { email: "md@smartdentusa.com" });
+  assertEquals(l.email, "md@smartdentusa.com");
+  assertEquals(l.nome, "Marcelo");
+  assertEquals(hasContact({ nome: "A", telefone: "", email: "" }), false);
+  assertEquals(confirmSummary("Lead do evento", { nome: "A", telefone: "", email: "" }).includes("Falta telefone ou e-mail"), true);
+});

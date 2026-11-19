@@ -14,7 +14,10 @@ import {
   getDriveAccessToken, driveEnsureFolder, driveUploadFile, driveGetWebViewLink, driveRename, sanitizeFolderName,
 } from "../_shared/drive.ts";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "./catalog-types.ts";
-import { parseCommand, type CaptureType, extractFallback, opportunityName, fileName } from "./logic.ts";
+import {
+  parseCommand, type CaptureType, extractFallback, opportunityName, fileName,
+  parseConfirmChoice, validateEdit, applyEdits, hasContact, confirmSummary, EDIT_PROMPT, type ConfirmField,
+} from "./logic.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -200,7 +203,79 @@ async function readyItems(session: any): Promise<any[]> {
   return list;
 }
 
-async function processSession(sessionId: string): Promise<Record<string, unknown>> {
+const loadItems = async (sessionId: string) =>
+  ((await db.from("field_capture_items").select("*").eq("session_id", sessionId).order("created_at")).data ?? []) as any[];
+
+/** Lê o material da captura com a IA e aplica as correções que o vendedor já fez na conferência. */
+async function buildLead(session: any, list: any[]) {
+  const parts: string[] = [];
+  list.forEach((it, i) => {
+    const body = it.kind === "text" ? it.text_content : it.transcript;
+    if (body) parts.push(`[${i + 1}] ${it.kind.toUpperCase()}: ${body}`);
+  });
+  const material = parts.join("\n\n");
+  const products = await catalogNames();
+  let x: any = {};
+  try { x = await extract(material, products); } catch (e) { console.error("[wa-field-capture] extract", e); }
+  const fb = extractFallback(material);
+  const lead = {
+    nome: String(x.nome || "").trim(), email: String(x.email || fb.email || "").trim().toLowerCase(),
+    telefone: String(x.telefone || fb.telefone || "").replace(/\D/g, ""), empresa: String(x.empresa || "").trim(),
+    area_atuacao: String(x.area_atuacao || "").trim(), especialidade: String(x.especialidade || "").trim(),
+    cidade: String(x.cidade || "").trim(), estado: String(x.estado || "").trim(), pais: String(x.pais || "").trim(),
+    endereco: String(x.endereco || "").trim(),
+    produtos: (Array.isArray(x.produtos) ? x.produtos : []).filter((p: string) => products.includes(p)),
+    resumo: String(x.resumo || "").trim(),
+  };
+  return applyEdits(lead, session.confirm_edits);
+}
+
+/** FIM: lê tudo e devolve ao vendedor o resumo (nome, telefone, e-mail) para conferência; o lead só nasce no "4". */
+async function prepareConfirmation(session: any): Promise<Record<string, unknown>> {
+  try {
+    if (!session.event_id) throw new Error("Nenhum evento acontecendo na data do envio");
+    const list = await readyItems(session);
+    if (!list.length) { await reply(session, "Ainda não recebi nada nesta captura. Mande cartões, áudios ou fotos e depois *FIM*."); return { ok: false, empty: true }; }
+    const lead = await buildLead(session, list);
+    await db.from("field_capture_sessions").update({ extracted: lead, confirm_step: "menu", error: null }).eq("id", session.id).eq("status", "collecting");
+    await reply(session, confirmSummary(TYPE_LABEL[session.capture_type as CaptureType], lead));
+    return { ok: true, confirming: true };
+  } catch (e) {
+    const msg = String((e as Error).message ?? e).slice(0, 300);
+    await db.from("field_capture_sessions").update({ error: msg }).eq("id", session.id);
+    await reply(session, `⚠️ Não consegui ler o material: ${msg}. Mande *FIM* de novo.`);
+    return { ok: false, error: msg };
+  }
+}
+
+/** Respostas do vendedor durante a conferência (menu 1–4 ou o valor corrigido). */
+async function handleConfirm(session: any, text: string): Promise<Record<string, unknown>> {
+  const lead = applyEdits(session.extracted ?? {}, session.confirm_edits);
+  const label = TYPE_LABEL[session.capture_type as CaptureType];
+  if (session.confirm_step === "menu") {
+    const c = parseConfirmChoice(text);
+    if (!c) { await reply(session, "Responda com o número:\n1 - Editar nome\n2 - Editar telefone\n3 - Editar e-mail\n4 - Dados corretos"); return { ok: true, waiting: "menu" }; }
+    if (c.kind === "edit") {
+      await db.from("field_capture_sessions").update({ confirm_step: c.field }).eq("id", session.id);
+      await reply(session, EDIT_PROMPT[c.field]);
+      return { ok: true, editing: c.field };
+    }
+    if (!hasContact(lead)) { await reply(session, "Preciso de telefone ou e-mail para criar o lead. Responda *2* ou *3*."); return { ok: false, missing: "contact" }; }
+    await reply(session, "⏳ Dados confirmados. Criando o lead no CRM…");
+    return await finalizeSession(session.id, "whatsapp");
+  }
+  const field = session.confirm_step as ConfirmField;
+  const v = validateEdit(field, text);
+  if ("error" in v) { await reply(session, v.error); return { ok: false, invalid: field }; }
+  const edits = { ...(session.confirm_edits ?? {}), [field]: v.value };
+  const updated = applyEdits(session.extracted ?? {}, edits);
+  await db.from("field_capture_sessions").update({ confirm_edits: edits, extracted: updated, confirm_step: "menu" }).eq("id", session.id);
+  await reply(session, confirmSummary(label, updated));
+  return { ok: true, edited: field };
+}
+
+/** Cria o lead com os dados conferidos (ou, no reprocessamento pela equipe, com os já guardados). */
+async function finalizeSession(sessionId: string, origin: "whatsapp" | "reprocess"): Promise<Record<string, unknown>> {
   const { data: claimed } = await db.from("field_capture_sessions").update({ status: "processing", error: null })
     .eq("id", sessionId).in("status", ["collecting", "error"]).select("*").maybeSingle();
   if (!claimed) return { skipped: "not_open" };
@@ -210,33 +285,16 @@ async function processSession(sessionId: string): Promise<Record<string, unknown
     const { data: tm } = await db.from("team_members").select("id, nome_completo").eq("id", session.team_member_id).maybeSingle();
     const { data: ev } = session.event_id ? await db.from("smartops_events").select("id, name").eq("id", session.event_id).maybeSingle() : { data: null };
     if (!ev) throw new Error("Nenhum evento acontecendo na data do envio");
-    const list = await readyItems(session);
+    const list = origin === "whatsapp" ? await loadItems(session.id) : await readyItems(session);
     if (!list.length) throw new Error("nada foi enviado");
-
-    const parts: string[] = [];
-    list.forEach((it, i) => {
-      const body = it.kind === "text" ? it.text_content : it.transcript;
-      if (body) parts.push(`[${i + 1}] ${it.kind.toUpperCase()}: ${body}`);
-    });
-    const material = parts.join("\n\n");
-    const products = await catalogNames();
-    let x: any = {};
-    try { x = await extract(material, products); } catch (e) { console.error("[wa-field-capture] extract", e); }
-    const fb = extractFallback(material);
+    const stored = session.extracted && typeof session.extracted === "object" && "nome" in session.extracted;
+    const raw: any = stored ? applyEdits(session.extracted, session.confirm_edits) : await buildLead(session, list);
     const lead = {
-      nome: String(x.nome || "").trim(), email: String(x.email || fb.email || "").trim().toLowerCase(),
-      telefone: String(x.telefone || fb.telefone || "").replace(/\D/g, ""), empresa: String(x.empresa || "").trim(),
-      area_atuacao: String(x.area_atuacao || "").trim(), especialidade: String(x.especialidade || "").trim(),
-      cidade: String(x.cidade || "").trim(), estado: String(x.estado || "").trim(), pais: String(x.pais || "").trim(),
-      endereco: String(x.endereco || "").trim(),
-      produtos: (Array.isArray(x.produtos) ? x.produtos : []).filter((p: string) => products.includes(p)),
-      resumo: String(x.resumo || "").trim(),
+      ...raw, nome: String(raw.nome ?? "").trim(), email: String(raw.email ?? "").trim().toLowerCase(),
+      telefone: String(raw.telefone ?? "").replace(/\D/g, ""), produtos: Array.isArray(raw.produtos) ? raw.produtos : [],
+      empresa: String(raw.empresa ?? ""), resumo: String(raw.resumo ?? ""),
     };
-    if (!lead.email.includes("@") && lead.telefone.length < 10) {
-      await db.from("field_capture_sessions").update({ status: "collecting", extracted: lead, error: "sem telefone e sem e-mail" }).eq("id", session.id);
-      await reply(session, `Não encontrei telefone nem e-mail ${lead.nome ? `de ${lead.nome}` : "do contato"}. Mande a foto do cartão ou digite o telefone/e-mail e depois *FIM* de novo.`);
-      return { ok: false, missing: "contact" };
-    }
+    if (!hasContact(lead)) throw new Error("sem telefone e sem e-mail");
     const oppName = opportunityName(lead.nome, lead.empresa, lead.telefone);
 
     // Drive: pasta e arquivos com o nome da oportunidade
@@ -297,7 +355,7 @@ async function processSession(sessionId: string): Promise<Record<string, unknown
       event_data: { label: `Captura WhatsApp — ${TYPE_LABEL[session.capture_type as CaptureType]} (${ev.name})`, sent_by: tm?.nome_completo ?? null, team_member_id: session.team_member_id, event_id: ev.id, drive_folder_url: session.drive_folder_url, items: list.length, resumo: lead.resumo },
       dedupe_hash: `captura_whatsapp:${session.id}`,
     }).then(() => {}, () => {});
-    await db.from("field_capture_sessions").update({ status: "done", extracted: lead, summary: lead.resumo, opportunity_name: oppName, lead_id: out.lead_id, result: { form_id: form.id, form_name: form.name, is_existing: !!out.is_existing } }).eq("id", session.id);
+    await db.from("field_capture_sessions").update({ status: "done", confirm_step: null, extracted: lead, summary: lead.resumo, opportunity_name: oppName, lead_id: out.lead_id, result: { form_id: form.id, form_name: form.name, is_existing: !!out.is_existing } }).eq("id", session.id);
     await reply(session, `✅ ${TYPE_LABEL[session.capture_type as CaptureType]} enviado ao CRM: *${oppName}*\nOrigem: ${form.name}\nPasta: ${session.drive_folder_url ?? "-"}`);
     return { ok: true, lead_id: out.lead_id };
   } catch (e) {
@@ -346,7 +404,19 @@ async function handleInbox(inboxId: string) {
     }
   }
   if (conversationId && session.conversation_id !== conversationId) await db.from("field_capture_sessions").update({ conversation_id: conversationId }).eq("id", session.id);
-  await db.from("field_capture_sessions").update({ last_message_at: new Date().toISOString() }).eq("id", session.id);
+  session.last_message_at = new Date().toISOString();
+  await db.from("field_capture_sessions").update({ last_message_at: session.last_message_at }).eq("id", session.id);
+
+  // Conferência em andamento: números são opções do menu (não tipo de captura). Arquivo novo reabre a leitura.
+  if (session.confirm_step && session.status === "collecting") {
+    if (msg.media_url) {
+      await db.from("field_capture_sessions").update({ confirm_step: null }).eq("id", session.id);
+      session.confirm_step = null;
+      await reply(session, "📎 Arquivo adicionado. Mande *FIM* para eu ler de novo e você conferir os dados.");
+    } else if (cmd?.kind !== "end") {
+      return await handleConfirm(session, text);
+    }
+  }
 
   if (cmd?.kind === "type") {
     if (session.capture_type !== cmd.type) {
@@ -357,8 +427,8 @@ async function handleInbox(inboxId: string) {
   }
   if (cmd?.kind === "end") {
     if (!session.capture_type) { await reply(session, `Antes de finalizar, escolha o tipo.\n${MENU}`); return { ok: true, waiting_type: true }; }
-    await reply(session, "⏳ Recebido. Lendo o material e criando o lead…");
-    return await processSession(session.id);
+    await reply(session, "⏳ Recebido. Lendo o material para você conferir…");
+    return await prepareConfirmation(session);
   }
 
   // Conteúdo
@@ -406,7 +476,7 @@ Deno.serve(async (req) => {
     if (body?.action === "reprocess") {
       if (!(await isStaff(req))) return json({ error: "unauthorized" }, 401);
       if (!UUID_RE.test(String(body.session_id ?? ""))) return json({ error: "session_id inválido" }, 400);
-      return json(await processSession(body.session_id));
+      return json(await finalizeSession(body.session_id, "reprocess"));
     }
     const inboxId = String(body?.inbox_id ?? "");
     if (!UUID_RE.test(inboxId)) return json({ error: "inbox_id inválido" }, 400);
