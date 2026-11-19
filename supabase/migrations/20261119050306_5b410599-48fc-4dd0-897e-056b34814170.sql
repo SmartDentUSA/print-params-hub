@@ -1,0 +1,2 @@
+ALTER TABLE public.smartops_form_fields DROP CONSTRAINT smartops_form_fields_field_type_check;
+ALTER TABLE public.smartops_form_fields ADD CONSTRAINT smartops_form_fields_field_type_check CHECK (field_type = ANY (ARRAY['text','number','email','phone','radio','select','checkbox','textarea','roi_calculator','location']::text[]));
