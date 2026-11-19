@@ -15,13 +15,13 @@ import { cn } from "@/lib/utils";
 
 type Kol = { id: string; nome: string; seller_id: string | null; seller_nome: string | null; linked: boolean; contract_pending?: boolean };
 type Product = { id: string; name: string; group: string | null };
-export type Bootstrap = { me: { id: string; nome: string }; options: { area_atuacao: string[]; especialidade: string[]; produtos: Product[] }; kols: Kol[] };
+export type Bootstrap = { me: { id: string; nome: string }; options: { area_atuacao: string[]; especialidade: string[]; produtos: Product[] }; kols: Kol[]; events?: { id: string; name: string; start_date: string | null }[] };
 type Deal = { deal_id: string; lead_id: string | null; pipeline_name: string | null; pipeline_id: number | null; stage_name: string | null; status: string | null; owner_name: string | null; value: number | null; product: string | null; origin_name: string | null; title?: string | null; created_at: string | null; closed_at?: string | null };
 type Alert = { deal_id: string; owner_name: string; owner_team_member_id: string | null; has_email?: boolean; pipeline: string; stage: string };
 export type Found = { leads: any[]; persons: any[]; companies: any[]; deals: Deal[]; latest_deal: Deal | null; summary: { title: string; lines: string[] }[]; conversions?: { date: string | null; name: string }[]; extras?: { courses: string[]; tickets: number }; alerts: Alert[]; live_checked: boolean };
-type FormState = { nome: string; email: string; area_atuacao: string; especialidade: string; product_id: string; kol_id: string; tipo: "" | "ativa" | "fria"; empresa_nome: string; empresa_cnpj: string };
+type FormState = { nome: string; email: string; area_atuacao: string; especialidade: string; product_id: string; kol_id: string; tipo: "" | "ativa" | "fria"; event_id: string; empresa_nome: string; empresa_cnpj: string };
 
-const EMPTY: FormState = { nome: "", email: "", area_atuacao: "", especialidade: "", product_id: "", kol_id: "", tipo: "", empresa_nome: "", empresa_cnpj: "" };
+const EMPTY: FormState = { nome: "", email: "", area_atuacao: "", especialidade: "", product_id: "", kol_id: "", tipo: "", event_id: "", empresa_nome: "", empresa_cnpj: "" };
 
 export async function call<T>(action: string, extra: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.functions.invoke("crm-insercao", { body: { action, ...extra } });
@@ -194,7 +194,7 @@ export function CrmInsertionButton() {
           area_atuacao: form.area_atuacao, especialidade: form.especialidade,
           produto_interesse: product?.name ?? "", product_catalog_id: form.product_id,
           kol_lead_id: form.kol_id, indicacao_tipo: form.tipo,
-          empresa_nome: form.empresa_nome || null, empresa_cnpj: form.empresa_cnpj || null, base,
+          empresa_nome: form.empresa_nome || null, empresa_cnpj: form.empresa_cnpj || null, base, event_id: form.event_id || null,
         },
       });
       if (r.blocked) {
@@ -343,6 +343,18 @@ export function CrmInsertionButton() {
                     <Label>Produto de interesse</Label>
                     <Combo value={form.product_id} onChange={(v) => set("product_id", v)} items={productItems} placeholder="Selecione o produto" empty="Produto não encontrado" />
                   </div>
+                  {!!boot.data.events?.length && (
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label>Evento (opcional)</Label>
+                      <Select value={form.event_id || "none"} onValueChange={(v) => set("event_id", v === "none" ? "" : v)}>
+                        <SelectTrigger className="h-9"><SelectValue placeholder="Nenhum evento" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum evento</SelectItem>
+                          {boot.data.events.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}{e.start_date ? ` — ${dt(e.start_date + "T12:00:00")}` : ""}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="space-y-1 sm:col-span-2">
                     <div className="flex items-center justify-between">
                       <Label>Profissional KOL</Label>

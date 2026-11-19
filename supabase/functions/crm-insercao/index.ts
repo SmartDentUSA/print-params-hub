@@ -519,7 +519,17 @@ const SubmitSchema = z.object({
   empresa_nome: z.string().trim().max(200).optional().nullable(),
   empresa_cnpj: z.string().trim().max(30).optional().nullable(),
   base: z.object({ kind: z.enum(["pessoa", "organizacao", "deal", "ficha"]), id: z.string().max(64) }).optional().nullable(),
+  event_id: z.string().uuid().optional().nullable(),
 });
+
+// Eventos ativos em andamento ou futuros (lista suspensa opcional da indicação KOL).
+async function listOpenEvents() {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const { data } = await sb.from("smartops_events").select("id, name, start_date, end_date")
+    .eq("is_active", true).or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`)
+    .order("start_date", { ascending: true }).limit(50);
+  return (data ?? []).map((e: any) => ({ id: e.id, name: e.name, start_date: e.start_date }));
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -531,8 +541,8 @@ Deno.serve(async (req) => {
     const action = String(body?.action || "");
 
     if (action === "bootstrap") {
-      const [options, kols] = await Promise.all([canonicalOptions(), listKols(tm)]);
-      return json({ me: { id: tm.id, nome: tm.nome_completo, role: tm.role }, options, kols });
+      const [options, kols, events] = await Promise.all([canonicalOptions(), listKols(tm), listOpenEvents()]);
+      return json({ me: { id: tm.id, nome: tm.nome_completo, role: tm.role }, options, kols, events });
     }
 
     if (action === "creatives") {
@@ -814,6 +824,11 @@ Deno.serve(async (req) => {
       const seller = await kolSeller(kol);
       if (!seller) return json({ error: `O profissional ${kolName} não tem vendedor de contrato ativo no CRM. Vincule um vendedor na ficha do profissional.` }, 409);
       const origin = buildOriginName(input.indicacao_tipo, kolName);
+      let event: { id: string; name: string } | null = null;
+      if (input.event_id) {
+        event = (await listOpenEvents()).find((e) => e.id === input.event_id) ?? null;
+        if (!event) return json({ error: "Evento indisponível para seleção." }, 400);
+      }
       const phoneDigits = input.telefone.replace(/\D/g, "");
 
       const found = await searchRecords(phoneDigits, input.email || null);
@@ -871,6 +886,7 @@ Deno.serve(async (req) => {
         { label: "Profissional KOL", value: kolName },
         { label: "Tipo de indicação", value: input.indicacao_tipo === "ativa" ? "Indicação Ativa (profissional enviou o contato)" : "Indicação Fria (vendedor pediu a indicação)" },
         { label: "Cadastrado por", value: tm.nome_completo },
+        ...(event ? [{ label: "Evento", value: event.name }] : []),
         ...(input.empresa_nome ? [{ label: "Empresa", value: input.empresa_nome }] : []),
       ];
       const payload: Record<string, unknown> = {
@@ -883,6 +899,7 @@ Deno.serve(async (req) => {
         proprietario_lead_crm: seller.nome_completo,
         utm_source: "insercao_crm", utm_medium: input.indicacao_tipo === "ativa" ? "indkol" : "prospkol", utm_campaign: origin,
         form_responses: responses, submission_id: crypto.randomUUID(),
+        ...(event ? { event_id: event.id } : {}),
       };
       const r = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`, {
         method: "POST",
@@ -899,7 +916,7 @@ Deno.serve(async (req) => {
         lead_id: leadId, event_type: "crm_insercao", source_channel: "insercao_crm",
         entity_type: "form", entity_id: formId, entity_name: origin,
         dedupe_hash: `crm_insercao:${payload.submission_id}`,
-        event_data: { registrant: tm.nome_completo, kol: kolName, origin, seller: seller.nome_completo, tipo: input.indicacao_tipo, base: input.base ?? null, responses },
+        event_data: { registrant: tm.nome_completo, kol: kolName, origin, seller: seller.nome_completo, tipo: input.indicacao_tipo, base: input.base ?? null, responses, event_id: event?.id ?? null, event_name: event?.name ?? null },
       });
       await kolTimeline(kol.id, "kol_indicacao", String(payload.submission_id), `${input.indicacao_tipo === "ativa" ? "Indicação ativa" : "Indicação fria"} — ${input.nome}`, {
         registrant: tm.nome_completo, lead_id: leadId, lead_nome: input.nome, origin, tipo: input.indicacao_tipo,

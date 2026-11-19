@@ -30,14 +30,14 @@ function CopyRow({ icon, label, url, qrTitle, qrSuffix }: { icon: React.ReactNod
 }
 
 /** Ferramentas de Distribuição no card do evento — visível só para team member logado pelo celular. */
-export function EventDistribuicaoTools({ eventName, form }: { eventName: string; form: { id: string; slug: string } }) {
+export function EventDistribuicaoTools({ eventName, form, title = 'Distribuição — Cadastro', kind = 'distribuicao' }: { eventName: string; form: { id: string; slug: string }; title?: string; kind?: string }) {
   const formUrl = `${PUBLIC_BASE}/f/${form.slug}`;
   const liaUrl = buildLiaUrl({ formId: form.id, base: PUBLIC_BASE });
   return (
     <div className="kb-dist-box">
-      <div className="kb-dist-title">Distribuição — Cadastro</div>
-      <CopyRow icon={<Link2 size={13} />} label="Formulário" url={formUrl} qrTitle={`Distribuição - ${eventName}`} qrSuffix="distribuicao-form" />
-      <CopyRow icon={<MessageCircle size={13} />} label="Simulador WhatsApp" url={liaUrl} qrTitle={`Distribuição WhatsApp - ${eventName}`} qrSuffix="distribuicao-whatsapp" />
+      <div className="kb-dist-title">{title}</div>
+      <CopyRow icon={<Link2 size={13} />} label="Formulário" url={formUrl} qrTitle={`${title} - ${eventName}`} qrSuffix={`${kind}-form`} />
+      <CopyRow icon={<MessageCircle size={13} />} label="Simulador WhatsApp" url={liaUrl} qrTitle={`${title} WhatsApp - ${eventName}`} qrSuffix={`${kind}-whatsapp`} />
     </div>
   );
 }

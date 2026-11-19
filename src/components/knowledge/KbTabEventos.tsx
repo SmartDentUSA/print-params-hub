@@ -101,6 +101,9 @@ export default function KbTabEventos() {
   const [rows, setRows] = useState<EventRow[]>([]);
   const [formByEvent, setFormByEvent] = useState<Record<string, string>>({});
   const [distByEvent, setDistByEvent] = useState<Record<string, { id: string; slug: string }>>({});
+  const [leadFormByEvent, setLeadFormByEvent] = useState<Record<string, { id: string; slug: string }>>({});
+  const [kolFormByEvent, setKolFormByEvent] = useState<Record<string, { id: string; slug: string }>>({});
+  const [formCounts, setFormCounts] = useState<Record<string, { visitor_leads: number; kol_expansion_leads: number; kol_seller_leads: number }> | null>(null);
   const [isTeamMember, setIsTeamMember] = useState(false);
   const [distributionStats, setDistributionStats] = useState<Record<string, { total_leads: number; countries: { country: string; leads: number }[] }> | null>(null);
   const [statsError, setStatsError] = useState(false);
@@ -125,13 +128,19 @@ export default function KbTabEventos() {
       if (forms) {
         const map: Record<string, string> = {};
         const dist: Record<string, { id: string; slug: string }> = {};
+        const leadF: Record<string, { id: string; slug: string }> = {};
+        const kolF: Record<string, { id: string; slug: string }> = {};
         for (const f of forms as { id: string; event_id: string; slug: string; form_purpose: string }[]) {
           if (!f.event_id || !f.slug) continue;
           if (f.form_purpose === 'distribuicao') { if (!dist[f.event_id]) dist[f.event_id] = { id: f.id, slug: f.slug }; continue; }
+          if (f.form_purpose === 'kol_expansao') { if (!kolF[f.event_id]) kolF[f.event_id] = { id: f.id, slug: f.slug }; continue; }
+          if (f.form_purpose === 'feira_evento' && !leadF[f.event_id]) leadF[f.event_id] = { id: f.id, slug: f.slug };
           if (!map[f.event_id]) map[f.event_id] = f.slug;
         }
         setFormByEvent(map);
         setDistByEvent(dist);
+        setLeadFormByEvent(leadF);
+        setKolFormByEvent(kolF);
       }
       const { data: u } = await supabase.auth.getUser();
       setIsTeamMember(!!(u.user?.user_metadata as { team_member_id?: string } | undefined)?.team_member_id);
@@ -147,6 +156,11 @@ export default function KbTabEventos() {
       const map: Record<string, { total_leads: number; countries: { country: string; leads: number }[] }> = {};
       for (const item of data.metrics) map[item.event_id] = { total_leads: Number(item.total_leads), countries: item.countries || [] };
       setDistributionStats(map);
+      if (Array.isArray(data?.form_counts)) {
+        const c: Record<string, { visitor_leads: number; kol_expansion_leads: number; kol_seller_leads: number }> = {};
+        for (const r of data.form_counts) c[r.event_id] = { visitor_leads: Number(r.visitor_leads) || 0, kol_expansion_leads: Number(r.kol_expansion_leads) || 0, kol_seller_leads: Number(r.kol_seller_leads) || 0 };
+        setFormCounts(c);
+      }
     });
     return () => { cancelled = true; };
   }, []);
@@ -262,11 +276,23 @@ export default function KbTabEventos() {
                   {isTeamMember && distByEvent[e.id] && (
                     <EventDistribuicaoTools eventName={e.name} form={distByEvent[e.id]} />
                   )}
+                  {isTeamMember && leadFormByEvent[e.id] && (
+                    <EventDistribuicaoTools eventName={e.name} form={leadFormByEvent[e.id]} title="Cadastro de leads — Visitantes" kind="visitantes" />
+                  )}
+                  {isTeamMember && kolFormByEvent[e.id] && (
+                    <EventDistribuicaoTools eventName={e.name} form={kolFormByEvent[e.id]} title="Interessados em ser KOL" kind="kol-expansao" />
+                  )}
                   {distByEvent[e.id] && <div className="border-t border-border pt-3 text-sm text-foreground">
                     <p className="flex items-center justify-between gap-2"><span>Leads distribuição gerados</span>
                       <strong>{statsError ? 'Indisponível' : distributionStats ? (distributionStats[e.id]?.total_leads ?? 0) : '…'}</strong></p>
                     <p className="mt-1 text-xs text-muted-foreground">Países: {statsError ? 'Indisponível' : !distributionStats ? '…' :
                       distributionStats[e.id]?.countries.length ? distributionStats[e.id].countries.map(item => `${item.country} (${item.leads})`).join(' · ') : 'Nenhum lead registrado'}</p>
+                  </div>}
+                  {isTeamMember && <div className="border-t border-border pt-3 text-sm text-foreground space-y-1">
+                    {([['Leads visitantes', 'visitor_leads'], ['Leads KOLs de vendedores', 'kol_seller_leads'], ['Leads KOLs (expansão) gerados', 'kol_expansion_leads']] as const).map(([label, k]) => (
+                      <p key={k} className="flex items-center justify-between gap-2"><span>{label}</span>
+                        <strong>{statsError ? 'Indisponível' : !distributionStats ? '…' : formCounts ? (formCounts[e.id]?.[k] ?? 0) : 'Indisponível'}</strong></p>
+                    ))}
                   </div>}
                 </div>
               </div>

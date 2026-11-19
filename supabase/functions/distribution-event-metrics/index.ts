@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) return new Response(JSON.stringify({ error: "Indisponível" }), { status: 503, headers });
   const client = createClient(url, key, { auth: { persistSession: false } });
-  const { data, error } = await client.rpc("fn_distribution_event_metrics");
+  const [{ data, error }, counts] = await Promise.all([client.rpc("fn_distribution_event_metrics"), client.rpc("fn_event_form_lead_counts")]);
   if (error) return new Response(JSON.stringify({ error: "Indicadores indisponíveis" }), { status: 503, headers });
-  return new Response(JSON.stringify({ metrics: data || [] }), { headers: { ...headers, "Cache-Control": "public, max-age=60" } });
+  return new Response(JSON.stringify({ metrics: data || [], form_counts: counts.error ? null : counts.data || [] }), { headers: { ...headers, "Cache-Control": "public, max-age=60" } });
 });

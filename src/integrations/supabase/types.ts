@@ -39333,6 +39333,15 @@ export type Database = {
         Args: { p_form_data: Json; p_labels: string[] }
         Returns: string
       }
+      fn_event_form_lead_counts: {
+        Args: never
+        Returns: {
+          event_id: string
+          kol_expansion_leads: number
+          kol_seller_leads: number
+          visitor_leads: number
+        }[]
+      }
       fn_event_form_slug: {
         Args: { p_event_id: string; p_suffix: string }
         Returns: string
