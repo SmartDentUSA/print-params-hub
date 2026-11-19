@@ -28,15 +28,18 @@ Os dois cards usam regras de contagem diferentes:
    - Ver se os dois negócios de R$ 61.000 são o mesmo negócio ligado a duas pessoas, o que contaria a venda duas vezes.
    - Ver a data e a hora de fechamento dos negócios do dia 23/10 em relação ao horário do envio.
 2. **Corrigir o R$ 0 do formulário.** É um erro: há negócios ganhos com valor.
-3. **Tornar as diferenças que ficarem visíveis e explicadas**, sem mudar as regras que já foram combinadas:
-   - O card do evento continua contando só quem se cadastrou no evento. O do formulário continua contando o histórico completo do formulário.
-   - Na tela, separar no card do formulário "durante o evento" e "depois do evento / antes do evento". Assim fica claro que 19 + 6 + 1 dá os 26.
-   - Venda fechada no mesmo dia do evento: comparar pela data do fechamento, e não pela hora. Isso só será feito se o passo 1 confirmar que as vendas do dia 23 estão ficando de fora por causa do horário.
+3. **Nova regra pedida: todo ganho com origem no formulário do evento conta no card do evento**
+   - Se o negócio ganho tem como origem o formulário do evento (por exemplo "# [SBRO] Encontro de Estação da SBRO"), ele entra em ganhos e valor convertido do card do evento. Não importa se foi fechado durante o evento ou depois.
+   - Também passam a contar no card do evento os leads desse formulário que se cadastraram depois do evento (os 6 do dia 26/10, no SBRO).
+   - Uma venda conta uma vez só, mesmo que o negócio esteja ligado a dois cadastros.
+   - O card do formulário usa a mesma regra, para que os dois mostrem os mesmos ganhos e o mesmo valor.
+   - Nada muda nos negócios: só na forma como são contados.
 4. **Testar** com os números reais do SBRO e conferir que os dois cards fecham entre si, com a explicação da diferença.
 
 ## Fora do escopo
 - Nenhuma mudança em negócios, CRM, Vendas/CS ou na união de cadastros.
 - A regra "uma conversão por formulário, com o histórico completo" continua valendo.
+- Registrar a nova regra (ganho com origem no formulário do evento sempre conta) na memória do projeto e na lista de tarefas, quando o plano for aprovado.
 
 ## Detalhes técnicos
 - Evento: `fn_event_lead_stats` usa `lead_activity_log` do tipo `form_submission` com `event_data.event_id`, considera só leads com `merged_into IS NULL` e pega o envio mais recente (`DISTINCT ON ... DESC`). Vendas: `deals.closed_at >= submitted_at`, ou `event_sales` quando houver.
