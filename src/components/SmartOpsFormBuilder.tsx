@@ -53,6 +53,7 @@ const PURPOSE_CONFIG: Record<string, { label: string; color: string; disabled?: 
   feira_evento:    { label: "Feiras e Eventos",  color: "bg-amber-100 text-amber-800 border-amber-300",  disabled: false, description: "Preenchido pelo consultor no estande" },
   credenciamento:  { label: "Credenciamento",    color: "bg-violet-100 text-violet-800 border-violet-300", disabled: false, description: "Candidatura vinculada à ficha de um profissional" },
   distribuicao:    { label: "Distribuição",      color: "bg-amber-100 text-amber-800 border-amber-300", disabled: true, description: "Cadastro de distribuidor (funil Exportação), um por evento" },
+  kol_expansao:    { label: "Interessados em ser KOL", color: "bg-emerald-100 text-emerald-800 border-emerald-300", disabled: true, description: "Um por evento; funil KOL Expansão (109840), etapa Interesse, origem [KOLEXPANSÃO] - evento" },
   insercao_crm:    { label: "Inserção CRM",      color: "bg-sky-100 text-sky-800 border-sky-300", disabled: true, description: "Preenchido pela equipe na Agenda; origem INDICALEADKOL/PROSPLEADKOL com o vendedor do KOL" },
   kol_referral:    { label: "Indicações — Palestrantes (KOLs)", color: "bg-accent text-accent-foreground border-border", disabled: false, description: "Formulário de indicação vinculado a um palestrante (KOL)" },
 };

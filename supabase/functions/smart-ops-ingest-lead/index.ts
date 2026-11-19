@@ -1748,7 +1748,7 @@ Deno.serve(async (req) => {
       // intocáveis.
       try {
         const canonPipelineId = Number((existingLead as Record<string, unknown>).piperun_pipeline_id ?? 0);
-        if (canonPipelineId === 72938 && formName && formPurpose !== "distribuicao") {
+        if (canonPipelineId === 72938 && formName && formPurpose !== "distribuicao" && formPurpose !== "kol_expansao") {
           const effectiveConversionKey =
             conversionKey ||
             (dedupeId ? `meta:redelivery:${String(dedupeId)}` : `form:${formName}:${new Date().toISOString()}`);
@@ -2011,7 +2011,18 @@ Deno.serve(async (req) => {
     // Formulário de Distribuição: nunca passa pelo funil de Vendas/Golden Rule.
     // Vai direto para o funil Exportação (39047) com o proprietário de distribuição.
     const isDistribuicaoForm = formPurpose === "distribuicao";
-    const liaAssignPromise = isDistribuicaoForm
+    // Interessados em ser KOL (evento): funil KOL Expansão 109840, fora da Golden Rule.
+    const isKolExpansaoForm = formPurpose === "kol_expansao";
+    const liaAssignPromise = isKolExpansaoForm
+      ? dispatchAsync("kol-expansao-crm-sync", {
+          lead_id: leadId,
+          form_id: payload.form_id || null,
+          form_responses: payload.form_responses || [],
+          custom_fields: (payload.raw_payload && typeof payload.raw_payload === "object")
+            ? (payload.raw_payload as Record<string, unknown>).custom_fields ?? null
+            : null,
+        })
+      : isDistribuicaoForm
       ? dispatchAsync("distribuicao-crm-sync", {
           lead_id: leadId,
           form_id: payload.form_id || null,

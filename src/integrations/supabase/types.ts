@@ -39202,8 +39202,20 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: string
       }
+      fn_clone_kol_expansao_form_for_event: {
+        Args: { p_event_id: string }
+        Returns: string
+      }
+      fn_clone_lead_form_for_event: {
+        Args: { p_event_id: string }
+        Returns: string
+      }
       fn_close_reactivation_on_deal_won: {
         Args: { p_lead_id: string }
+        Returns: undefined
+      }
+      fn_copy_form_fields_remapped: {
+        Args: { p_from: string; p_to: string }
         Returns: undefined
       }
       fn_count_push_audience: { Args: { p_filters?: Json }; Returns: number }
@@ -39319,6 +39331,10 @@ export type Database = {
       fn_event_extra_stats: { Args: { p_event_id: string }; Returns: Json }
       fn_event_form_answer: {
         Args: { p_form_data: Json; p_labels: string[] }
+        Returns: string
+      }
+      fn_event_form_slug: {
+        Args: { p_event_id: string; p_suffix: string }
         Returns: string
       }
       fn_event_landing_views: {

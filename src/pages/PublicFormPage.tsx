@@ -17,6 +17,9 @@ import { DistributorEventRegistration } from "@/components/smartops/DistributorE
 import { emptyDistributorForm } from "@/components/smartops/DistributorForm";
 import { distributorEventAnswers } from "@/lib/distributorEventForm";
 import { distributorLanguage, distributorText } from "@/lib/distributorI18n";
+import { LocationField } from "@/components/forms/LocationField";
+import { formatLocation, isLocationAnswer, locationColumns } from "@/lib/locationAnswer";
+import { KOL_EXPANSION_PARTICIPATION_FIELD, kolExpansionInterest, kolExpansionThanks, kolExpansionWhatsappUrl } from "@/lib/kolExpansion";
 
 interface FormField {
   id: string;
@@ -83,9 +86,11 @@ interface SubmittedScreenProps {
   company: any;
   redirectUrl: string | null;
   isEmbed?: boolean;
+  submitterName?: string | null;
 }
 
-function SubmittedScreen({ form, company, redirectUrl, isEmbed = false }: SubmittedScreenProps) {
+function SubmittedScreen({ form, company, redirectUrl, isEmbed = false, submitterName = null }: SubmittedScreenProps) {
+  const isKolExpansion = form.form_purpose === "kol_expansao";
   const [autoRedirectFailed, setAutoRedirectFailed] = useState(false);
   const isWhatsApp = redirectUrl?.includes("whatsapp.com") || redirectUrl?.startsWith("whatsapp://");
   const inIframe = typeof window !== "undefined" && window.self !== window.top;
@@ -117,9 +122,21 @@ function SubmittedScreen({ form, company, redirectUrl, isEmbed = false }: Submit
       <div className={`${isEmbed ? "p-0 shadow-none border-0 bg-transparent" : "p-8 bg-card rounded-2xl shadow-medium border border-border"} text-center space-y-6 max-w-md w-full`}>
         <CheckCircle className="w-16 h-16 mx-auto" style={{ color: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }} />
         <div className="space-y-2">
-          <p className="text-lg font-medium">{form.success_message || "Obrigado!"}</p>
+          <p className="text-lg font-medium">{isKolExpansion ? kolExpansionThanks(submitterName) : (form.success_message || "Obrigado!")}</p>
           {isWhatsApp && <p className="text-sm text-muted-foreground">Você será direcionado para o grupo do WhatsApp em instantes.</p>}
         </div>
+
+        {isKolExpansion && (
+          <Button
+            asChild
+            className="w-full h-12 text-base text-primary-foreground"
+            style={{ backgroundColor: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }}
+          >
+            <a href={kolExpansionWhatsappUrl(submitterName)} target="_blank" rel="noopener noreferrer">
+              Falar com o Danilo no WhatsApp
+            </a>
+          </Button>
+        )}
 
         {redirectUrl && (
           <Button
@@ -160,6 +177,7 @@ export default function PublicFormPage() {
   const [values, setValues] = useState<Record<string, any>>({});
   const [distributorValue, setDistributorValue] = useState(emptyDistributorForm);
   const [submitted, setSubmitted] = useState(false);
+  const [submitterName, setSubmitterName] = useState<string | null>(null);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -259,7 +277,8 @@ export default function PublicFormPage() {
   const validateField = (field: FormField): string | null => {
     const val = values[field.id];
     const empty = val === undefined || val === null || val === "" ||
-      (Array.isArray(val) && val.length === 0);
+      (Array.isArray(val) && val.length === 0) ||
+      (field.field_type === "location" && !formatLocation(isLocationAnswer(val) ? val : null));
     if (field.required && empty) return `Campo "${field.label}" é obrigatório.`;
     if (!empty && field.field_type === "email" && !/^\S+@\S+\.\S+$/.test(String(val))) {
       return "Informe um e-mail válido.";
@@ -658,7 +677,17 @@ export default function PublicFormPage() {
   const handleSubmit = async (e: React.FormEvent, answersOverride?: Record<string, any>) => {
     e.preventDefault();
     if (!form) return;
-    const submissionValues = answersOverride || values;
+    // Localização (país/estado/cidade) vira texto na resposta e cidade/UF/país no lead.
+    const rawValues = answersOverride || values;
+    const submissionValues: Record<string, any> = { ...rawValues };
+    const locationExtras: Record<string, string> = {};
+    for (const f of fields) {
+      if (f.field_type !== "location") continue;
+      const loc = rawValues[f.id];
+      if (!isLocationAnswer(loc)) continue;
+      submissionValues[f.id] = formatLocation(loc);
+      if (isFieldVisible(f, rawValues)) Object.assign(locationExtras, locationColumns(loc));
+    }
     setSubmitting(true);
 
     // Build payload mapping db_column -> value, custom fields -> raw_payload
@@ -743,6 +772,7 @@ export default function PublicFormPage() {
     }
 
     const customFields: Record<string, any> = {};
+    Object.assign(payload, locationExtras);
 
     for (const field of activeFields) {
       const val = submissionValues[field.id];
@@ -766,6 +796,12 @@ export default function PublicFormPage() {
     for (const key of utmKeys) {
       const v = searchParams.get(key);
       if (v) payload[key] = v;
+    }
+
+    // Interessados em ser KOL: produto de interesse sai da forma de participação.
+    if (form.form_purpose === "kol_expansao") {
+      const interest = kolExpansionInterest(customFields[KOL_EXPANSION_PARTICIPATION_FIELD]);
+      if (interest) payload.produto_interesse = interest;
     }
 
     if (Object.keys(customFields).length > 0) {
@@ -847,7 +883,7 @@ export default function PublicFormPage() {
 
 
       // Enviar respostas como nota no deal do PipeRun (fire-and-forget)
-      if (leadId && form.form_purpose !== "distribuicao") {
+      if (leadId && form.form_purpose !== "distribuicao" && form.form_purpose !== "kol_expansao") {
         // Reuse the canonical payload so event, consultant, combo/category and
         // resolved catalog product reach the CRM note together with form fields.
         const allResponses = (payload.form_responses as Array<{ label: string; value: string }>).map((response) => ({
@@ -910,6 +946,7 @@ export default function PublicFormPage() {
       if (redirectUrl) {
         setRedirectUrl(redirectUrl);
       }
+      setSubmitterName(typeof payload.nome === "string" && payload.nome !== "Anônimo" ? payload.nome : null);
       setSubmitted(true);
     } catch (err: any) {
       toast_inline(`Erro ao enviar: ${err.message || "tente novamente"}`);
@@ -946,6 +983,7 @@ export default function PublicFormPage() {
         company={company}
         redirectUrl={redirectUrl}
         isEmbed={isEmbed}
+        submitterName={submitterName}
       />
     );
   }
@@ -1646,6 +1684,10 @@ export default function PublicFormPage() {
                       );
                     })}
                   </div>
+                )}
+
+                {field.field_type === "location" && (
+                  <LocationField value={values[field.id]} onChange={(v) => handleChange(field.id, v)} />
                 )}
 
                 {field.field_type === "slider" && (() => {

@@ -152,7 +152,7 @@ const DDI_OPTIONS = Array.from(
   ).values()
 ).sort((a, b) => a.label.localeCompare(b.label));
 
-function Combobox({
+export function Combobox({
   value, options, placeholder, emptyText, disabled, onChange, searchText = "Buscar…",
 }: {
   value: string;
