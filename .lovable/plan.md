@@ -8,7 +8,7 @@
 
 ## Três tipos de envio (qualquer pessoa da equipe)
 Ao primeiro envio, o sistema pergunta com botões o que é:
-1. **Lead do evento**: mesmo caminho do simulador WhatsApp e do formulário de cadastro de leads do evento (regra de Vendas, sorteio/consultor e origem do formulário de leads do evento).
+1. **Lead do evento**: mesmo caminho do simulador WhatsApp e do formulário de cadastro de leads do evento e com a origem do formulário de leads do evento. **O dono é o vendedor que enviou**, que fica como consultor do evento. A regra de Vendas continua valendo: se outro vendedor já tem negócio avançado com essa pessoa, nada muda nele e o vendedor que enviou recebe um aviso.
 2. **KOL evento**: mesmo caminho do formulário "Interessados em KOL" (funil 109840, etapa Interesse, Beatriz, origem `[KOLEXPANSÃO] - evento`).
 3. **Oportunidade do evento**: funil 109841, com a Beatriz como dona (fluxo abaixo).
 
