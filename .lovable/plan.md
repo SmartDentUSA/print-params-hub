@@ -9,7 +9,7 @@
 ## O que o sistema faz
 - **Lê tudo com IA**: transcreve áudios, lê cartões e anotações (OCR) e identifica nome, e-mail, telefone, área de atuação, especialidade, cidade, estado, endereço, empresa e produtos do catálogo citados (só produtos ativos do catálogo, nome exato).
 - **Drive**: descobre o evento acontecendo na data do envio (fuso São Paulo) e cria, dentro da pasta do evento, a pasta com o nome da oportunidade. Fotos e vídeos são salvos com o nome da oportunidade (ex.: `Joao Silva - 01.jpg`). Sem evento no dia → pasta "Sem evento/AAAA-MM-DD".
-- **CRM (funil 109841)**: cria/encontra a pessoa (nunca sem e-mail ou telefone), cria o negócio na primeira etapa do funil 109841, com:
+- **CRM (funil 109841)**: cria/encontra a pessoa (nunca sem e-mail ou telefone), cria o negócio na primeira etapa do funil 109841 com a **Beatriz como dona** (o vendedor que enviou fica registrado na nota e na timeline), com:
   - Origem: `[CAPTURA WHATSAPP] - nome do evento` (mesmo padrão do KOL Expansão)
   - Produto de interesse, área de atuação, cidade, estado, endereço
   - Nota com: transcrição completa de cada áudio, texto lido de cada imagem, resumo da IA de tudo e links do Drive de cada arquivo e da pasta.
