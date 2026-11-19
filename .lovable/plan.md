@@ -2,7 +2,7 @@
 
 ## Como funciona para o vendedor
 1. O vendedor (telefone cadastrado em Team Members) manda para o número oficial: foto do cartão de visita, áudio, foto de anotações, foto/vídeo de produto ou catálogo.
-2. Mensagens seguidas do mesmo vendedor viram **uma oportunidade** (fecha após 10 min sem novos envios).
+2. Tudo o que o vendedor mandar vira **uma oportunidade** até ele enviar a palavra **FIM**. Aí o sistema processa e cria o lead. (Se esquecer o FIM, o sistema lembra após 30 min e fecha sozinho após 2 h.)
 3. O sistema responde no WhatsApp: "Recebido — criando lead de *Nome*" e depois "Lead criado no CRM ✅" (ou o que faltou, ex.: sem telefone nem e-mail).
 4. Telefones que não são da equipe são ignorados por essa ferramenta (seguem o fluxo atual do inbox).
 
@@ -22,7 +22,7 @@ Aba "Capturas WhatsApp" no evento: lista de oportunidades recebidas com status (
 ## Detalhes técnicos
 - Entrada: `zernio-whatsapp-inbox` já grava em `whatsapp_inbox`; novo trigger despacha `wa-field-capture` quando o remetente casa com `_shared/team-phone-match.ts` e a conta é a do número oficial. Evolution/WaLeads intocados.
 - Tabelas novas: `field_capture_sessions` (team_member, event_id, status, dados extraídos, deal_id, drive_folder) e `field_capture_items` (wamid único p/ idempotência, tipo, drive_file_id, transcrição/OCR). RLS: só admin/equipe; grants corretos.
-- Fechamento da sessão: cron de 1 min fecha sessões inativas há 10 min (rede de segurança) e processa.
+- Fechamento da sessão: mensagem exata "FIM" fecha e processa; cron de rede de segurança lembra após 30 min e fecha após 2 h de inatividade.
 - IA: Lovable AI Gateway (Gemini para OCR/visão e transcrição de áudio; extração estruturada com schema fixo; sem inventar dados — campo vazio se não houver).
 - Drive: reutiliza `_shared/drive.ts` e a pasta do evento (`smartops_events.drive_folder_id`, cria via `event-create-drive-folder` se faltar).
 - CRM: nova função `field-capture-crm-sync` no molde de `kol-expansao-crm-sync` (piperunGet/Post/Put, contact_emails/phones, origem criada se não existir, etapa inicial lida do funil 109841), ingest via `smart-ops-ingest-lead` com form_purpose próprio e formulário de sistema inativo por evento, para origem e conversões ficarem iguais aos demais formulários.
