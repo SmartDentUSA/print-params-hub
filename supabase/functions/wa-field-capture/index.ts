@@ -164,6 +164,37 @@ async function formFor(type: CaptureType, event: { id: string; name: string }) {
   return f;
 }
 
+const READ_KINDS = new Set(["image", "audio"]);
+/** Mídia ainda sendo baixada/lida: o handler grava mime_type (e transcript/erro) só ao terminar. */
+const isPending = (it: any) => it.kind !== "text" && !it.mime_type && !it.error;
+
+/** Itens da captura prontos para leitura. O FIM pode chegar segundos depois da foto, antes de a IA terminar de lê-la:
+ *  espera as mídias pendentes (até ~60 s) e lê de novo, aqui mesmo, imagem/áudio que ficaram sem texto. */
+async function readyItems(sessionId: string): Promise<any[]> {
+  const load = async () => ((await db.from("field_capture_items").select("*").eq("session_id", sessionId).order("created_at")).data ?? []) as any[];
+  let list = await load();
+  for (let i = 0; i < 30 && list.some(isPending); i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    list = await load();
+  }
+  for (const it of list) {
+    if (!READ_KINDS.has(it.kind) || it.transcript || !it.inbox_id) continue;
+    const { data: msg } = await db.from("whatsapp_inbox").select("media_url, media_type").eq("id", it.inbox_id).maybeSingle();
+    if (!msg?.media_url) continue;
+    const media = await downloadMedia(msg.media_url);
+    if (!media) continue;
+    const mime = media.mime || String(msg.media_type ?? "") || it.mime_type || "application/octet-stream";
+    try {
+      const transcript = await readMedia(it.kind, media.bytes, mime);
+      if (transcript) {
+        it.transcript = transcript;
+        await db.from("field_capture_items").update({ transcript, mime_type: it.mime_type ?? mime }).eq("id", it.id);
+      }
+    } catch (e) { console.error("[wa-field-capture] leitura no FIM", e); }
+  }
+  return list;
+}
+
 async function processSession(sessionId: string): Promise<Record<string, unknown>> {
   const { data: claimed } = await db.from("field_capture_sessions").update({ status: "processing", error: null })
     .eq("id", sessionId).in("status", ["collecting", "error"]).select("*").maybeSingle();
@@ -174,8 +205,7 @@ async function processSession(sessionId: string): Promise<Record<string, unknown
     const { data: tm } = await db.from("team_members").select("id, nome_completo").eq("id", session.team_member_id).maybeSingle();
     const { data: ev } = session.event_id ? await db.from("smartops_events").select("id, name").eq("id", session.event_id).maybeSingle() : { data: null };
     if (!ev) throw new Error("Nenhum evento acontecendo na data do envio");
-    const { data: items } = await db.from("field_capture_items").select("*").eq("session_id", session.id).order("created_at");
-    const list = (items ?? []) as any[];
+    const list = await readyItems(session.id);
     if (!list.length) throw new Error("nada foi enviado");
 
     const parts: string[] = [];
@@ -199,7 +229,7 @@ async function processSession(sessionId: string): Promise<Record<string, unknown
     };
     if (!lead.email.includes("@") && lead.telefone.length < 10) {
       await db.from("field_capture_sessions").update({ status: "collecting", extracted: lead, error: "sem telefone e sem e-mail" }).eq("id", session.id);
-      await reply(session, `Não encontrei telefone nem e-mail de ${lead.nome || "o contato"}. Mande a foto do cartão ou digite o telefone/e-mail e depois *FIM* de novo.`);
+      await reply(session, `Não encontrei telefone nem e-mail ${lead.nome ? `de ${lead.nome}` : "do contato"}. Mande a foto do cartão ou digite o telefone/e-mail e depois *FIM* de novo.`);
       return { ok: false, missing: "contact" };
     }
     const oppName = opportunityName(lead.nome, lead.empresa, lead.telefone);
