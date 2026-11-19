@@ -52,3 +52,9 @@ Deno.test("conferência: correção do vendedor prevalece sobre a leitura", () =
   assertEquals(hasContact({ nome: "A", telefone: "", email: "" }), false);
   assertEquals(confirmSummary("Lead do evento", { nome: "A", telefone: "", email: "" }).includes("Falta telefone ou e-mail"), true);
 });
+
+Deno.test("AUTO abre a captura; saudação não", () => {
+  assertEquals(parseCommand("auto"), { kind: "start" });
+  assertEquals(parseCommand("Auto."), { kind: "start" });
+  assertEquals(parseCommand("Oie"), null);
+});

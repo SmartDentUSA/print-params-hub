@@ -1,6 +1,9 @@
 // Regras puras da captura WhatsApp (testáveis).
 export type CaptureType = "lead" | "kol" | "oportunidade";
-export type Command = { kind: "type"; type: CaptureType } | { kind: "end" } | { kind: "cancel" };
+export type Command = { kind: "type"; type: CaptureType } | { kind: "end" } | { kind: "cancel" } | { kind: "start" };
+
+/** Palavra que abre uma captura; sem ela, mensagens da equipe são conversa normal. */
+export const START_WORD = "AUTO";
 
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase().replace(/[.!*]+$/g, "");
 
@@ -8,6 +11,7 @@ const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").t
 export function parseCommand(text: string): Command | null {
   const t = norm(text);
   if (!t) return null;
+  if (t === START_WORD) return { kind: "start" };
   if (t === "FIM") return { kind: "end" };
   if (t === "CANCELAR") return { kind: "cancel" };
   if (t === "1" || t === "LEAD") return { kind: "type", type: "lead" };

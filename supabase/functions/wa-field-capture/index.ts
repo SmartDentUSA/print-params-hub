@@ -389,6 +389,11 @@ async function handleInbox(inboxId: string) {
     if (session) { await db.from("field_capture_sessions").update({ status: "cancelled" }).eq("id", session.id); await reply(session, "Captura cancelada."); }
     return { ok: true, cancelled: !!session };
   }
+  if (!session && cmd?.kind !== "start") return { ignored: "no_start_word" }; // só AUTO abre captura
+  if (session && cmd?.kind === "start") {
+    await reply(session, session.capture_type ? `Captura já aberta (${TYPE_LABEL[session.capture_type as CaptureType]}). Mande os arquivos e termine com *FIM*.` : `Captura já aberta.\n\n${MENU}`);
+    return { ok: true, already_open: true };
+  }
   if (!session) {
     const ev = await todayEvent();
     const { data: created, error } = await db.from("field_capture_sessions").insert({
