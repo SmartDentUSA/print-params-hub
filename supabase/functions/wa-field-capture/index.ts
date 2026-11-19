@@ -170,10 +170,15 @@ const isPending = (it: any) => it.kind !== "text" && !it.mime_type && !it.error;
 
 /** Itens da captura prontos para leitura. O FIM pode chegar segundos depois da foto, antes de a IA terminar de lê-la:
  *  espera as mídias pendentes (até ~60 s) e lê de novo, aqui mesmo, imagem/áudio que ficaram sem texto. */
-async function readyItems(sessionId: string): Promise<any[]> {
-  const load = async () => ((await db.from("field_capture_items").select("*").eq("session_id", sessionId).order("created_at")).data ?? []) as any[];
+async function readyItems(session: any): Promise<any[]> {
+  const load = async () => ((await db.from("field_capture_items").select("*").eq("session_id", session.id).order("created_at")).data ?? []) as any[];
+  // Fotos/áudios enviados antes do FIM cujo aviso do WhatsApp ainda não chegou (entregas fora de ordem).
+  const { data: sent } = await db.from("whatsapp_inbox").select("id").eq("phone", session.sender_phone).eq("direction", "inbound")
+    .not("media_url", "is", null).gte("created_at", session.created_at).lte("created_at", session.last_message_at ?? new Date().toISOString());
+  const expected = ((sent ?? []) as any[]).map((r) => r.id);
+  const missing = (l: any[]) => expected.some((id) => !l.some((it) => it.inbox_id === id));
   let list = await load();
-  for (let i = 0; i < 30 && list.some(isPending); i++) {
+  for (let i = 0; i < 30 && (list.some(isPending) || missing(list)); i++) {
     await new Promise((r) => setTimeout(r, 2000));
     list = await load();
   }
@@ -205,7 +210,7 @@ async function processSession(sessionId: string): Promise<Record<string, unknown
     const { data: tm } = await db.from("team_members").select("id, nome_completo").eq("id", session.team_member_id).maybeSingle();
     const { data: ev } = session.event_id ? await db.from("smartops_events").select("id, name").eq("id", session.event_id).maybeSingle() : { data: null };
     if (!ev) throw new Error("Nenhum evento acontecendo na data do envio");
-    const list = await readyItems(session.id);
+    const list = await readyItems(session);
     if (!list.length) throw new Error("nada foi enviado");
 
     const parts: string[] = [];
@@ -304,7 +309,7 @@ async function processSession(sessionId: string): Promise<Record<string, unknown
 }
 
 async function handleInbox(inboxId: string) {
-  const { data: msg } = await db.from("whatsapp_inbox").select("id, phone, direction, instance_name, raw_payload, message_text, media_url, media_type, wa_message_id, is_group")
+  const { data: msg } = await db.from("whatsapp_inbox").select("id, phone, direction, instance_name, raw_payload, message_text, media_url, media_type, wa_message_id, is_group, created_at")
     .eq("id", inboxId).maybeSingle();
   if (!msg || msg.direction !== "inbound" || msg.is_group || !String(msg.instance_name ?? "").startsWith("zernio:")) return { ignored: "not_inbound" };
   const { data: tmId } = await db.rpc("fn_team_member_by_phone", { p_phone: msg.phone });
@@ -316,6 +321,12 @@ async function handleInbox(inboxId: string) {
   const cmd = msg.media_url ? null : parseCommand(text);
 
   let { data: session } = await db.from("field_capture_sessions").select("*").eq("team_member_id", tmId).eq("status", "collecting").maybeSingle();
+  if (!session && !cmd && msg.created_at) {
+    // Arquivo enviado antes do FIM mas entregue depois: pertence à captura que está sendo fechada.
+    const { data: closing } = await db.from("field_capture_sessions").select("*").eq("team_member_id", tmId).eq("status", "processing")
+      .lte("created_at", msg.created_at).gte("last_message_at", msg.created_at).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (closing) session = closing;
+  }
   if (cmd?.kind === "cancel") {
     if (session) { await db.from("field_capture_sessions").update({ status: "cancelled" }).eq("id", session.id); await reply(session, "Captura cancelada."); }
     return { ok: true, cancelled: !!session };
