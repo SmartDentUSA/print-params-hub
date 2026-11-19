@@ -305,7 +305,7 @@ async function handleInbox(inboxId: string) {
     }
   }
   if (conversationId && session.conversation_id !== conversationId) await db.from("field_capture_sessions").update({ conversation_id: conversationId }).eq("id", session.id);
-  await db.from("field_capture_sessions").update({ last_message_at: new Date().toISOString(), reminded_at: null }).eq("id", session.id);
+  await db.from("field_capture_sessions").update({ last_message_at: new Date().toISOString() }).eq("id", session.id);
 
   if (cmd?.kind === "type") {
     if (session.capture_type !== cmd.type) {
@@ -346,22 +346,6 @@ async function handleInbox(inboxId: string) {
   return { ok: true, item: item.id };
 }
 
-async function sweep() {
-  const now = Date.now();
-  const { data } = await db.from("field_capture_sessions").select("*").eq("status", "collecting").lt("last_message_at", new Date(now - 30 * 60e3).toISOString()).limit(50);
-  for (const s of (data ?? []) as any[]) {
-    const idle = now - new Date(s.last_message_at).getTime();
-    if (idle >= 2 * 3600e3) {
-      if (s.capture_type) await processSession(s.id);
-      else { await db.from("field_capture_sessions").update({ status: "cancelled", error: "sem tipo após 2 h" }).eq("id", s.id); await reply(s, "Captura encerrada sem tipo escolhido."); }
-    } else if (!s.reminded_at) {
-      await db.from("field_capture_sessions").update({ reminded_at: new Date().toISOString() }).eq("id", s.id);
-      await reply(s, "Ainda está enviando? Quando terminar, mande *FIM*. Sem resposta, finalizo sozinho em 2 h.");
-    }
-  }
-  return { ok: true, checked: (data ?? []).length };
-}
-
 async function isStaff(req: Request): Promise<boolean> {
   const auth = req.headers.get("authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return false;
@@ -378,7 +362,6 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch { /* */ }
   try {
-    if (body?.action === "sweep") return json(await sweep());
     if (body?.action === "reprocess") {
       if (!(await isStaff(req))) return json({ error: "unauthorized" }, 401);
       if (!UUID_RE.test(String(body.session_id ?? ""))) return json({ error: "session_id inválido" }, 400);

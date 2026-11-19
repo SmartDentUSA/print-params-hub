@@ -23,6 +23,7 @@ import EventSpeakersFields, { type EventSpeaker, type EventPartnerBrand } from "
 import EventRafflesPanel from "@/components/smartops/events/EventRafflesPanel";
 
 import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEventoDriveButton";
+import { EventFieldCapturesButton } from "@/components/smartops/events/EventFieldCapturesButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import { DEFAULT_EVENT_TYPE, EVENT_TYPE_OPTIONS, eventTypeLabel, normalizeEventType } from "@/lib/eventTypes";
 
@@ -607,6 +608,7 @@ export function SmartOpsEvents() {
                           >
                             <Monitor className="w-4 h-4" />
                           </Button>
+                          <EventFieldCapturesButton eventId={r.id} />
                           <CriarPastaEventoDriveButton eventId={r.id} folderUrl={r.drive_folder_url} />
                           <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil className="w-4 h-4" /></Button>
                           <Button size="sm" variant="ghost" onClick={() => handleDelete(r)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
