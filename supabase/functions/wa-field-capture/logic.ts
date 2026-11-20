@@ -105,3 +105,26 @@ export function confirmSummary(typeLabel: string, l: Contact): string {
   lines.push("", "1 - Editar nome", "2 - Editar telefone", "3 - Editar e-mail", "4 - Dados corretos");
   return lines.join("\n");
 }
+
+// ---------- Cartão de contato (botão "Salvar contato" do WhatsApp) ----------
+export type ContactCard = {
+  name: { formatted_name: string; first_name?: string; last_name?: string };
+  phones: { phone: string; type: string }[];
+  emails?: { email: string; type: string }[];
+};
+
+/** Cartão enviado ao vendedor após o lead ser criado; só existe quando há telefone conferido. */
+export function contactCard(l: Contact, displayName: string): ContactCard | null {
+  const tel = String(l.telefone ?? "").replace(/\D/g, "");
+  if (tel.length < 10) return null;
+  const nome = String(l.nome ?? "").trim().replace(/\s+/g, " ");
+  const formatted = (displayName.trim() || nome || `Contato ${tel.slice(-4)}`).slice(0, 120);
+  const [first, ...rest] = (nome || formatted).split(" ");
+  const card: ContactCard = {
+    name: { formatted_name: formatted, first_name: first, ...(rest.length ? { last_name: rest.join(" ") } : {}) },
+    phones: [{ phone: `+${tel}`, type: "CELL" }],
+  };
+  const email = String(l.email ?? "").trim().toLowerCase();
+  if (email.includes("@")) card.emails = [{ email, type: "WORK" }];
+  return card;
+}

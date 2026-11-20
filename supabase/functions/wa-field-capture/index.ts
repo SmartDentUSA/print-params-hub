@@ -17,6 +17,7 @@ import { PRODUCT_CATALOG_ENTITY_TYPES } from "./catalog-types.ts";
 import {
   parseCommand, type CaptureType, extractFallback, opportunityName, fileName,
   parseConfirmChoice, validateEdit, applyEdits, hasContact, confirmSummary, EDIT_PROMPT, type ConfirmField,
+  contactCard, type ContactCard,
 } from "./logic.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -42,6 +43,17 @@ async function reply(session: { account_id: string; conversation_id: string | nu
     body: JSON.stringify({ accountId: session.account_id, message: text }),
   }).catch((e) => { console.error("[wa-field-capture] reply", e); return null; });
   if (r && !r.ok) console.error(`[wa-field-capture] reply failed [${r.status}]: ${(await r.text()).slice(0, 300)}`);
+}
+
+/** Cartão de contato nativo do WhatsApp: o vendedor toca em "Salvar contato" e o telefone vai para a agenda. */
+async function sendContactCard(session: { account_id: string; conversation_id: string | null }, card: ContactCard) {
+  const key = Deno.env.get("ZERNIO_API_KEY");
+  if (!key || !session.conversation_id) return;
+  const r = await fetch(`${ZERNIO}/inbox/conversations/${encodeURIComponent(session.conversation_id)}/messages`, {
+    method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ accountId: session.account_id, contacts: [card] }),
+  }).catch((e) => { console.error("[wa-field-capture] contact card", e); return null; });
+  if (r && !r.ok) console.error(`[wa-field-capture] contact card failed [${r.status}]: ${(await r.text()).slice(0, 300)}`);
 }
 
 /** Evento acontecendo hoje (São Paulo); feiras/congressos antes de campanhas promocionais. */
@@ -357,6 +369,11 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
     }).then(() => {}, () => {});
     await db.from("field_capture_sessions").update({ status: "done", confirm_step: null, extracted: lead, summary: lead.resumo, opportunity_name: oppName, lead_id: out.lead_id, result: { form_id: form.id, form_name: form.name, is_existing: !!out.is_existing } }).eq("id", session.id);
     await reply(session, `✅ ${TYPE_LABEL[session.capture_type as CaptureType]} enviado ao CRM: *${oppName}*\nOrigem: ${form.name}\nPasta: ${session.drive_folder_url ?? "-"}`);
+    const card = origin === "whatsapp" ? contactCard(lead, oppName) : null;
+    if (card) {
+      await reply(session, "📇 Toque em *Salvar contato* no cartão abaixo para adicionar o telefone aos seus contatos do WhatsApp.");
+      await sendContactCard(session, card);
+    }
     return { ok: true, lead_id: out.lead_id };
   } catch (e) {
     const msg = String((e as Error).message ?? e).slice(0, 500);

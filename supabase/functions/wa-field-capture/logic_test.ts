@@ -58,3 +58,13 @@ Deno.test("AUTO abre a captura; saudação não", () => {
   assertEquals(parseCommand("Auto."), { kind: "start" });
   assertEquals(parseCommand("Oie"), null);
 });
+
+import { contactCard } from "./logic.ts";
+
+Deno.test("cartão de contato usa o telefone conferido e só existe com telefone", () => {
+  const card = contactCard({ nome: "Marcelo Del Guerra", telefone: "1 (704) 308-9396", email: "MDGuerra@smartdentusa.com" }, "Marcelo Del Guerra - Smart Dent");
+  assertEquals(card?.phones, [{ phone: "+17043089396", type: "CELL" }]);
+  assertEquals(card?.name, { formatted_name: "Marcelo Del Guerra - Smart Dent", first_name: "Marcelo", last_name: "Del Guerra" });
+  assertEquals(card?.emails, [{ email: "mdguerra@smartdentusa.com", type: "WORK" }]);
+  assertEquals(contactCard({ nome: "Sem Telefone", email: "a@b.com" }, "Sem Telefone"), null);
+});
