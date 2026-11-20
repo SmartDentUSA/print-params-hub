@@ -391,7 +391,11 @@ async function handleInbox(inboxId: string) {
   }
   if (!session && cmd?.kind !== "start") return { ignored: "no_start_word" }; // só AUTO abre captura
   if (session && cmd?.kind === "start") {
-    await reply(session, session.capture_type ? `Captura já aberta (${TYPE_LABEL[session.capture_type as CaptureType]}). Mande os arquivos e termine com *FIM*.` : `Captura já aberta.\n\n${MENU}`);
+    const { count } = await db.from("field_capture_items").select("id", { count: "exact", head: true }).eq("session_id", session.id).neq("kind", "text");
+    const n = count ?? 0;
+    await reply(session, session.capture_type
+      ? `Você já tem uma captura aberta (*${TYPE_LABEL[session.capture_type as CaptureType]}*) com ${n} arquivo${n === 1 ? "" : "s"}.\n\nMande *FIM* para conferir os dados e criar o lead, ou *CANCELAR* para descartar e começar de novo com *AUTO*.`
+      : `Você já tem uma captura aberta.\n\n${MENU}`);
     return { ok: true, already_open: true };
   }
   if (!session) {
@@ -407,6 +411,7 @@ async function handleInbox(inboxId: string) {
       session = created;
       await reply(session, `📥 Captura iniciada${ev ? ` — evento *${ev.name}*` : " — ⚠️ nenhum evento acontecendo hoje"}.${session.capture_type ? ` Tipo: *${TYPE_LABEL[session.capture_type as CaptureType]}*. Mande os arquivos e termine com *FIM*.` : `\n\n${MENU}`}`);
     }
+    if (cmd?.kind === "start") return { ok: true, started: session.id }; // AUTO não vira anotação
   }
   if (conversationId && session.conversation_id !== conversationId) await db.from("field_capture_sessions").update({ conversation_id: conversationId }).eq("id", session.id);
   session.last_message_at = new Date().toISOString();
@@ -459,6 +464,11 @@ async function handleInbox(inboxId: string) {
   try { upd.transcript = await readMedia(kind, media.bytes, mime) || null; }
   catch (e) { upd.error = `${upd.error ? upd.error + " | " : ""}IA: ${String((e as Error).message).slice(0, 300)}`; }
   await db.from("field_capture_items").update(upd).eq("id", item.id);
+  // Retorno a cada arquivo: o vendedor sabe que foi recebido e que precisa mandar FIM.
+  const what = kind === "image" ? (upd.transcript ? "📸 Foto recebida e lida." : "📸 Foto recebida (sem texto legível).")
+    : kind === "audio" ? (upd.transcript ? "🎤 Áudio recebido e transcrito." : "🎤 Áudio recebido (não consegui transcrever).")
+    : kind === "video" ? "🎬 Vídeo recebido." : "📎 Arquivo recebido.";
+  await reply(session, `${what}${session.capture_type ? "" : `\n\n${MENU}`}\nMande mais arquivos ou *FIM* para conferir os dados.`);
   return { ok: true, item: item.id };
 }
 
