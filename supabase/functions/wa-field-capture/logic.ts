@@ -20,11 +20,86 @@ export function parseCommand(text: string): Command | null {
   return null;
 }
 
-/** E-mail e telefone lidos direto do texto, caso a IA não devolva. */
-export function extractFallback(text: string): { email: string; telefone: string } {
+// ---------- Telefone com código do país ----------
+const plain = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+const COUNTRY_CODES: [string[], string][] = [
+  [["brasil", "brazil", "br"], "55"],
+  [["estados unidos", "eua", "usa", "us", "united states", "united states of america", "canada", "canadá", "ca"], "1"],
+  [["mexico", "méxico", "mx"], "52"], [["argentina", "ar"], "54"], [["chile", "cl"], "56"], [["colombia", "colômbia", "co"], "57"],
+  [["peru", "pe"], "51"], [["uruguai", "uruguay", "uy"], "598"], [["paraguai", "paraguay", "py"], "595"], [["bolivia", "bolívia", "bo"], "591"],
+  [["equador", "ecuador", "ec"], "593"], [["venezuela", "ve"], "58"], [["portugal", "pt"], "351"], [["espanha", "spain", "españa", "es"], "34"],
+  [["italia", "itália", "italy", "it"], "39"], [["alemanha", "germany", "deutschland", "de"], "49"], [["franca", "frança", "france", "fr"], "33"],
+  [["reino unido", "united kingdom", "uk", "inglaterra", "england", "gb"], "44"], [["china", "cn"], "86"], [["japao", "japão", "japan", "jp"], "81"],
+  [["india", "índia", "in"], "91"], [["emirados arabes unidos", "united arab emirates", "uae", "dubai"], "971"],
+];
+const CC_LOOKUP = new Map<string, string>();
+for (const [names, cc] of COUNTRY_CODES) for (const n of names) CC_LOOKUP.set(plain(n), cc);
+
+const BR_DDDS = new Set("11 12 13 14 15 16 17 18 19 21 22 24 27 28 31 32 33 34 35 37 38 41 42 43 44 45 46 47 48 49 51 53 54 55 61 62 63 64 65 66 67 68 69 71 73 74 75 77 79 81 82 83 84 85 86 87 88 89 91 92 93 94 95 96 97 98 99".split(" "));
+
+/** Código telefônico do país pelo nome (pt/en/sigla); "" quando desconhecido. */
+export function countryCode(pais: string | null | undefined): string {
+  return CC_LOOKUP.get(plain(String(pais ?? ""))) ?? "";
+}
+
+/**
+ * Telefone em dígitos com código do país (E.164 sem "+"), ou "" quando não dá para confiar.
+ * Ordem: "+"/"00" explícitos → país do lead → país do evento → Brasil. Mais de 15 dígitos = números colados.
+ */
+export function normalizeCapturePhone(raw: string | null | undefined, pais?: string | null, eventCountry?: string | null): string {
+  const s = String(raw ?? "").trim();
+  let d = s.replace(/\D/g, "");
+  if (!d) return "";
+  const explicit = s.startsWith("+") || d.startsWith("00");
+  if (d.startsWith("00")) d = d.slice(2);
+  if (explicit) return d.length >= 8 && d.length <= 15 ? d : "";
+  const cc = countryCode(pais) || countryCode(eventCountry) || "55";
+  if (cc === "1") {
+    if (d.length === 11 && d.startsWith("1")) return d;
+    return d.length === 10 ? `1${d}` : "";
+  }
+  if (cc === "55") {
+    d = d.replace(/^0+/, "");
+    if ((d.length === 12 || d.length === 13) && d.startsWith("55") && BR_DDDS.has(d.slice(2, 4))) return d;
+    // DDD inexistente no Brasil: provavelmente número estrangeiro sem código do país → pedir conferência.
+    return (d.length === 10 || d.length === 11) && BR_DDDS.has(d.slice(0, 2)) ? `55${d}` : "";
+  }
+  if (d.startsWith(cc) && d.length >= cc.length + 8 && d.length <= 15) return d;
+  d = d.replace(/^0+/, "");
+  const full = cc + d;
+  return d.length >= 6 && full.length <= 15 ? full : "";
+}
+
+/** "+1 704 308 9396" / "+55 16 99750 1531" para conferência. */
+export function formatPhone(digits: string): string {
+  const d = String(digits ?? "").replace(/\D/g, "");
+  if (!d) return "";
+  if (d.length === 11 && d.startsWith("1")) return `+1 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  if (d.startsWith("55") && (d.length === 12 || d.length === 13)) return `+55 ${d.slice(2, 4)} ${d.slice(4, -4)} ${d.slice(-4)}`;
+  return `+${d}`;
+}
+
+/** Números de telefone escritos no texto, um por ocorrência (nunca junta linhas). */
+export function phonesInText(text: string): string[] {
+  return [...text.matchAll(/\+?\(?\d[\d \t().-]{7,18}\d/g)].map((m) => m[0].trim()).filter((p) => p.replace(/\D/g, "").length >= 8);
+}
+
+/** Escolhe o telefone principal e os demais, já com código do país, sem repetir. */
+export function pickPhones(candidates: (string | null | undefined)[], pais?: string | null, eventCountry?: string | null): { telefone: string; outros: string[] } {
+  const out: string[] = [];
+  for (const c of candidates) {
+    const n = normalizeCapturePhone(c, pais, eventCountry);
+    if (n && !out.includes(n)) out.push(n);
+  }
+  return { telefone: out[0] ?? "", outros: out.slice(1, 4) };
+}
+
+/** E-mail e telefones lidos direto do texto, caso a IA não devolva. */
+export function extractFallback(text: string): { email: string; telefone: string; telefones: string[] } {
   const email = (text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] ?? "").toLowerCase();
-  const phone = text.match(/\+?\d[\d\s().-]{8,18}\d/)?.[0]?.replace(/\D/g, "") ?? "";
-  return { email, telefone: phone.length >= 10 ? phone : "" };
+  const telefones = phonesInText(text);
+  const first = telefones[0]?.replace(/\D/g, "") ?? "";
+  return { email, telefone: first.length >= 10 ? first : "", telefones };
 }
 
 /** Nome da oportunidade: "Nome - Empresa" (ou final do telefone quando não há nome). */
@@ -47,7 +122,7 @@ export function fileName(base: string, n: number, mime: string | null | undefine
 // ---------- Conferência antes de criar o lead ----------
 export type ConfirmField = "nome" | "telefone" | "email";
 export type ConfirmChoice = { kind: "edit"; field: ConfirmField } | { kind: "ok" } | null;
-type Contact = { nome?: string; telefone?: string; email?: string; empresa?: string; cidade?: string; estado?: string; pais?: string };
+type Contact = { nome?: string; telefone?: string; email?: string; empresa?: string; cidade?: string; estado?: string; pais?: string; outros_telefones?: string[] };
 
 /** Menu da conferência: 1 nome, 2 telefone, 3 e-mail, 4 dados corretos. */
 export function parseConfirmChoice(text: string): ConfirmChoice {
@@ -60,12 +135,13 @@ export function parseConfirmChoice(text: string): ConfirmChoice {
 }
 
 /** Valida o valor digitado pelo vendedor para o campo escolhido. */
-export function validateEdit(field: ConfirmField, text: string): { value: string } | { error: string } {
+export function validateEdit(field: ConfirmField, text: string, pais?: string | null, eventCountry?: string | null): { value: string } | { error: string } {
   const v = text.trim();
   if (field === "nome") return v.length >= 2 && v.length <= 120 ? { value: v.replace(/\s+/g, " ") } : { error: "Nome inválido. Digite o nome completo:" };
   if (field === "telefone") {
-    const d = v.replace(/\D/g, "");
-    return d.length >= 10 && d.length <= 15 ? { value: d } : { error: "Telefone inválido. Digite com DDD (e código do país, se for de fora do Brasil):" };
+    if (v.replace(/\D/g, "").length > 15) return { error: "Mande só *um* telefone, com o código do país (ex.: +1 704 308 9396 ou +55 16 99750 1531):" };
+    const d = normalizeCapturePhone(v, pais, eventCountry);
+    return d.length >= 10 ? { value: d } : { error: "Telefone inválido. Digite com o código do país e DDD (ex.: +1 704 308 9396 ou +55 16 99750 1531):" };
   }
   return /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(v) ? { value: v.toLowerCase() } : { error: "E-mail inválido. Digite o e-mail correto:" };
 }
@@ -84,7 +160,7 @@ export const hasContact = (l: Contact) => String(l.email ?? "").includes("@") ||
 
 export const EDIT_PROMPT: Record<ConfirmField, string> = {
   nome: "Digite o *nome* correto:",
-  telefone: "Digite o *telefone* correto, com DDD:",
+  telefone: "Digite o *telefone* correto com o código do país e DDD (ex.: +1 704 308 9396 ou +55 16 99750 1531):",
   email: "Digite o *e-mail* correto:",
 };
 
@@ -96,9 +172,11 @@ export function confirmSummary(typeLabel: string, l: Contact): string {
     `📋 *Confira os dados lidos* (${typeLabel})`,
     "",
     `👤 Nome: ${l.nome?.trim() || "—"}`,
-    `📱 Telefone: ${tel ? `+${tel}` : "—"}`,
+    `📱 Telefone: ${tel ? formatPhone(tel) : "—"}`,
     `✉️ E-mail: ${l.email?.trim() || "—"}`,
   ];
+  const outros = (l.outros_telefones ?? []).filter((t) => t && t !== tel);
+  if (outros.length) lines.push(`☎️ Outros telefones: ${outros.map(formatPhone).join(", ")}`);
   if (l.empresa?.trim()) lines.push(`🏢 Empresa: ${l.empresa.trim()}`);
   if (local) lines.push(`📍 Local: ${local}`);
   if (!hasContact(l)) lines.push("", "⚠️ Falta telefone ou e-mail: use 2 ou 3.");

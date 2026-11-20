@@ -38,7 +38,8 @@ Deno.test("conferência: 1 nome, 2 telefone, 3 e-mail, 4 dados corretos", () => 
 });
 
 Deno.test("conferência: valida o que o vendedor digita", () => {
-  assertEquals(validateEdit("telefone", "(704) 308-9396"), { value: "7043089396" });
+  assertEquals(validateEdit("telefone", "(704) 308-9396", "Estados Unidos"), { value: "17043089396" });
+  assertEquals("error" in validateEdit("telefone", "(704) 308-9396"), true); // DDD 70 não existe no Brasil
   assertEquals("error" in validateEdit("telefone", "12345"), true);
   assertEquals(validateEdit("email", " MDGuerra@SmartDentUSA.com "), { value: "mdguerra@smartdentusa.com" });
   assertEquals("error" in validateEdit("email", "mdguerra@"), true);
@@ -67,4 +68,31 @@ Deno.test("cartão de contato usa o telefone conferido e só existe com telefone
   assertEquals(card?.name, { formatted_name: "Marcelo Del Guerra - Smart Dent", first_name: "Marcelo", last_name: "Del Guerra" });
   assertEquals(card?.emails, [{ email: "mdguerra@smartdentusa.com", type: "WORK" }]);
   assertEquals(contactCard({ nome: "Sem Telefone", email: "a@b.com" }, "Sem Telefone"), null);
+});
+
+import { normalizeCapturePhone, pickPhones, formatPhone } from "./logic.ts";
+
+Deno.test("telefone dos EUA ganha +1 pelo país do lead ou do evento", () => {
+  assertEquals(normalizeCapturePhone("(704) 308-9396", "Estados Unidos"), "17043089396");
+  assertEquals(normalizeCapturePhone("770.921.2131", "", "United States"), "17709212131");
+  assertEquals(normalizeCapturePhone("+1 (585) 360-3035", "Brasil"), "15853603035");
+  assertEquals(formatPhone("17043089396"), "+1 704 308 9396");
+});
+
+Deno.test("telefone brasileiro continua com 55 e código explícito é respeitado", () => {
+  assertEquals(normalizeCapturePhone("(16) 99750-1531", "Brasil"), "5516997501531");
+  assertEquals(normalizeCapturePhone("16 99750-1531", "", ""), "5516997501531");
+  assertEquals(normalizeCapturePhone("+351 912 345 678", "Estados Unidos"), "351912345678");
+});
+
+Deno.test("dois números do cartão ficam separados, nunca colados", () => {
+  const fb = extractFallback("Miami, FL 33134\n(786) 312-2709\n(786) 616-4236\nsteve.e@servi-dent.com");
+  assertEquals(fb.telefones, ["(786) 312-2709", "(786) 616-4236"]);
+  assertEquals(pickPhones(["78631227097866164236", ...fb.telefones], "Estados Unidos"), { telefone: "17863122709", outros: ["17866164236"] });
+  assertEquals(normalizeCapturePhone("78631227097866164236", "Estados Unidos"), "");
+});
+
+Deno.test("correção do telefone aceita só um número e aplica o país", () => {
+  assertEquals(validateEdit("telefone", "704 308 9396", "Estados Unidos"), { value: "17043089396" });
+  assertEquals("error" in validateEdit("telefone", "(786) 312-2709 (786) 616-4236", "Estados Unidos"), true);
 });

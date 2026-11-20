@@ -17,7 +17,7 @@ import { PRODUCT_CATALOG_ENTITY_TYPES } from "./catalog-types.ts";
 import {
   parseCommand, type CaptureType, extractFallback, opportunityName, fileName,
   parseConfirmChoice, validateEdit, applyEdits, hasContact, confirmSummary, EDIT_PROMPT, type ConfirmField,
-  contactCard, type ContactCard,
+  contactCard, type ContactCard, pickPhones, normalizeCapturePhone,
 } from "./logic.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -144,13 +144,16 @@ async function extract(material: string, products: string[]) {
   const schema = {
     type: "object", additionalProperties: false,
     properties: {
-      nome: { type: "string" }, email: { type: "string" }, telefone: { type: "string" }, empresa: { type: "string" },
+      nome: { type: "string" }, email: { type: "string" },
+      telefone: { type: "string", description: "UM único número, o principal (celular de preferência), no formato internacional com + e código do país: +1 7043089396 (EUA/Canadá), +55 16997501531 (Brasil). Nunca junte dois números. Se o cartão não mostrar o código do país, deduza pelo país do endereço/contexto." },
+      outros_telefones: { type: "array", items: { type: "string" }, description: "Demais números (escritório, fixo, segundo celular), cada um separado, no mesmo formato internacional." },
+      empresa: { type: "string" },
       area_atuacao: { type: "string" }, especialidade: { type: "string" }, cidade: { type: "string" },
       estado: { type: "string", description: "UF com 2 letras quando Brasil" }, pais: { type: "string" }, endereco: { type: "string" },
       produtos: { type: "array", items: { type: "string", enum: products.length ? products : ["-"] } },
       resumo: { type: "string" },
     },
-    required: ["nome", "email", "telefone", "empresa", "area_atuacao", "especialidade", "cidade", "estado", "pais", "endereco", "produtos", "resumo"],
+    required: ["nome", "email", "telefone", "outros_telefones", "empresa", "area_atuacao", "especialidade", "cidade", "estado", "pais", "endereco", "produtos", "resumo"],
   };
   const out = await aiCall([{
     type: "text",
@@ -218,6 +221,13 @@ async function readyItems(session: any): Promise<any[]> {
 const loadItems = async (sessionId: string) =>
   ((await db.from("field_capture_items").select("*").eq("session_id", sessionId).order("created_at")).data ?? []) as any[];
 
+/** País do evento (ex.: "United States"), usado quando o cartão não traz o código do país. */
+async function eventCountryOf(eventId: string | null | undefined): Promise<string> {
+  if (!eventId) return "";
+  const { data } = await db.from("smartops_events").select("country").eq("id", eventId).maybeSingle();
+  return String(data?.country ?? "");
+}
+
 /** Lê o material da captura com a IA e aplica as correções que o vendedor já fez na conferência. */
 async function buildLead(session: any, list: any[]) {
   const parts: string[] = [];
@@ -230,9 +240,13 @@ async function buildLead(session: any, list: any[]) {
   let x: any = {};
   try { x = await extract(material, products); } catch (e) { console.error("[wa-field-capture] extract", e); }
   const fb = extractFallback(material);
+  const pais = String(x.pais || "").trim();
+  const eventCountry = await eventCountryOf(session.event_id);
+  const outrosIa = Array.isArray(x.outros_telefones) ? x.outros_telefones.map(String) : [];
+  const phones = pickPhones([String(x.telefone || ""), ...outrosIa, ...fb.telefones], pais, eventCountry);
   const lead = {
     nome: String(x.nome || "").trim(), email: String(x.email || fb.email || "").trim().toLowerCase(),
-    telefone: String(x.telefone || fb.telefone || "").replace(/\D/g, ""), empresa: String(x.empresa || "").trim(),
+    telefone: phones.telefone, outros_telefones: phones.outros, empresa: String(x.empresa || "").trim(),
     area_atuacao: String(x.area_atuacao || "").trim(), especialidade: String(x.especialidade || "").trim(),
     cidade: String(x.cidade || "").trim(), estado: String(x.estado || "").trim(), pais: String(x.pais || "").trim(),
     endereco: String(x.endereco || "").trim(),
@@ -277,7 +291,7 @@ async function handleConfirm(session: any, text: string): Promise<Record<string,
     return await finalizeSession(session.id, "whatsapp");
   }
   const field = session.confirm_step as ConfirmField;
-  const v = validateEdit(field, text);
+  const v = validateEdit(field, text, lead.pais, await eventCountryOf(session.event_id));
   if ("error" in v) { await reply(session, v.error); return { ok: false, invalid: field }; }
   const edits = { ...(session.confirm_edits ?? {}), [field]: v.value };
   const updated = applyEdits(session.extracted ?? {}, edits);
@@ -303,7 +317,7 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
     const raw: any = stored ? applyEdits(session.extracted, session.confirm_edits) : await buildLead(session, list);
     const lead = {
       ...raw, nome: String(raw.nome ?? "").trim(), email: String(raw.email ?? "").trim().toLowerCase(),
-      telefone: String(raw.telefone ?? "").replace(/\D/g, ""), produtos: Array.isArray(raw.produtos) ? raw.produtos : [],
+      telefone: normalizeCapturePhone(String(raw.telefone ?? ""), raw.pais, await eventCountryOf(session.event_id)), produtos: Array.isArray(raw.produtos) ? raw.produtos : [],
       empresa: String(raw.empresa ?? ""), resumo: String(raw.resumo ?? ""),
     };
     if (!hasContact(lead)) throw new Error("sem telefone e sem e-mail");
@@ -325,6 +339,7 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
     const responses: { label: string; value: string }[] = [];
     const push = (label: string, value: unknown) => { const v = String(value ?? "").trim(); if (v) responses.push({ label, value: v.slice(0, 4000) }); };
     push("Nome", lead.nome); push("Celular", lead.telefone ? `+${lead.telefone}` : ""); push("E-mail", lead.email);
+    push("Outros telefones", (Array.isArray(lead.outros_telefones) ? lead.outros_telefones : []).filter((t: string) => t && t !== lead.telefone).map((t: string) => `+${t}`).join(", "));
     push("Empresa", lead.empresa); push("Área de atuação", lead.area_atuacao); push("Especialidade", lead.especialidade);
     push("Endereço", lead.endereco); push("Cidade", lead.cidade); push("Estado", lead.estado); push("País", lead.pais);
     push("Produtos de interesse", lead.produtos.join(", "));
@@ -343,7 +358,8 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
     const payload: Record<string, unknown> = {
       source: "form", form_name: form.name, form_id: form.id, form_purpose: purpose, event_id: ev.id,
       nome: lead.nome || lead.email || lead.telefone,
-      ...(lead.telefone.length >= 10 ? { telefone_raw: lead.telefone } : {}),
+      // "telefone" é a chave que o cadastro lê; o número vai com "+" e código do país para não virar DDD brasileiro.
+      ...(lead.telefone.length >= 10 ? { telefone: `+${lead.telefone}`, telefone_raw: `+${lead.telefone}` } : {}),
       ...(lead.email.includes("@") ? { email: lead.email } : {}),
       ...(lead.area_atuacao ? { area_atuacao: lead.area_atuacao } : {}),
       ...(lead.especialidade ? { especialidade: lead.especialidade } : {}),
