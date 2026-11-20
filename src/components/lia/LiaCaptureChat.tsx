@@ -343,8 +343,10 @@ export default function LiaCaptureChat({ formId, campaign, product, productId = 
       if (step === "phone") {
         const digits = text.replace(/\D/g, "");
         if (digits.length < 10) { await say("Esse número parece incompleto. Pode enviar com DDD? Ex.: 16 99999-9999"); return; }
-        const r = await call({ action: "lookup", phone: digits });
-        const identity = { ...data, phone: digits };
+        // Mantém o "+" digitado: o código do país explícito vale; sem ele, o servidor usa o país do evento.
+        const phone = text.trim().startsWith("+") ? `+${digits}` : digits;
+        const r = await call({ action: "lookup", phone, form_id: ctx.form_id });
+        const identity = { ...data, phone };
         setData(identity);
         if (r?.found && r.has_email && r.has_name) await proceed(identity, r.first_name);
         else {
@@ -360,7 +362,7 @@ export default function LiaCaptureChat({ formId, campaign, product, productId = 
       } else if (step === "email") {
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text)) { await say("Esse e-mail não parece válido. Pode conferir?"); return; }
         const identity = { ...data, email: text.toLowerCase() };
-        const r = await call({ action: "lookup", phone: identity.phone, email: identity.email });
+        const r = await call({ action: "lookup", phone: identity.phone, email: identity.email, form_id: ctx.form_id });
         setData(identity);
         if (r?.found && r.has_name) await proceed(identity, r.first_name);
         else { setStep("name"); await say("E como você se chama?"); }

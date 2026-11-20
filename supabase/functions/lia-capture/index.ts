@@ -6,6 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
+import { countryCode, normalizePhoneForCountry } from "../_shared/phone-country.ts";
 import { buildKnownAnswers, filterPending, hasAnswer, normLabel } from "./qualification.ts";
 import { syncFormNote } from "../_shared/form-note-sync.ts";
 import { COMMERCIAL_TYPES, resolveFormProduct } from "../_shared/form-product.ts";
@@ -38,8 +39,16 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 const digits = (v: unknown) => String(v ?? "").replace(/\D/g, "");
-function normPhone(v: unknown) {
-  return digits(normalizeBrazilianPhone(str(v, 40)));
+/** Telefone digitado no chat. Em evento fora do Brasil, número sem "+" recebe o código do país do evento
+ *  (senão um número dos EUA virava +7…/DDD inexistente); celular brasileiro com DDD + 9 continua Brasil. */
+function normPhone(v: unknown, eventCountry = "") {
+  const raw = str(v, 40);
+  const cc = countryCode(eventCountry);
+  if (cc && cc !== "55" && !raw.startsWith("+")) {
+    const d = normalizePhoneForCountry(raw, "", eventCountry);
+    if (d) return d;
+  }
+  return digits(normalizeBrazilianPhone(raw));
 }
 const str = (v: unknown, max = 300) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 // Nomes provisórios ("Nome não informado", "Sem nome", "Lead") não contam como nome real.
@@ -373,6 +382,21 @@ async function syncKolExpansion(leadId: string, formId: string, origin: string) 
   } catch (e) { console.error("[lia-capture] kol expansion sync failed", e); }
 }
 
+/** País do evento ligado ao formulário (ou à tabela promocional dele), para completar o código do país. */
+async function formEventCountry(body: any): Promise<string> {
+  const formId = isUuid(body?.form_id) ? body.form_id : null;
+  if (!formId) return "";
+  const { data: f } = await sb.from("smartops_forms").select("event_id, promotional_table_id").eq("id", formId).maybeSingle();
+  let eventId = (f as any)?.event_id ?? null;
+  if (!eventId && (f as any)?.promotional_table_id) {
+    const { data: t } = await sb.from("promotional_tables").select("event_id").eq("id", (f as any).promotional_table_id).maybeSingle();
+    eventId = (t as any)?.event_id ?? null;
+  }
+  if (!eventId) return "";
+  const { data: e } = await sb.from("smartops_events").select("country").eq("id", eventId).maybeSingle();
+  return String((e as any)?.country ?? "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method" }, 405);
@@ -384,7 +408,7 @@ Deno.serve(async (req) => {
     if (action === "context") return json(await resolveContext(body));
 
     if (action === "lookup") {
-      const phone = normPhone(body.phone);
+      const phone = normPhone(body.phone, await formEventCountry(body));
       const email = str(body.email, 200).toLowerCase();
       const row = await findLead(phone, email);
       return json({ found: !!row && !("ambiguous" in row), ambiguous: !!row && "ambiguous" in row, first_name: realName(row?.nome) ? realName(row?.nome).split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!realName(row?.nome),
@@ -393,7 +417,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create") {
-      const phone = normPhone(body.phone);
+      const phone = normPhone(body.phone, await formEventCountry(body));
       const providedEmail = str(body.email, 200).toLowerCase();
       const existing = await findLead(phone, providedEmail);
       if (existing && "ambiguous" in existing) return json({ error: "Confirme seu e-mail para identificar o cadastro correto." }, 409);
