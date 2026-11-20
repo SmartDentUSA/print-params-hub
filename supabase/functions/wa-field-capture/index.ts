@@ -389,7 +389,12 @@ async function handleInbox(inboxId: string) {
     if (session) { await db.from("field_capture_sessions").update({ status: "cancelled" }).eq("id", session.id); await reply(session, "Captura cancelada."); }
     return { ok: true, cancelled: !!session };
   }
-  if (!session && cmd?.kind !== "start") return { ignored: "no_start_word" }; // só AUTO abre captura
+  if (!session && (cmd?.kind === "end" || cmd?.kind === "cancel")) {
+    // FIM/CANCELAR sem captura aberta: explica em vez de ficar em silêncio.
+    await reply({ account_id: accountId, conversation_id: conversationId }, "Não há captura aberta. Mande *AUTO* para começar uma.");
+    return { ignored: "no_session", cmd: cmd.kind };
+  }
+  if (!session && cmd?.kind !== "start") return { ignored: "no_start_word" }; // só AUTO abre captura; o resto é conversa normal
   if (session && cmd?.kind === "start") {
     const { count } = await db.from("field_capture_items").select("id", { count: "exact", head: true }).eq("session_id", session.id).neq("kind", "text");
     const n = count ?? 0;
@@ -421,18 +426,15 @@ async function handleInbox(inboxId: string) {
   if (session.confirm_step && session.status === "collecting") {
     if (msg.media_url) {
       await db.from("field_capture_sessions").update({ confirm_step: null }).eq("id", session.id);
-      session.confirm_step = null;
-      await reply(session, "📎 Arquivo adicionado. Mande *FIM* para eu ler de novo e você conferir os dados.");
+      session.confirm_step = null; // o retorno do arquivo (abaixo) já pede FIM para conferir de novo
     } else if (cmd?.kind !== "end") {
       return await handleConfirm(session, text);
     }
   }
 
   if (cmd?.kind === "type") {
-    if (session.capture_type !== cmd.type) {
-      await db.from("field_capture_sessions").update({ capture_type: cmd.type }).eq("id", session.id);
-      await reply(session, `Tipo: *${TYPE_LABEL[cmd.type]}*. Mande os arquivos e termine com *FIM*.`);
-    }
+    if (session.capture_type !== cmd.type) await db.from("field_capture_sessions").update({ capture_type: cmd.type }).eq("id", session.id);
+    await reply(session, `Tipo: *${TYPE_LABEL[cmd.type]}*. Mande os arquivos e termine com *FIM*.`);
     return { ok: true, type: cmd.type };
   }
   if (cmd?.kind === "end") {
@@ -448,10 +450,14 @@ async function handleInbox(inboxId: string) {
     text_content: kind === "text" ? text.slice(0, 8000) : (text || null),
   }).select("id").single();
   if (itemErr) return { ignored: "duplicate" };
-  if (kind === "text") return { ok: true, item: item.id };
+  const closing = session.status === "processing"; // entrega atrasada: o lead já está sendo criado, não pedir FIM de novo
+  if (kind === "text") {
+    if (!closing) await reply(session, `📝 Anotação adicionada.${session.capture_type ? "" : `\n\n${MENU}`}\nMande mais arquivos ou *FIM* para conferir os dados.`);
+    return { ok: true, item: item.id };
+  }
 
   const media = await downloadMedia(msg.media_url!);
-  if (!media) { await db.from("field_capture_items").update({ error: "download falhou" }).eq("id", item.id); await reply(session, "⚠️ Não consegui baixar um dos arquivos. Reenvie, por favor."); return { ok: false }; }
+  if (!media) { await db.from("field_capture_items").update({ error: "download falhou" }).eq("id", item.id); if (!closing) await reply(session, "⚠️ Não consegui baixar um dos arquivos. Reenvie, por favor."); return { ok: false }; }
   const mime = media.mime || String(msg.media_type ?? "") || "application/octet-stream";
   const upd: Record<string, unknown> = { mime_type: mime };
   try {
@@ -468,7 +474,8 @@ async function handleInbox(inboxId: string) {
   const what = kind === "image" ? (upd.transcript ? "📸 Foto recebida e lida." : "📸 Foto recebida (sem texto legível).")
     : kind === "audio" ? (upd.transcript ? "🎤 Áudio recebido e transcrito." : "🎤 Áudio recebido (não consegui transcrever).")
     : kind === "video" ? "🎬 Vídeo recebido." : "📎 Arquivo recebido.";
-  await reply(session, `${what}${session.capture_type ? "" : `\n\n${MENU}`}\nMande mais arquivos ou *FIM* para conferir os dados.`);
+  const driveWarn = String(upd.error ?? "").includes("Drive") ? "\n⚠️ Não consegui salvar este arquivo no Drive; ele segue na captura." : "";
+  if (!closing) await reply(session, `${what}${driveWarn}${session.capture_type ? "" : `\n\n${MENU}`}\nMande mais arquivos ou *FIM* para conferir os dados.`);
   return { ok: true, item: item.id };
 }
 
