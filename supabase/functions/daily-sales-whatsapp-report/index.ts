@@ -6,16 +6,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 const RECIPIENTS = ["5519992612348", "5516991870988"]; // Danilo Henrique, Marcelo Del Guerra
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-const brl = (n: number) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-export function buildText(r: any): string {
-  const [y, m, d] = String(r.day).split("-");
-  const lines = [`*Resumo Smart Dent - ${d}/${m}/${y}*`, "", `*Leads gerados hoje: ${r.leads_total}*`];
-  for (const o of r.leads_by_origin ?? []) lines.push(`- ${o.origem}: ${o.total}`);
-  lines.push("", `*Ganhos hoje:* ${brl(r.won_day_value)} (${r.won_day_count} negócios)`,
-    `*Ganhos no mês (01 a ${d}/${m}):* ${brl(r.won_month_value)} (${r.won_month_count} negócios)`);
-  return lines.join("\n");
-}
+import { buildText } from "./logic.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
