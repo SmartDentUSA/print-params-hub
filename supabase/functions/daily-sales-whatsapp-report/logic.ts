@@ -31,7 +31,10 @@ export function buildText(r: any): string {
   const lines = [`📊 *Resumo Smart Dent* · ${d}/${m}/${y}`, "", `👥 *Leads hoje:* ${r.leads_total}`];
   for (const [o, n] of top) lines.push(`   ▫️ ${o}: ${n}`);
   if (rest) lines.push(`   ▫️ Outras: ${rest}`);
-  lines.push(`📅 *Leads no mês:* ${r.leads_month_total ?? 0}`, "",
+  const ltv = Number(r.leads_month_ltv ?? 0);
+  lines.push(`📅 *Leads no mês:* ${r.leads_month_total ?? 0}`,
+    `   🆕 Novos: ${Number(r.leads_month_total ?? 0) - ltv}`,
+    `   💎 Já clientes (com LTV): ${ltv} · ${brl(r.leads_month_ltv_value)}`, "",
     `💰 *Ganhos hoje:* ${brl(r.won_day_value)} (${r.won_day_count})`,
     `🏆 *Ganhos no mês:* ${brl(r.won_month_value)} (${r.won_month_count})`, "", `_Mês até ${d}/${m}_`);
   return lines.join("\n");
