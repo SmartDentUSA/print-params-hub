@@ -12,9 +12,8 @@ Deno.test("mensagem traz leads do mês e junta origens iguais", () => {
   assertStringIncludes(t, "CRM (PipeRun): 7");
 });
 
-Deno.test("separa leads do mês com LTV", () => {
-  const t = buildText({ day: "2026-11-21", leads_total: 0, leads_month_total: 100, leads_month_ltv: 30, leads_month_ltv_value: 5000,
+Deno.test("mostra leads e negócios de origem LTV do mês", () => {
+  const t = buildText({ day: "2026-11-21", leads_total: 0, leads_month_total: 100, ltv_month_leads: 40, ltv_month_deals: 45,
     won_day_value: 0, won_day_count: 0, won_month_value: 0, won_month_count: 0, leads_by_origin: [] });
-  assertStringIncludes(t, "Novos: 70");
-  assertStringIncludes(t, "Já clientes (com LTV): 30");
+  assertStringIncludes(t, "LTV (recompra) no mês:* 40 leads · 45 negócios");
 });
