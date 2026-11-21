@@ -39351,6 +39351,7 @@ export type Database = {
         Args: { p_kind: string; p_name: string }
         Returns: string
       }
+      fn_daily_sales_report: { Args: { p_day?: string }; Returns: Json }
       fn_deal_closed_mes: { Args: { closed_at: string }; Returns: string }
       fn_deal_num: { Args: { t: string }; Returns: number }
       fn_deal_won_at: {

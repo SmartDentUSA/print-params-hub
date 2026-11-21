@@ -751,3 +751,6 @@ verify_jwt = false
 
 [functions.wa-field-capture]
 verify_jwt = false
+
+[functions.daily-sales-whatsapp-report]
+verify_jwt = false
