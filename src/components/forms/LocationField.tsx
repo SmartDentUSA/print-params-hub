@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Country, State, City } from "country-state-city";
+import { Country, State } from "country-state-city";
+import { useCitiesOfState } from "@/hooks/useCitiesOfState";
 import { Input } from "@/components/ui/input";
 import { Combobox, resolveCountry } from "@/components/smartops/DistributorForm";
 import type { LocationAnswer } from "@/lib/locationAnswer";
@@ -12,7 +13,7 @@ export function LocationField({ value, onChange }: { value: LocationAnswer | nul
   const country = useMemo(() => resolveCountry(v.pais), [v.pais]);
   const states = useMemo(() => (country ? State.getStatesOfCountry(country.isoCode) : []), [country]);
   const state = useMemo(() => states.find((s) => s.name === v.estado), [states, v.estado]);
-  const cities = useMemo(() => (country && state ? City.getCitiesOfState(country.isoCode, state.isoCode) : []), [country, state]);
+  const cities = useCitiesOfState(state ? country?.isoCode : undefined, state?.isoCode);
 
   return (
     <div className="grid grid-cols-1 gap-2 md:grid-cols-3">

@@ -6,6 +6,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  isChunk: boolean;
 }
 
 const RELOAD_FLAG = "__chunk_reload_attempted__";
@@ -26,14 +27,17 @@ function isChunkLoadError(error: unknown): boolean {
 }
 
 export class ChunkErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, isChunk: false };
 
   static getDerivedStateFromError(error: unknown): State {
-    return { hasError: isChunkLoadError(error) ? true : true };
+    return { hasError: true, isChunk: isChunkLoadError(error) };
   }
 
   componentDidCatch(error: unknown) {
-    if (!isChunkLoadError(error)) return;
+    if (!isChunkLoadError(error)) {
+      console.error("[ChunkErrorBoundary] erro ao exibir a página", error);
+      return;
+    }
     try {
       const last = Number(sessionStorage.getItem(RELOAD_FLAG) || 0);
       const now = Date.now();
@@ -62,9 +66,13 @@ export class ChunkErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen flex items-center justify-center bg-background p-6">
           <div className="max-w-md text-center space-y-4">
-            <h1 className="text-xl font-semibold">Atualizando para a versão mais recente…</h1>
+            <h1 className="text-xl font-semibold">
+              {this.state.isChunk ? "Atualizando para a versão mais recente…" : "Não foi possível abrir esta página"}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Acabamos de publicar uma atualização. Recarregue a página para continuar.
+              {this.state.isChunk
+                ? "Acabamos de publicar uma atualização. Recarregue a página para continuar."
+                : "Ocorreu um erro inesperado. Recarregue a página para tentar de novo."}
             </p>
             <button
               onClick={this.handleManualReload}

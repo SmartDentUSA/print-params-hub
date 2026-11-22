@@ -10,7 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Building2, ChevronsUpDown, Check, Upload, X } from "lucide-react";
-import { Country, State, City } from "country-state-city";
+import { Country, State } from "country-state-city";
+import { useCitiesOfState } from "@/hooks/useCitiesOfState";
 import { cn } from "@/lib/utils";
 import { CANONICAL_CATS, CHIP_KEYS, normCat, AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
 import { toast } from "sonner";
@@ -392,13 +393,7 @@ export function DistributorForm({
         : undefined,
     [selectedCountry, form.estado, statesList]
   );
-  const citiesList = useMemo(
-    () =>
-      selectedCountry && selectedState
-        ? City.getCitiesOfState(selectedCountry.isoCode, selectedState.isoCode)
-        : [],
-    [selectedCountry, selectedState]
-  );
+  const citiesList = useCitiesOfState(selectedState ? selectedCountry?.isoCode : undefined, selectedState?.isoCode);
 
   const previewLogoUrl =
     form.logo_url === "__pending__" ? localLogoPreview : (form.logo_url || null);
