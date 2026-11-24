@@ -74,3 +74,13 @@ export function buildResponses(kind: LojaKind, o: OrderInfo, produto: string | n
     ...(o.cupom ? [{ label: "Cupom", value: o.cupom }] : []),
   ];
 }
+
+// Regra de dono: ganho no CS (funil 83896) nos últimos 30 dias → mesmo vendedor; senão sorteio.
+export const CS_PIPELINE_ID = 83896;
+export const CS_WIN_WINDOW_MS = 30 * 86400000;
+export interface CsWin { owner_id: number | null; closed_at: string | null }
+export function recentCsWinOwner(wins: CsWin[], now: number): number | null {
+  const ok = wins.filter((w) => w.closed_at && Number(w.owner_id) > 0 && now - Date.parse(w.closed_at) <= CS_WIN_WINDOW_MS && Date.parse(w.closed_at) <= now)
+    .sort((a, b) => Date.parse(b.closed_at!) - Date.parse(a.closed_at!));
+  return ok.length ? Number(ok[0].owner_id) : null;
+}

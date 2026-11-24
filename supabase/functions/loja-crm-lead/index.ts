@@ -4,7 +4,7 @@
 // Modos: { mode: "cancel", lead_id, order } (chamado pelo webhook) | { mode: "scan" } (reconciler).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
-  ABANDON_AFTER_MS, buildResponses, CatalogRow, LOJA_ORIGINS, LojaKind, OrderInfo, pickInterest, submissionKey,
+  ABANDON_AFTER_MS, buildResponses, CS_PIPELINE_ID, recentCsWinOwner, CatalogRow, LOJA_ORIGINS, LojaKind, OrderInfo, pickInterest, submissionKey,
 } from "./logic.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type" };
@@ -51,6 +51,17 @@ async function process(kind: LojaKind, leadId: string, o: OrderInfo) {
   }
   if (!L.email && !L.telefone_normalized) return { skipped: "sem_email_telefone", key };
 
+  // Ganho no CS nos últimos 30 dias → mesmo vendedor; senão sorteio normal.
+  let csSellerId: string | null = null;
+  const { data: wins } = await sb.from("deals").select("owner_id, closed_at")
+    .eq("lead_id", L.id).eq("pipeline_id", CS_PIPELINE_ID).eq("status", "ganha").not("closed_at", "is", null)
+    .order("closed_at", { ascending: false }).limit(20);
+  const csOwner = recentCsWinOwner((wins ?? []) as any, Date.now());
+  if (csOwner) {
+    const { data: tm } = await sb.from("team_members").select("id, ativo").eq("piperun_owner_id", csOwner).eq("ativo", true).limit(1).maybeSingle();
+    csSellerId = tm?.id ?? null;
+  }
+
   const cat = await catalog();
   const { produto, categorias } = pickInterest(o.itens, cat);
   const origin = LOJA_ORIGINS[kind];
@@ -62,6 +73,7 @@ async function process(kind: LojaKind, leadId: string, o: OrderInfo) {
     ...(produto ? { produto_interesse: produto } : {}),
     utm_source: "loja_integrada", utm_medium: kind === "carrinho" ? "carrinho_abandonado" : "pedido_cancelado", utm_campaign: origin,
     form_responses: responses, submission_id: key,
+    ...(csSellerId ? { event_consultant_team_member_id: csSellerId } : {}),
   };
   const r = await fetch(`${URL_}/functions/v1/smart-ops-ingest-lead`, {
     method: "POST", headers: { "Content-Type": "application/json", apikey: ANON, Authorization: `Bearer ${ANON}` },
@@ -83,7 +95,7 @@ async function process(kind: LojaKind, leadId: string, o: OrderInfo) {
     method: "POST", headers: { "Content-Type": "application/json", apikey: ANON, Authorization: `Bearer ${ANON}` },
     body: JSON.stringify({ lead_id: out.lead_id, form_name: origin, responses }),
   }).catch((e) => console.warn("[loja-crm-lead] nota", e));
-  return { ok: true, key, lead_id: out.lead_id, produto, categorias };
+  return { ok: true, key, lead_id: out.lead_id, produto, categorias, cs_seller: csSellerId };
 }
 
 async function orderDetails(leadId: string, pedido: string) {

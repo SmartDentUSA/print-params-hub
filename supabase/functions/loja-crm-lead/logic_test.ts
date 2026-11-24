@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { LOJA_ORIGINS, isAbandoned, pickInterest, submissionKey, ABANDON_AFTER_MS } from "./logic.ts";
+import { recentCsWinOwner, LOJA_ORIGINS, isAbandoned, pickInterest, submissionKey, ABANDON_AFTER_MS } from "./logic.ts";
 
 const catalog = [
   { name: "Resina 3D Smart Print Model Plus", product_category: "Resinas", product_subcategory: "Modelos" },
@@ -27,4 +27,15 @@ Deno.test("categoria e produto de maior valor", () => {
   ], catalog);
   assertEquals(r.produto, "SmartMake Seal Glaze");
   assertEquals(r.categorias, ["Caracterização › Glaze", "Resinas › Modelos"]);
+});
+
+const NOW = Date.parse("2026-11-24T12:00:00Z");
+Deno.test("ganho no CS há 10 dias fica com o mesmo vendedor", () => {
+  assertEquals(recentCsWinOwner([{ owner_id: 77, closed_at: "2026-11-14T12:00:00Z" }], NOW), 77);
+});
+Deno.test("ganho no CS há 31 dias vai para sorteio", () => {
+  assertEquals(recentCsWinOwner([{ owner_id: 77, closed_at: "2026-10-24T11:00:00Z" }], NOW), null);
+});
+Deno.test("vários ganhos: vale o mais recente", () => {
+  assertEquals(recentCsWinOwner([{ owner_id: 1, closed_at: "2026-11-01T00:00:00Z" }, { owner_id: 2, closed_at: "2026-11-20T00:00:00Z" }], NOW), 2);
 });
