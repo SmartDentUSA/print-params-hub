@@ -4,4 +4,4 @@
 - [x] AUTO: adicionar venda direta do evento com vendedor remetente no Funil de Vendas (mesmo formulário/fluxo de visitantes; 16 testes aprovados e função publicada)
 - [x] Venda direta confirmada: reutilizar exatamente o fluxo do formulário de leads do evento
 - [x] AUTO: cadastrar distribuidores pelo formulário de distribuição do evento (preserva o destino atual de distribuição)
-- [ ] AUTO: oportunidades de distribuição — aguarda confirmação se a resposta sobre Vendas também vale para esta opção
+- [x] AUTO: opção 6 oportunidades de distribuição usa o mesmo formulário e fluxo de cadastro de leads de distribuição (17 testes aprovados e função publicada; envio real pelo WhatsApp não verificado)

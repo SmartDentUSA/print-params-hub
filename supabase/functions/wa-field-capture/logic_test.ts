@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { parseCommand, extractFallback, opportunityName, fileName, captureRouting } from "./logic.ts";
+import { parseCommand, extractFallback, opportunityName, fileName, captureRouting, captureFormPurpose } from "./logic.ts";
 
 Deno.test("FIM fecha a captura; texto comum é anotação", () => {
   assertEquals(parseCommand("fim"), { kind: "end" });
@@ -37,6 +37,16 @@ Deno.test("venda direta sem remetente não pode ser encaminhada por sorteio", ()
   let rejected = false;
   try { captureRouting("venda_direta", null); } catch { rejected = true; }
   assertEquals(rejected, true);
+});
+
+Deno.test("opção 6 segue o mesmo formulário e fluxo do cadastro de leads de distribuição", () => {
+  assertEquals(parseCommand("6"), { kind: "type", type: "oportunidade_distribuicao" });
+  assertEquals(parseCommand("Oportunidade de distribuição"), { kind: "type", type: "oportunidade_distribuicao" });
+  assertEquals(captureFormPurpose("oportunidade_distribuicao"), "distribuicao");
+  assertEquals(captureFormPurpose("distribuicao"), "distribuicao");
+  const sender = { id: "remetente", nome_completo: "Vendedor" };
+  assertEquals(captureRouting("oportunidade_distribuicao", sender), { formPurpose: "distribuicao", consultant: {} });
+  assertEquals(captureRouting("oportunidade_distribuicao", sender), captureRouting("distribuicao", sender));
 });
 
 Deno.test("fallback lê e-mail e telefone do texto", () => {

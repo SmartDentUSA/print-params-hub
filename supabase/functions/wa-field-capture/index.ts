@@ -17,7 +17,7 @@ import { PRODUCT_CATALOG_ENTITY_TYPES } from "./catalog-types.ts";
 import {
   parseCommand, type CaptureType, extractFallback, opportunityName, fileName,
   parseConfirmChoice, validateEdit, applyEdits, hasContact, confirmSummary, EDIT_PROMPT, type ConfirmField,
-  contactCard, type ContactCard, pickPhones, normalizeCapturePhone, captureRouting,
+  contactCard, type ContactCard, pickPhones, normalizeCapturePhone, captureRouting, captureFormPurpose,
 } from "./logic.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -32,8 +32,8 @@ const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: fal
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const TYPE_LABEL: Record<CaptureType, string> = { lead: "Cadastro de lead do evento", kol: "KOL evento", oportunidade: "Oportunidade do evento", venda_direta: "Lead para venda direta do evento", distribuicao: "Cadastro de distribuidores" };
-const MENU = "Responda com o tipo:\n1 - Cadastrar lead do evento\n2 - KOL do evento\n3 - Oportunidade do evento\n4 - Lead para venda direta do evento\n5 - Cadastrar distribuidores\n\nDepois mande cartões, áudios, fotos e vídeos e termine com *FIM*. Para desistir: *CANCELAR*.";
+const TYPE_LABEL: Record<CaptureType, string> = { lead: "Cadastro de lead do evento", kol: "KOL evento", oportunidade: "Oportunidade do evento", venda_direta: "Lead para venda direta do evento", distribuicao: "Cadastro de distribuidores", oportunidade_distribuicao: "Oportunidade de distribuição do evento" };
+const MENU = "Responda com o tipo:\n1 - Cadastrar lead do evento\n2 - KOL do evento\n3 - Oportunidade do evento\n4 - Lead para venda direta do evento\n5 - Cadastrar distribuidores\n6 - Cadastrar oportunidades de distribuição nos eventos\n\nDepois mande cartões, áudios, fotos e vídeos e termine com *FIM*. Para desistir: *CANCELAR*.";
 
 async function reply(session: { account_id: string; conversation_id: string | null }, text: string) {
   const key = Deno.env.get("ZERNIO_API_KEY");
@@ -176,7 +176,7 @@ async function formFor(type: CaptureType, event: { id: string; name: string }) {
     if (error) throw new Error(`formulário de oportunidade: ${error.message}`);
     return c;
   }
-  const purpose = type === "kol" ? "kol_expansao" : type === "distribuicao" ? "distribuicao" : "feira_evento";
+  const purpose = captureFormPurpose(type);
   const { data: f } = await db.from("smartops_forms").select("id, name").eq("event_id", event.id).eq("form_purpose", purpose)
     .order("active", { ascending: false }).order("created_at", { ascending: true }).limit(1).maybeSingle();
   return f;

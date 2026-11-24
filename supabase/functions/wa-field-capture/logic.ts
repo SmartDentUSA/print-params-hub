@@ -1,6 +1,6 @@
 // Regras puras da captura WhatsApp (testáveis).
 import { countryCode, normalizePhoneForCountry } from "../_shared/phone-country.ts";
-export type CaptureType = "lead" | "kol" | "oportunidade" | "venda_direta" | "distribuicao";
+export type CaptureType = "lead" | "kol" | "oportunidade" | "venda_direta" | "distribuicao" | "oportunidade_distribuicao";
 export type Command = { kind: "type"; type: CaptureType } | { kind: "end" } | { kind: "cancel" } | { kind: "start" };
 
 /** Palavra que abre uma captura; sem ela, mensagens da equipe são conversa normal. */
@@ -20,13 +20,22 @@ export function parseCommand(text: string): Command | null {
   if (t === "3" || t === "OPORTUNIDADE") return { kind: "type", type: "oportunidade" };
   if (t === "4" || t === "VENDA DIRETA") return { kind: "type", type: "venda_direta" };
   if (t === "5" || t === "DISTRIBUIDOR" || t === "DISTRIBUIDORES" || t === "DISTRIBUICAO") return { kind: "type", type: "distribuicao" };
+  if (t === "6" || t === "OPORTUNIDADE DE DISTRIBUICAO" || t === "OPORTUNIDADES DE DISTRIBUICAO") return { kind: "type", type: "oportunidade_distribuicao" };
   return null;
+}
+
+/** Uma única definição governa a seleção do formulário e o propósito enviado à ingestão. */
+export function captureFormPurpose(type: CaptureType) {
+  if (type === "lead" || type === "venda_direta") return "feira_evento";
+  if (type === "kol") return "kol_expansao";
+  if (type === "distribuicao" || type === "oportunidade_distribuicao") return "distribuicao";
+  return "oportunidade_evento";
 }
 
 /** Venda direta reaproveita o cadastro de visitantes; distribuição nunca entra no fluxo de Vendas. */
 export function captureRouting(type: CaptureType, sender?: { id: string; nome_completo: string } | null) {
   const eventSales = type === "lead" || type === "venda_direta";
-  const formPurpose = eventSales ? "feira_evento" : type === "kol" ? "kol_expansao" : type === "distribuicao" ? "distribuicao" : "oportunidade_evento";
+  const formPurpose = captureFormPurpose(type);
   if (eventSales && !sender) throw new Error("Vendedor remetente não encontrado");
   return {
     formPurpose,

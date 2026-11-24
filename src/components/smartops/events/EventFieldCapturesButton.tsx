@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Loader2, MessageSquareText, RefreshCw, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
-const TYPE: Record<string, string> = { lead: "Lead do evento", kol: "KOL evento", oportunidade: "Oportunidade", venda_direta: "Venda direta do evento", distribuicao: "Cadastro de distribuidores" };
+const TYPE: Record<string, string> = { lead: "Lead do evento", kol: "KOL evento", oportunidade: "Oportunidade", venda_direta: "Venda direta do evento", distribuicao: "Cadastro de distribuidores", oportunidade_distribuicao: "Oportunidade de distribuição" };
 const STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   collecting: { label: "Recebendo", variant: "outline" },
   processing: { label: "Processando", variant: "secondary" },

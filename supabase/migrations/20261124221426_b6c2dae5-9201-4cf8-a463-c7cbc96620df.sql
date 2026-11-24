@@ -1,0 +1,2 @@
+ALTER TABLE public.field_capture_sessions DROP CONSTRAINT field_capture_sessions_capture_type_check;
+ALTER TABLE public.field_capture_sessions ADD CONSTRAINT field_capture_sessions_capture_type_check CHECK (capture_type IN ('lead', 'kol', 'oportunidade', 'venda_direta', 'distribuicao', 'oportunidade_distribuicao'));
