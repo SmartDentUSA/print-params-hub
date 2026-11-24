@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { parseCommand, extractFallback, opportunityName, fileName } from "./logic.ts";
+import { parseCommand, extractFallback, opportunityName, fileName, captureRouting } from "./logic.ts";
 
 Deno.test("FIM fecha a captura; texto comum é anotação", () => {
   assertEquals(parseCommand("fim"), { kind: "end" });
@@ -12,6 +12,31 @@ Deno.test("tipos: 1/LEAD, 2/KOL, 3/OPORTUNIDADE", () => {
   assertEquals(parseCommand("kol"), { kind: "type", type: "kol" });
   assertEquals(parseCommand("Oportunidade"), { kind: "type", type: "oportunidade" });
   assertEquals(parseCommand("CANCELAR"), { kind: "cancel" });
+});
+
+Deno.test("venda direta segue o formulário de leads do evento com o vendedor remetente", () => {
+  assertEquals(parseCommand("4"), { kind: "type", type: "venda_direta" });
+  assertEquals(parseCommand("Venda direta"), { kind: "type", type: "venda_direta" });
+  const sender = { id: "vendedor-remetente", nome_completo: "Vendedor do evento" };
+  assertEquals(captureRouting("venda_direta", sender), {
+    formPurpose: "feira_evento",
+    consultant: { event_consultant_team_member_id: "vendedor-remetente", proprietario_lead_crm: "Vendedor do evento" },
+  });
+  assertEquals(captureRouting("lead", sender), captureRouting("venda_direta", sender));
+});
+
+Deno.test("cadastro de distribuidores usa o fluxo de distribuição, não o de Vendas", () => {
+  assertEquals(parseCommand("5"), { kind: "type", type: "distribuicao" });
+  assertEquals(parseCommand("Distribuidores"), { kind: "type", type: "distribuicao" });
+  assertEquals(captureRouting("distribuicao", { id: "remetente", nome_completo: "Vendedor" }), {
+    formPurpose: "distribuicao", consultant: {},
+  });
+});
+
+Deno.test("venda direta sem remetente não pode ser encaminhada por sorteio", () => {
+  let rejected = false;
+  try { captureRouting("venda_direta", null); } catch { rejected = true; }
+  assertEquals(rejected, true);
 });
 
 Deno.test("fallback lê e-mail e telefone do texto", () => {

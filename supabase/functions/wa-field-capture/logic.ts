@@ -1,6 +1,6 @@
 // Regras puras da captura WhatsApp (testáveis).
 import { countryCode, normalizePhoneForCountry } from "../_shared/phone-country.ts";
-export type CaptureType = "lead" | "kol" | "oportunidade";
+export type CaptureType = "lead" | "kol" | "oportunidade" | "venda_direta" | "distribuicao";
 export type Command = { kind: "type"; type: CaptureType } | { kind: "end" } | { kind: "cancel" } | { kind: "start" };
 
 /** Palavra que abre uma captura; sem ela, mensagens da equipe são conversa normal. */
@@ -8,7 +8,7 @@ export const START_WORD = "AUTO";
 
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase().replace(/[.!*]+$/g, "");
 
-/** Palavras exatas: FIM, CANCELAR, 1/LEAD, 2/KOL, 3/OPORTUNIDADE. Qualquer outro texto é anotação. */
+/** Comandos exatos; durante a conferência os números continuam sendo tratados pelo menu de edição. */
 export function parseCommand(text: string): Command | null {
   const t = norm(text);
   if (!t) return null;
@@ -18,7 +18,20 @@ export function parseCommand(text: string): Command | null {
   if (t === "1" || t === "LEAD") return { kind: "type", type: "lead" };
   if (t === "2" || t === "KOL") return { kind: "type", type: "kol" };
   if (t === "3" || t === "OPORTUNIDADE") return { kind: "type", type: "oportunidade" };
+  if (t === "4" || t === "VENDA DIRETA") return { kind: "type", type: "venda_direta" };
+  if (t === "5" || t === "DISTRIBUIDOR" || t === "DISTRIBUIDORES" || t === "DISTRIBUICAO") return { kind: "type", type: "distribuicao" };
   return null;
+}
+
+/** Venda direta reaproveita o cadastro de visitantes; distribuição nunca entra no fluxo de Vendas. */
+export function captureRouting(type: CaptureType, sender?: { id: string; nome_completo: string } | null) {
+  const eventSales = type === "lead" || type === "venda_direta";
+  const formPurpose = eventSales ? "feira_evento" : type === "kol" ? "kol_expansao" : type === "distribuicao" ? "distribuicao" : "oportunidade_evento";
+  if (eventSales && !sender) throw new Error("Vendedor remetente não encontrado");
+  return {
+    formPurpose,
+    consultant: eventSales && sender ? { event_consultant_team_member_id: sender.id, proprietario_lead_crm: sender.nome_completo } : {},
+  };
 }
 
 // ---------- Telefone com código do país (regra compartilhada com o chat de captura) ----------

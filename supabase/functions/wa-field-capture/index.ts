@@ -17,7 +17,7 @@ import { PRODUCT_CATALOG_ENTITY_TYPES } from "./catalog-types.ts";
 import {
   parseCommand, type CaptureType, extractFallback, opportunityName, fileName,
   parseConfirmChoice, validateEdit, applyEdits, hasContact, confirmSummary, EDIT_PROMPT, type ConfirmField,
-  contactCard, type ContactCard, pickPhones, normalizeCapturePhone,
+  contactCard, type ContactCard, pickPhones, normalizeCapturePhone, captureRouting,
 } from "./logic.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -32,8 +32,8 @@ const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: fal
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const TYPE_LABEL: Record<CaptureType, string> = { lead: "Lead do evento", kol: "KOL evento", oportunidade: "Oportunidade do evento" };
-const MENU = "Responda com o tipo:\n1 - LEAD (lead do evento)\n2 - KOL (KOL evento)\n3 - OPORTUNIDADE (oportunidade do evento)\n\nDepois mande cartões, áudios, fotos e vídeos e termine com *FIM*. Para desistir: *CANCELAR*.";
+const TYPE_LABEL: Record<CaptureType, string> = { lead: "Cadastro de lead do evento", kol: "KOL evento", oportunidade: "Oportunidade do evento", venda_direta: "Lead para venda direta do evento", distribuicao: "Cadastro de distribuidores" };
+const MENU = "Responda com o tipo:\n1 - Cadastrar lead do evento\n2 - KOL do evento\n3 - Oportunidade do evento\n4 - Lead para venda direta do evento\n5 - Cadastrar distribuidores\n\nDepois mande cartões, áudios, fotos e vídeos e termine com *FIM*. Para desistir: *CANCELAR*.";
 
 async function reply(session: { account_id: string; conversation_id: string | null }, text: string) {
   const key = Deno.env.get("ZERNIO_API_KEY");
@@ -176,7 +176,7 @@ async function formFor(type: CaptureType, event: { id: string; name: string }) {
     if (error) throw new Error(`formulário de oportunidade: ${error.message}`);
     return c;
   }
-  const purpose = type === "kol" ? "kol_expansao" : "feira_evento";
+  const purpose = type === "kol" ? "kol_expansao" : type === "distribuicao" ? "distribuicao" : "feira_evento";
   const { data: f } = await db.from("smartops_forms").select("id, name").eq("event_id", event.id).eq("form_purpose", purpose)
     .order("active", { ascending: false }).order("created_at", { ascending: true }).limit(1).maybeSingle();
   return f;
@@ -354,9 +354,9 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
     });
     push("Pasta no Drive", session.drive_folder_url);
 
-    const purpose = session.capture_type === "lead" ? "feira_evento" : session.capture_type === "kol" ? "kol_expansao" : "oportunidade_evento";
+    const routing = captureRouting(session.capture_type, tm);
     const payload: Record<string, unknown> = {
-      source: "form", form_name: form.name, form_id: form.id, form_purpose: purpose, event_id: ev.id,
+      source: "form", form_name: form.name, form_id: form.id, form_purpose: routing.formPurpose, event_id: ev.id,
       nome: lead.nome || lead.email || lead.telefone,
       // "telefone" é a chave que o cadastro lê; o número vai com "+" e código do país para não virar DDD brasileiro.
       ...(lead.telefone.length >= 10 ? { telefone: `+${lead.telefone}`, telefone_raw: `+${lead.telefone}` } : {}),
@@ -367,7 +367,7 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
       ...(lead.cidade ? { cidade: lead.cidade } : {}), ...(lead.estado ? { uf: lead.estado } : {}),
       ...(lead.endereco ? { empresa_endereco: lead.endereco } : {}),
       ...(lead.produtos[0] ? { produto_interesse: lead.produtos[0] } : {}),
-      ...(session.capture_type === "lead" && tm ? { event_consultant_team_member_id: tm.id, proprietario_lead_crm: tm.nome_completo } : {}),
+      ...routing.consultant,
       utm_source: "captura_whatsapp", utm_medium: "whatsapp_oficial", utm_campaign: ev.name,
       form_responses: responses, submission_id: session.id,
     };

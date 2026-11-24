@@ -1,3 +1,7 @@
 # Roadmap
 - [x] Captura WhatsApp Oficial (cartões/áudio/fotos) → Drive do evento + CRM (Lead do evento: dono vendedor; KOL evento 109840 e Oportunidade 109841: Beatriz); agrupa até FIM
 - [x] Tela "Capturas WhatsApp" com status e reprocessar
+- [x] AUTO: adicionar venda direta do evento com vendedor remetente no Funil de Vendas (mesmo formulário/fluxo de visitantes; 16 testes aprovados e função publicada)
+- [x] Venda direta confirmada: reutilizar exatamente o fluxo do formulário de leads do evento
+- [x] AUTO: cadastrar distribuidores pelo formulário de distribuição do evento (preserva o destino atual de distribuição)
+- [ ] AUTO: oportunidades de distribuição — aguarda confirmação se a resposta sobre Vendas também vale para esta opção

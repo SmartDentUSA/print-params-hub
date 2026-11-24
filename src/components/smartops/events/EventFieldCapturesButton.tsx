@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Loader2, MessageSquareText, RefreshCw, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
-const TYPE: Record<string, string> = { lead: "Lead do evento", kol: "KOL evento", oportunidade: "Oportunidade" };
+const TYPE: Record<string, string> = { lead: "Lead do evento", kol: "KOL evento", oportunidade: "Oportunidade", venda_direta: "Venda direta do evento", distribuicao: "Cadastro de distribuidores" };
 const STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   collecting: { label: "Recebendo", variant: "outline" },
   processing: { label: "Processando", variant: "secondary" },
@@ -54,7 +54,7 @@ export function EventFieldCapturesButton({ eventId }: { eventId: string }) {
           <DialogHeader>
             <DialogTitle>Capturas WhatsApp</DialogTitle>
             <DialogDescription>
-              A equipe envia cartões, áudios e fotos ao número oficial, escolhe 1 LEAD, 2 KOL ou 3 OPORTUNIDADE e termina com FIM.
+              Capturas recebidas pelo WhatsApp Oficial neste evento.
             </DialogDescription>
           </DialogHeader>
           {q.isLoading ? <Loader2 className="mx-auto h-5 w-5 animate-spin" /> : !q.data?.length ? (
