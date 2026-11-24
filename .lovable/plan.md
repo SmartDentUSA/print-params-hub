@@ -1,21 +1,22 @@
-# Etapa A — Menu do AUTO com 4 tipos, subtipo e origem de Distribuição
+# Leads da loja: Carrinho abandonado e Pedido cancelado no CRM
 
-Escopo: somente a etapa A do documento enviado. B e C ficam para depois da verificação de A. Funis, etapas e responsáveis não mudam; nenhuma captura real será enviada.
+## O que muda para você
+Quando um cliente da Loja Integrada abandonar um carrinho ou tiver um pedido cancelado, o sistema cadastra o lead no CRM pelo mesmo caminho dos formulários, seguindo a Regra de Ouro:
+- Origem exata: **[LOJA] - Carrinho abandonado** ou **[LOJA] - Pedido cancelado**
+- **Produto de interesse**: lido da categoria do catálogo dos produtos do carrinho/pedido
+- **Nota do lead** no PipeRun com o pedido: número, data, situação, itens (nome, quantidade, preço), categorias, valor, frete, forma de pagamento e cupom
+- Registro na linha do tempo do lead
 
-## Plano em 5 linhas
-1. Menu novo com 4 tipos (Lead, KOL, Outra oportunidade, Distribuidor); 5 e 6 deixam de ser comando e devolvem o menu; "VENDA DIRETA" e "OPORTUNIDADE DE DISTRIBUIÇÃO" continuam aceitos por texto, já definindo o subtipo.
-2. Nova coluna `subtype` nas capturas (venda_direta, padrao, distribuidor, oportunidade); antes, listo as regras atuais da tabela e informo. Capturas antigas com os tipos 4/6 seguem válidas e com rótulo.
-3. Pergunta SIM/NÃO única após o FIM (antes da conferência) para Lead ("compra direto no evento?") e Distribuidor ("já distribui?"); KOL e Oportunidade não perguntam. Venda direta é só marcador.
-4. Origem padronizada "[DISTRIBUIÇÃO] - evento" no PipeRun para negócio e pessoa novos de distribuição (pessoa existente mantém a origem); nome do evento também vem do evento do formulário, corrigindo a captura WhatsApp. Sem retroagir negócios antigos; origens de Lead/KOL/Oportunidade intactas.
-5. Rótulos novos na mensagem final, respostas do formulário, timeline e histórico de capturas; testes atualizados e publicação da função.
+## Regras
+- Regra de Ouro inalterada: se o lead já tem negócio de Vendas em etapa avançada, ganho ou CS, nada é movido; só a nota é adicionada. Se todos os negócios abertos estão em Sem contato/C1/C2/C3/SDR, cria novo negócio e o anterior vai para Estagnados (708585).
+- Cada pedido conta uma única vez (o mesmo pedido reenviado pela loja não gera nova conversão).
+- Pedido pago depois do carrinho abandonado não gera cadastro de carrinho.
+- Sem e-mail e sem telefone: não cria pessoa no CRM (regra existente).
+- Exceção autorizada à regra "e-commerce nunca cria negócio": vale só para estas duas origens.
 
 ## Detalhes técnicos
-- `wa-field-capture/logic.ts` + `index.ts`: `CaptureType = lead|kol|oportunidade|distribuicao`; `parseCommand` retorna `{type, subtype?}`; novo `confirm_step = 'subtype'`; `captureFormPurpose` mapeia lead→feira_evento (consultor = remetente), kol→kol_expansao, oportunidade→oportunidade_evento, distribuicao→distribuicao; legados venda_direta/oportunidade_distribuicao mapeados para leitura.
-- Migração: `ALTER TABLE field_capture_sessions ADD COLUMN subtype text` + CHECK; constraint de `capture_type` mantém os valores legados. Sem mudança de RLS/grants.
-- `_shared/kol-expansion.ts`: `distributionOrigin(eventName)` (máx. 190 caracteres, sem evento "[DISTRIBUIÇÃO]").
-- `distribuicao-crm-sync`: `resolveOriginId` igual ao de `kol-expansao-crm-sync`; evento por `distribuicao_event_id` ou `smartops_forms.event_id`.
-- `event_data.label` e `event_data.subtype` em `lead_activity_log` (sem mudar schema); `EventFieldCapturesButton.tsx` com os 6 rótulos.
-- Testes Deno: parseCommand (1–6, LEAD, VENDA DIRETA, DISTRIBUIDOR, OPORTUNIDADE DE DISTRIBUICAO), rótulos, distributionOrigin.
-
-## Entrega da verificação
-Texto final do menu, tabela de comandos, SQL da coluna, diff do distribuicao-crm-sync, testes passando e o que não foi feito.
+- Dois formulários de sistema inativos (form_purpose existente `sdr_captacao`, sem perguntas novas), nomes iguais às origens; ingestão via `smart-ops-ingest-lead` com `submission_id` = `loja:<tipo>:<pedido_id>`.
+- Disparo em `smart-ops-ecommerce-webhook`: cancelado no evento `order_cancelled`; carrinho abandonado conforme a definição escolhida (verificação na rodada de polling já existente, sem cron novo).
+- Categoria: itens casados com `system_a_catalog` por SKU/nome normalizado (`product_category`/`product_subcategory`); produto de interesse = nome exato do produto de maior valor; categorias listadas na nota.
+- Testes Deno para: origem, deduplicação por pedido, categoria e exclusão de carrinho convertido.
+- Atualizar memória (exceção ao Commercial Intent Guard) e AGENTS.md.
