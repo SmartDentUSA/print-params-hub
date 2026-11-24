@@ -29,7 +29,7 @@ interface Props {
   onClick: () => void;
   /** "portrait" usa proporção vertical de vídeo (9:16), ex.: depoimentos */
   thumbAspect?: 'video' | 'portrait';
-  /** Enquadra o topo sem recortar a imagem no servidor. */
+  /** Enquadra a região superior sem recortar a imagem no servidor. */
   thumbPosition?: 'center' | 'top';
   /** Exibe botão de QR Code (somente administradores) */
   showQrCode?: boolean;
@@ -135,7 +135,7 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
       <div className={`kb-cthumb-wrap${portrait ? ' kb-cthumb-portrait' : ''}`} onClick={onClick} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } }}>
         {data.imageUrl ? (
           <img
-            className={`kb-cthumb${thumbPosition === 'top' ? ' object-top' : ''}`}
+            className={`kb-cthumb${thumbPosition === 'top' ? ' object-[50%_8%]' : ''}`}
             src={getStorageImageUrl(data.imageUrl, { width: thumbW, height: imageHeight, quality: 60, resize: "cover" })}
             srcSet={[
               `${getStorageImageUrl(data.imageUrl, { width: Math.round(thumbW * 0.6), height: imageHeight === undefined ? undefined : Math.round(imageHeight * 0.6), quality: 55, resize: "cover" })} ${Math.round(thumbW * 0.6)}w`,
