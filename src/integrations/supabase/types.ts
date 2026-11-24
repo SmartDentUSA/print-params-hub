@@ -164,6 +164,27 @@ export type Database = {
         }
         Relationships: []
       }
+      _bkp_sistemab_fix_20261124: {
+        Row: {
+          bkp_at: string | null
+          pk: string | null
+          row_data: Json | null
+          tb: string | null
+        }
+        Insert: {
+          bkp_at?: string | null
+          pk?: string | null
+          row_data?: Json | null
+          tb?: string | null
+        }
+        Update: {
+          bkp_at?: string | null
+          pk?: string | null
+          row_data?: Json | null
+          tb?: string | null
+        }
+        Relationships: []
+      }
       _bkp_wa_groups_20261111: {
         Row: {
           _bkp_at: string | null
