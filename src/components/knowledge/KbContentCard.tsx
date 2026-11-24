@@ -29,6 +29,8 @@ interface Props {
   onClick: () => void;
   /** "portrait" usa proporção vertical de vídeo (9:16), ex.: depoimentos */
   thumbAspect?: 'video' | 'portrait';
+  /** Enquadra o topo sem recortar a imagem no servidor. */
+  thumbPosition?: 'center' | 'top';
   /** Exibe botão de QR Code (somente administradores) */
   showQrCode?: boolean;
 }
@@ -57,11 +59,13 @@ function formatViews(n: number | null | undefined): string {
   return `${v}`;
 }
 
-export default function KbContentCard({ data, index, buttonLabel, onClick, thumbAspect = 'video', showQrCode = false }: Props) {
+export default function KbContentCard({ data, index, buttonLabel, onClick, thumbAspect = 'video', thumbPosition = 'center', showQrCode = false }: Props) {
   const cat = getCategoryColor(data.categoryLetter);
   const portrait = thumbAspect === 'portrait';
   const thumbW = portrait ? 405 : 480;
   const thumbH = portrait ? 720 : 270;
+  // O corte central do CDN descartaria o rosto antes de object-position atuar.
+  const imageHeight = thumbPosition === 'top' ? undefined : thumbH;
   const { t } = useLanguage();
   const translatedCat = (() => {
     if (!data.categoryTk) return data.categoryName;
@@ -131,11 +135,11 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
       <div className={`kb-cthumb-wrap${portrait ? ' kb-cthumb-portrait' : ''}`} onClick={onClick} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } }}>
         {data.imageUrl ? (
           <img
-            className="kb-cthumb"
-            src={getStorageImageUrl(data.imageUrl, { width: thumbW, height: thumbH, quality: 60, resize: "cover" })}
+            className={`kb-cthumb${thumbPosition === 'top' ? ' object-top' : ''}`}
+            src={getStorageImageUrl(data.imageUrl, { width: thumbW, height: imageHeight, quality: 60, resize: "cover" })}
             srcSet={[
-              `${getStorageImageUrl(data.imageUrl, { width: Math.round(thumbW * 0.6), height: Math.round(thumbH * 0.6), quality: 55, resize: "cover" })} ${Math.round(thumbW * 0.6)}w`,
-              `${getStorageImageUrl(data.imageUrl, { width: thumbW, height: thumbH, quality: 60, resize: "cover" })} ${thumbW}w`,
+              `${getStorageImageUrl(data.imageUrl, { width: Math.round(thumbW * 0.6), height: imageHeight === undefined ? undefined : Math.round(imageHeight * 0.6), quality: 55, resize: "cover" })} ${Math.round(thumbW * 0.6)}w`,
+              `${getStorageImageUrl(data.imageUrl, { width: thumbW, height: imageHeight, quality: 60, resize: "cover" })} ${thumbW}w`,
             ].join(', ')}
             sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 300px"
             alt={data.title}

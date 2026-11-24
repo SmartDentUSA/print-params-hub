@@ -223,6 +223,7 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
               index={i}
               buttonLabel={t('kb.videos.watch')}
               thumbAspect={chip === 'ff524477-c553-4518-868e-8435e16a5c57' ? 'portrait' : 'video'}
+              thumbPosition={chip === 'all' && filtered[i].category_id === 'ff524477-c553-4518-868e-8435e16a5c57' ? 'top' : 'center'}
               onClick={() => onOpen(filtered[i].slug)}
             />
           ))
