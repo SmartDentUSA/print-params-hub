@@ -2,9 +2,14 @@
 // áudios, anotações e fotos/vídeos de produtos. Tudo até a palavra FIM vira uma captura:
 // a IA transcreve/lê, extrai os dados do lead, os arquivos vão para a pasta do evento do dia no Drive
 // e o lead entra no CRM pelo caminho oficial (smart-ops-ingest-lead) com o formulário do evento:
-//   LEAD → formulário de cadastro de leads do evento (feira_evento), dono = vendedor que enviou
-//   KOL → formulário KOL Expansão do evento (funil 109840, Beatriz)
-//   OPORTUNIDADE → formulário de sistema "oportunidade_evento" do evento (funil 109841, Beatriz)
+// Menu de 4 tipos (5 e 6 não são mais comando; capturas antigas venda_direta/oportunidade_distribuicao seguem válidas):
+//   1 LEAD → formulário de cadastro de leads do evento (feira_evento), dono = vendedor que enviou
+//            subtipo perguntado após o FIM: venda_direta | padrao (só marcador, sem efeito no funil)
+//   2 KOL → formulário KOL Expansão do evento (funil 109840, Beatriz)
+//   3 OUTRA OPORTUNIDADE → formulário de sistema "oportunidade_evento" do evento (funil 109841, Beatriz)
+//   4 DISTRIBUIDOR → formulário de distribuição do evento (Exportação 39047, Fábio 103060, origem "[DISTRIBUIÇÃO] - evento")
+//            subtipo perguntado após o FIM: distribuidor | oportunidade
+// Aliases por texto: VENDA DIRETA → lead/venda_direta; OPORTUNIDADE DE DISTRIBUIÇÃO → distribuidor/oportunidade.
 // Chamado pelo gatilho trg_dispatch_field_capture (whatsapp_inbox) com o id da mensagem já gravada;
 // age só sobre remetentes da equipe e é idempotente por wamid. Não envia nada fora da conversa do vendedor.
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -15,7 +20,7 @@ import {
 } from "../_shared/drive.ts";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "./catalog-types.ts";
 import {
-  parseCommand, type CaptureType, extractFallback, opportunityName, fileName,
+  parseCommand, type CaptureType, type StoredCaptureType, MENU, captureLabel, needsSubtype, subtypeQuestion, parseYesNo, subtypeFromAnswer, effectiveSubtype, extractFallback, opportunityName, fileName,
   parseConfirmChoice, validateEdit, applyEdits, hasContact, confirmSummary, EDIT_PROMPT, type ConfirmField,
   contactCard, type ContactCard, pickPhones, normalizeCapturePhone, captureRouting, captureFormPurpose,
 } from "./logic.ts";
@@ -32,8 +37,8 @@ const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: fal
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const TYPE_LABEL: Record<CaptureType, string> = { lead: "Cadastro de lead do evento", kol: "KOL evento", oportunidade: "Oportunidade do evento", venda_direta: "Lead para venda direta do evento", distribuicao: "Cadastro de distribuidores", oportunidade_distribuicao: "Oportunidade de distribuição do evento" };
-const MENU = "Responda com o tipo:\n1 - Cadastrar lead do evento\n2 - KOL do evento\n3 - Oportunidade do evento\n4 - Lead para venda direta do evento\n5 - Cadastrar distribuidores\n6 - Cadastrar oportunidades de distribuição nos eventos\n\nDepois mande cartões, áudios, fotos e vídeos e termine com *FIM*. Para desistir: *CANCELAR*.";
+const labelOf = (session: { capture_type?: string | null; subtype?: string | null }) =>
+  session.capture_type ? captureLabel(session.capture_type as StoredCaptureType, session.subtype as any) : "";
 
 async function reply(session: { account_id: string; conversation_id: string | null }, text: string) {
   const key = Deno.env.get("ZERNIO_API_KEY");
@@ -166,7 +171,7 @@ async function extract(material: string, products: string[]) {
   return args ? JSON.parse(args) : {};
 }
 
-async function formFor(type: CaptureType, event: { id: string; name: string }) {
+async function formFor(type: StoredCaptureType, event: { id: string; name: string }) {
   if (type === "oportunidade") {
     const { data: f } = await db.from("smartops_forms").select("id, name").eq("event_id", event.id).eq("form_purpose", "oportunidade_evento").limit(1).maybeSingle();
     if (f) return f;
@@ -263,8 +268,9 @@ async function prepareConfirmation(session: any): Promise<Record<string, unknown
     const list = await readyItems(session);
     if (!list.length) { await reply(session, "Ainda não recebi nada nesta captura. Mande cartões, áudios ou fotos e depois *FIM*."); return { ok: false, empty: true }; }
     const lead = await buildLead(session, list);
-    await db.from("field_capture_sessions").update({ extracted: lead, confirm_step: "menu", error: null }).eq("id", session.id).eq("status", "collecting");
-    await reply(session, confirmSummary(TYPE_LABEL[session.capture_type as CaptureType], lead));
+    const askSubtype = needsSubtype(session.capture_type, session.subtype);
+    await db.from("field_capture_sessions").update({ extracted: lead, confirm_step: askSubtype ? "subtype" : "menu", error: null }).eq("id", session.id).eq("status", "collecting");
+    await reply(session, askSubtype ? subtypeQuestion(session.capture_type) : confirmSummary(labelOf(session), lead));
     return { ok: true, confirming: true };
   } catch (e) {
     const msg = String((e as Error).message ?? e).slice(0, 300);
@@ -277,7 +283,15 @@ async function prepareConfirmation(session: any): Promise<Record<string, unknown
 /** Respostas do vendedor durante a conferência (menu 1–4 ou o valor corrigido). */
 async function handleConfirm(session: any, text: string): Promise<Record<string, unknown>> {
   const lead = applyEdits(session.extracted ?? {}, session.confirm_edits);
-  const label = TYPE_LABEL[session.capture_type as CaptureType];
+  if (session.confirm_step === "subtype") {
+    const yes = parseYesNo(text);
+    if (yes === null) { await reply(session, subtypeQuestion(session.capture_type)); return { ok: true, waiting: "subtype" }; }
+    session.subtype = subtypeFromAnswer(session.capture_type, yes);
+    await db.from("field_capture_sessions").update({ subtype: session.subtype, confirm_step: "menu" }).eq("id", session.id);
+    await reply(session, confirmSummary(labelOf(session), lead));
+    return { ok: true, subtype: session.subtype };
+  }
+  const label = labelOf(session);
   if (session.confirm_step === "menu") {
     const c = parseConfirmChoice(text);
     if (!c) { await reply(session, "Responda com o número:\n1 - Editar nome\n2 - Editar telefone\n3 - Editar e-mail\n4 - Dados corretos"); return { ok: true, waiting: "menu" }; }
@@ -335,7 +349,7 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
     }
 
     const form = await formFor(session.capture_type, ev);
-    if (!form) throw new Error(`O evento não tem formulário de ${TYPE_LABEL[session.capture_type as CaptureType]}`);
+    if (!form) throw new Error(`O evento não tem formulário de ${labelOf(session)}`);
     const responses: { label: string; value: string }[] = [];
     const push = (label: string, value: unknown) => { const v = String(value ?? "").trim(); if (v) responses.push({ label, value: v.slice(0, 4000) }); };
     push("Nome", lead.nome); push("Celular", lead.telefone ? `+${lead.telefone}` : ""); push("E-mail", lead.email);
@@ -343,7 +357,7 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
     push("Empresa", lead.empresa); push("Área de atuação", lead.area_atuacao); push("Especialidade", lead.especialidade);
     push("Endereço", lead.endereco); push("Cidade", lead.cidade); push("Estado", lead.estado); push("País", lead.pais);
     push("Produtos de interesse", lead.produtos.join(", "));
-    push("Tipo de captura", TYPE_LABEL[session.capture_type as CaptureType]);
+    push("Tipo de captura", labelOf(session));
     push("Enviado por", tm?.nome_completo); push("Canal", "Captura WhatsApp Oficial");
     push("Resumo", lead.resumo);
     list.forEach((it, i) => {
@@ -369,6 +383,7 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
       ...(lead.produtos[0] ? { produto_interesse: lead.produtos[0] } : {}),
       ...routing.consultant,
       utm_source: "captura_whatsapp", utm_medium: "whatsapp_oficial", utm_campaign: ev.name,
+      ...(routing.formPurpose === "distribuicao" ? { distribuicao_event_id: ev.id } : {}),
       form_responses: responses, submission_id: session.id,
     };
     const r = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`, {
@@ -380,11 +395,11 @@ async function finalizeSession(sessionId: string, origin: "whatsapp" | "reproces
     await db.from("lead_activity_log").insert({
       lead_id: out.lead_id, event_type: "captura_whatsapp", source_channel: "whatsapp_oficial",
       entity_type: "form", entity_id: form.id, entity_name: form.name,
-      event_data: { label: `Captura WhatsApp — ${TYPE_LABEL[session.capture_type as CaptureType]} (${ev.name})`, sent_by: tm?.nome_completo ?? null, team_member_id: session.team_member_id, event_id: ev.id, drive_folder_url: session.drive_folder_url, items: list.length, resumo: lead.resumo },
+      event_data: { label: `Captura WhatsApp — ${labelOf(session)} (${ev.name})`, sent_by: tm?.nome_completo ?? null, subtype: effectiveSubtype(session.capture_type, session.subtype), team_member_id: session.team_member_id, event_id: ev.id, drive_folder_url: session.drive_folder_url, items: list.length, resumo: lead.resumo },
       dedupe_hash: `captura_whatsapp:${session.id}`,
     }).then(() => {}, () => {});
     await db.from("field_capture_sessions").update({ status: "done", confirm_step: null, extracted: lead, summary: lead.resumo, opportunity_name: oppName, lead_id: out.lead_id, result: { form_id: form.id, form_name: form.name, is_existing: !!out.is_existing } }).eq("id", session.id);
-    await reply(session, `✅ ${TYPE_LABEL[session.capture_type as CaptureType]} enviado ao CRM: *${oppName}*\nOrigem: ${form.name}\nPasta: ${session.drive_folder_url ?? "-"}`);
+    await reply(session, `✅ ${labelOf(session)} enviado ao CRM: *${oppName}*\nOrigem: ${form.name}\nPasta: ${session.drive_folder_url ?? "-"}`);
     const card = origin === "whatsapp" ? contactCard(lead, oppName) : null;
     if (card) {
       await reply(session, "📇 Toque em *Salvar contato* no cartão abaixo para adicionar o telefone aos seus contatos do WhatsApp.");
@@ -409,7 +424,7 @@ async function handleInbox(inboxId: string) {
   const accountId = String(msg.instance_name).slice("zernio:".length);
   const conversationId = String(p?.conversation?.id ?? p?.message?.conversationId ?? "") || null;
   const text = String(msg.message_text ?? "").trim();
-  const cmd = msg.media_url ? null : parseCommand(text);
+  let cmd = msg.media_url ? null : parseCommand(text);
 
   let { data: session } = await db.from("field_capture_sessions").select("*").eq("team_member_id", tmId).eq("status", "collecting").maybeSingle();
   if (!session && !cmd && msg.created_at) {
@@ -432,7 +447,7 @@ async function handleInbox(inboxId: string) {
     const { count } = await db.from("field_capture_items").select("id", { count: "exact", head: true }).eq("session_id", session.id).neq("kind", "text");
     const n = count ?? 0;
     await reply(session, session.capture_type
-      ? `Você já tem uma captura aberta (*${TYPE_LABEL[session.capture_type as CaptureType]}*) com ${n} arquivo${n === 1 ? "" : "s"}.\n\nMande *FIM* para conferir os dados e criar o lead, ou *CANCELAR* para descartar e começar de novo com *AUTO*.`
+      ? `Você já tem uma captura aberta (*${labelOf(session)}*) com ${n} arquivo${n === 1 ? "" : "s"}.\n\nMande *FIM* para conferir os dados e criar o lead, ou *CANCELAR* para descartar e começar de novo com *AUTO*.`
       : `Você já tem uma captura aberta.\n\n${MENU}`);
     return { ok: true, already_open: true };
   }
@@ -440,14 +455,14 @@ async function handleInbox(inboxId: string) {
     const ev = await todayEvent();
     const { data: created, error } = await db.from("field_capture_sessions").insert({
       team_member_id: tmId, sender_phone: msg.phone, account_id: accountId, conversation_id: conversationId,
-      event_id: ev?.id ?? null, capture_type: cmd?.kind === "type" ? cmd.type : null,
+      event_id: ev?.id ?? null, capture_type: cmd?.kind === "type" ? cmd.type : null, subtype: cmd?.kind === "type" ? cmd.subtype ?? null : null,
     }).select("*").single();
     if (error) { // corrida: outra mensagem criou a sessão
       ({ data: session } = await db.from("field_capture_sessions").select("*").eq("team_member_id", tmId).eq("status", "collecting").maybeSingle());
       if (!session) throw error;
     } else {
       session = created;
-      await reply(session, `📥 Captura iniciada${ev ? ` — evento *${ev.name}*` : " — ⚠️ nenhum evento acontecendo hoje"}.${session.capture_type ? ` Tipo: *${TYPE_LABEL[session.capture_type as CaptureType]}*. Mande os arquivos e termine com *FIM*.` : `\n\n${MENU}`}`);
+      await reply(session, `📥 Captura iniciada${ev ? ` — evento *${ev.name}*` : " — ⚠️ nenhum evento acontecendo hoje"}.${session.capture_type ? ` Tipo: *${labelOf(session)}*. Mande os arquivos e termine com *FIM*.` : `\n\n${MENU}`}`);
     }
     if (cmd?.kind === "start") return { ok: true, started: session.id }; // AUTO não vira anotação
   }
@@ -455,6 +470,14 @@ async function handleInbox(inboxId: string) {
   session.last_message_at = new Date().toISOString();
   await db.from("field_capture_sessions").update({ last_message_at: session.last_message_at }).eq("id", session.id);
 
+  // Pergunta do subtipo: tratada antes dos comandos — 1–4 não trocam o tipo e SIM/NÃO não viram anotação.
+  // Arquivo ou anotação reabre a leitura (o subtipo já respondido fica).
+  if (session.confirm_step === "subtype" && session.status === "collecting" && cmd?.kind !== "end") {
+    if (!msg.media_url && (parseYesNo(text) !== null || /^[1-4]$/.test(text.trim()))) return await handleConfirm(session, text);
+    await db.from("field_capture_sessions").update({ confirm_step: null }).eq("id", session.id);
+    session.confirm_step = null;
+    if (cmd?.kind === "type") cmd = null; // ex.: "LEAD" digitado aqui vira anotação, não troca o tipo
+  }
   // Conferência em andamento: números são opções do menu (não tipo de captura). Arquivo novo reabre a leitura.
   if (session.confirm_step && session.status === "collecting") {
     if (msg.media_url) {
@@ -466,8 +489,9 @@ async function handleInbox(inboxId: string) {
   }
 
   if (cmd?.kind === "type") {
-    if (session.capture_type !== cmd.type) await db.from("field_capture_sessions").update({ capture_type: cmd.type }).eq("id", session.id);
-    await reply(session, `Tipo: *${TYPE_LABEL[cmd.type]}*. Mande os arquivos e termine com *FIM*.`);
+    const subtype = cmd.subtype ?? (session.capture_type === cmd.type ? session.subtype ?? null : null);
+    if (session.capture_type !== cmd.type || (session.subtype ?? null) !== subtype) await db.from("field_capture_sessions").update({ capture_type: cmd.type, subtype }).eq("id", session.id);
+    await reply(session, `Tipo: *${captureLabel(cmd.type, cmd.subtype ?? session.subtype)}*. Mande os arquivos e termine com *FIM*.`);
     return { ok: true, type: cmd.type };
   }
   if (cmd?.kind === "end") {

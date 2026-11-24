@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { parseCommand, extractFallback, opportunityName, fileName, captureRouting, captureFormPurpose } from "./logic.ts";
+import { parseCommand, extractFallback, opportunityName, fileName, captureRouting, captureFormPurpose, needsSubtype, parseYesNo, subtypeFromAnswer, captureLabel } from "./logic.ts";
+import { distributionOrigin } from "../_shared/kol-expansion.ts";
 
 Deno.test("FIM fecha a captura; texto comum é anotação", () => {
   assertEquals(parseCommand("fim"), { kind: "end" });
@@ -7,46 +8,77 @@ Deno.test("FIM fecha a captura; texto comum é anotação", () => {
   assertEquals(parseCommand("fim da conversa"), null);
 });
 
-Deno.test("tipos: 1/LEAD, 2/KOL, 3/OPORTUNIDADE", () => {
+Deno.test("menu de 4 tipos: 1 lead, 2 kol, 3 oportunidade, 4 distribuidor", () => {
   assertEquals(parseCommand("1"), { kind: "type", type: "lead" });
-  assertEquals(parseCommand("kol"), { kind: "type", type: "kol" });
-  assertEquals(parseCommand("Oportunidade"), { kind: "type", type: "oportunidade" });
+  assertEquals(parseCommand("LEAD"), { kind: "type", type: "lead" });
+  assertEquals(parseCommand("2"), { kind: "type", type: "kol" });
+  assertEquals(parseCommand("3"), { kind: "type", type: "oportunidade" });
+  assertEquals(parseCommand("4"), { kind: "type", type: "distribuicao" });
+  assertEquals(parseCommand("Distribuidor"), { kind: "type", type: "distribuicao" });
   assertEquals(parseCommand("CANCELAR"), { kind: "cancel" });
 });
 
-Deno.test("venda direta segue o formulário de leads do evento com o vendedor remetente", () => {
-  assertEquals(parseCommand("4"), { kind: "type", type: "venda_direta" });
-  assertEquals(parseCommand("Venda direta"), { kind: "type", type: "venda_direta" });
+Deno.test("5 e 6 deixam de ser comando", () => {
+  assertEquals(parseCommand("5"), null);
+  assertEquals(parseCommand("6"), null);
+});
+
+Deno.test("aliases legados por texto já definem o subtipo", () => {
+  assertEquals(parseCommand("Venda direta"), { kind: "type", type: "lead", subtype: "venda_direta" });
+  assertEquals(parseCommand("Oportunidade de distribuição"), { kind: "type", type: "distribuicao", subtype: "oportunidade" });
+  assertEquals(parseCommand("OPORTUNIDADES DE DISTRIBUICAO"), { kind: "type", type: "distribuicao", subtype: "oportunidade" });
+});
+
+Deno.test("lead e venda direta seguem o cadastro de visitantes com o vendedor remetente", () => {
   const sender = { id: "vendedor-remetente", nome_completo: "Vendedor do evento" };
-  assertEquals(captureRouting("venda_direta", sender), {
+  assertEquals(captureRouting("lead", sender), {
     formPurpose: "feira_evento",
     consultant: { event_consultant_team_member_id: "vendedor-remetente", proprietario_lead_crm: "Vendedor do evento" },
   });
-  assertEquals(captureRouting("lead", sender), captureRouting("venda_direta", sender));
-});
-
-Deno.test("cadastro de distribuidores usa o fluxo de distribuição, não o de Vendas", () => {
-  assertEquals(parseCommand("5"), { kind: "type", type: "distribuicao" });
-  assertEquals(parseCommand("Distribuidores"), { kind: "type", type: "distribuicao" });
-  assertEquals(captureRouting("distribuicao", { id: "remetente", nome_completo: "Vendedor" }), {
-    formPurpose: "distribuicao", consultant: {},
-  });
-});
-
-Deno.test("venda direta sem remetente não pode ser encaminhada por sorteio", () => {
+  assertEquals(captureRouting("venda_direta", sender), captureRouting("lead", sender));
   let rejected = false;
-  try { captureRouting("venda_direta", null); } catch { rejected = true; }
+  try { captureRouting("lead", null); } catch { rejected = true; }
   assertEquals(rejected, true);
 });
 
-Deno.test("opção 6 segue o mesmo formulário e fluxo do cadastro de leads de distribuição", () => {
-  assertEquals(parseCommand("6"), { kind: "type", type: "oportunidade_distribuicao" });
-  assertEquals(parseCommand("Oportunidade de distribuição"), { kind: "type", type: "oportunidade_distribuicao" });
-  assertEquals(captureFormPurpose("oportunidade_distribuicao"), "distribuicao");
-  assertEquals(captureFormPurpose("distribuicao"), "distribuicao");
+Deno.test("distribuidor e legado de oportunidade de distribuição usam o fluxo de distribuição", () => {
   const sender = { id: "remetente", nome_completo: "Vendedor" };
+  assertEquals(captureRouting("distribuicao", sender), { formPurpose: "distribuicao", consultant: {} });
   assertEquals(captureRouting("oportunidade_distribuicao", sender), { formPurpose: "distribuicao", consultant: {} });
-  assertEquals(captureRouting("oportunidade_distribuicao", sender), captureRouting("distribuicao", sender));
+  assertEquals(captureFormPurpose("kol"), "kol_expansao");
+  assertEquals(captureFormPurpose("oportunidade"), "oportunidade_evento");
+});
+
+Deno.test("subtipo: só lead e distribuidor perguntam; SIM/S/NÃO/NAO/N", () => {
+  assertEquals(needsSubtype("lead", null), true);
+  assertEquals(needsSubtype("distribuicao", null), true);
+  assertEquals(needsSubtype("kol", null), false);
+  assertEquals(needsSubtype("oportunidade", null), false);
+  assertEquals(needsSubtype("lead", "padrao"), false);
+  assertEquals(needsSubtype("venda_direta", null), false);
+  for (const y of ["SIM", "sim", "S"]) assertEquals(parseYesNo(y), true);
+  for (const n of ["NÃO", "nao", "N"]) assertEquals(parseYesNo(n), false);
+  assertEquals(parseYesNo("1"), null);
+  assertEquals(subtypeFromAnswer("lead", true), "venda_direta");
+  assertEquals(subtypeFromAnswer("lead", false), "padrao");
+  assertEquals(subtypeFromAnswer("distribuicao", true), "distribuidor");
+  assertEquals(subtypeFromAnswer("distribuicao", false), "oportunidade");
+});
+
+Deno.test("rótulos das capturas", () => {
+  assertEquals(captureLabel("lead", "padrao"), "Lead do evento");
+  assertEquals(captureLabel("lead", "venda_direta"), "Lead do evento — venda direta");
+  assertEquals(captureLabel("venda_direta"), "Lead do evento — venda direta");
+  assertEquals(captureLabel("kol"), "KOL do evento");
+  assertEquals(captureLabel("oportunidade"), "Outra oportunidade do evento");
+  assertEquals(captureLabel("distribuicao", "distribuidor"), "Distribuidor do evento");
+  assertEquals(captureLabel("oportunidade_distribuicao"), "Distribuidor do evento — oportunidade de abrir distribuição");
+});
+
+Deno.test("origem de distribuição", () => {
+  assertEquals(distributionOrigin("Dentsply Show 2026"), "[DISTRIBUIÇÃO] - Dentsply Show 2026");
+  assertEquals(distributionOrigin(""), "[DISTRIBUIÇÃO]");
+  assertEquals(distributionOrigin("x".repeat(300)).length, 190);
 });
 
 Deno.test("fallback lê e-mail e telefone do texto", () => {

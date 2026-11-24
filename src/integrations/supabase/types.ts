@@ -7797,6 +7797,7 @@ export type Database = {
           result: Json | null
           sender_phone: string
           status: string
+          subtype: string | null
           summary: string | null
           team_member_id: string
           updated_at: string
@@ -7821,6 +7822,7 @@ export type Database = {
           result?: Json | null
           sender_phone: string
           status?: string
+          subtype?: string | null
           summary?: string | null
           team_member_id: string
           updated_at?: string
@@ -7845,6 +7847,7 @@ export type Database = {
           result?: Json | null
           sender_phone?: string
           status?: string
+          subtype?: string | null
           summary?: string | null
           team_member_id?: string
           updated_at?: string

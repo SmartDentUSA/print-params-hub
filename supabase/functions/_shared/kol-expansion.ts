@@ -82,3 +82,9 @@ export function kolExpansionWhatsappUrl(name: string | null | undefined, eventNa
   const text = `Olá, Danilo! ${n ? `Sou ${n}. ` : ""}Acabei de enviar meu interesse no Chairside Print${ev ? ` no ${ev}` : ""}.`;
   return `https://wa.me/${KOL_EXPANSION_WHATSAPP}?text=${encodeURIComponent(text)}`;
 }
+
+/** Origem do deal de distribuição: "[DISTRIBUIÇÃO] - {nome do evento}". */
+export function distributionOrigin(eventName: string | null | undefined): string {
+  const name = String(eventName ?? "").trim();
+  return name ? `[DISTRIBUIÇÃO] - ${name}`.slice(0, 190) : "[DISTRIBUIÇÃO]";
+}

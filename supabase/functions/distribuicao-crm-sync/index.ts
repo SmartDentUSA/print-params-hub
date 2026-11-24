@@ -2,9 +2,11 @@
 // Chamado só pelo smart-ops-ingest-lead (service role) quando form_purpose = "distribuicao".
 // Nunca passa pela Golden Rule de Vendas: o deal vive só no funil 39047, proprietário 103060.
 // Reaproveita deal aberto do mesmo funil (só acrescenta nota) para não duplicar.
+// Deal e pessoa novos recebem a origem "[DISTRIBUIÇÃO] - evento" (evento do payload ou do formulário).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { piperunGet, piperunPost, addDealNote } from "../_shared/piperun-field-map.ts";
+import { distributionOrigin } from "../_shared/kol-expansion.ts";
 import { findPersonByContact, validateCachedPerson, isValidEmailTld } from "../_shared/piperun-person-resolver.ts";
 
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -16,6 +18,16 @@ const PIPELINE_ID = 39047;
 const OWNER_ID = 103060;
 const digits = (s: unknown) => String(s ?? "").replace(/\D/g, "");
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Origem "[DISTRIBUIÇÃO] - evento": busca exata por nome, cria se não existir (mesma regra do KOL Expansão). */
+async function resolveOriginId(token: string, name: string): Promise<number | null> {
+  const r = await piperunGet(token, "origins", { name, show: 10 }).catch(() => null);
+  const items = ((r?.data as any)?.data ?? []) as any[];
+  const exact = items.find((o) => String(o.name ?? "").trim().toLowerCase() === name.toLowerCase());
+  if (exact?.id) return Number(exact.id);
+  const c = await piperunPost(token, "origins", { name, active: true, description: "Cadastro de distribuidores do evento" }).catch(() => null);
+  return Number((c?.data as any)?.data?.id ?? 0) || null;
+}
 
 async function firstStageId(token: string): Promise<number | null> {
   const r = await piperunGet(token, "stages", { pipeline_id: PIPELINE_ID, show: 100 });
@@ -38,7 +50,12 @@ Deno.serve(async (req) => {
     const leadId = String(body?.lead_id ?? "");
     if (!/^[0-9a-f-]{36}$/i.test(leadId)) return json({ error: "lead_id inválido" }, 400);
     const formName = String(body?.form_name ?? "# - Distribuição - Cadastro").slice(0, 200);
-    const eventId = body?.event_id ? String(body.event_id) : null;
+    const formId = body?.form_id ? String(body.form_id) : null;
+    let eventId = body?.event_id ? String(body.event_id) : null;
+    if (!eventId && formId && /^[0-9a-f-]{36}$/i.test(formId)) {
+      const { data: f } = await admin.from("smartops_forms").select("event_id").eq("id", formId).maybeSingle();
+      eventId = f?.event_id ?? null;
+    }
     const responses = Array.isArray(body?.form_responses) ? body.form_responses.slice(0, 60) : [];
 
     const token = Deno.env.get("PIPERUN_API_KEY");
@@ -55,7 +72,17 @@ Deno.serve(async (req) => {
     const phoneOk = digits(phone).length >= 10;
     const emailOk = email.includes("@") && isValidEmailTld(email);
 
-    // Pessoa (nunca criar sem e-mail OU telefone)
+    let eventName: string | null = null;
+    if (eventId) {
+      const { data: ev } = await admin.from("smartops_events").select("name").eq("id", eventId).maybeSingle();
+      eventName = ev?.name ?? null;
+    }
+    const origin = distributionOrigin(eventName);
+    let originId: number | null | undefined;
+    const getOriginId = async () => (originId === undefined ? (originId = await resolveOriginId(token, origin)) : originId);
+
+    // Pessoa (nunca criar sem e-mail OU telefone); pessoa existente mantém a origem
+
     let personId = Number(lead.pessoa_piperun_id) || 0;
     if (personId && !(await validateCachedPerson(token, personId)).exists) personId = 0;
     if (!personId) {
@@ -70,6 +97,8 @@ Deno.serve(async (req) => {
       const p: Record<string, unknown> = { name: nome || email || phone, owner_id: OWNER_ID };
       if (emailOk) p.email = email;
       if (phoneOk) p.cellphone = phone;
+      const oid = await getOriginId();
+      if (oid) p.origin_id = oid;
       const created = await piperunPost(token, "persons", p);
       personId = Number((created.data as any)?.data?.id ?? 0);
       if (!personId) return json({ ok: false, error: "falha ao criar pessoa" }, 502);
@@ -91,17 +120,13 @@ Deno.serve(async (req) => {
         pipeline_id: PIPELINE_ID,
         stage_id: stageId,
         user_id: OWNER_ID,
+        ...(await getOriginId().then((oid) => (oid ? { origin_id: oid } : {}))),
       });
       dealId = Number((created.data as any)?.data?.id ?? 0);
       if (!dealId) return json({ ok: false, error: "falha ao criar deal" }, 502);
       createdDeal = true;
     }
 
-    let eventName: string | null = null;
-    if (eventId) {
-      const { data: ev } = await admin.from("smartops_events").select("name").eq("id", eventId).maybeSingle();
-      eventName = ev?.name ?? null;
-    }
     const lines = responses
       .filter((r: any) => r && r.label && r.value !== undefined && r.value !== "")
       .map((r: any) => `<b>${esc(String(r.label).slice(0, 120))}:</b> ${esc(String(r.value).slice(0, 1000))}`);
@@ -129,7 +154,7 @@ Deno.serve(async (req) => {
       entity_name: formName,
       event_data: {
         label: `Cadastro de distribuidor${eventName ? ` (${eventName})` : ""} — deal #${dealId} no funil Exportação`,
-        deal_id: dealId, pipeline_id: PIPELINE_ID, owner_id: OWNER_ID, event_id: eventId, created_deal: createdDeal,
+        deal_id: dealId, pipeline_id: PIPELINE_ID, owner_id: OWNER_ID, event_id: eventId, created_deal: createdDeal, origin: createdDeal ? origin : null,
       },
       dedupe_hash: `distribuicao:${leadId}:${dealId}:${nowIso.slice(0, 16)}`,
     }).then(() => {}, () => {});

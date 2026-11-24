@@ -7,7 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Loader2, MessageSquareText, RefreshCw, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
-const TYPE: Record<string, string> = { lead: "Lead do evento", kol: "KOL evento", oportunidade: "Oportunidade", venda_direta: "Venda direta do evento", distribuicao: "Cadastro de distribuidores", oportunidade_distribuicao: "Oportunidade de distribuição" };
+const TYPE: Record<string, string> = { lead: "Lead do evento", kol: "KOL do evento", oportunidade: "Outra oportunidade do evento", venda_direta: "Lead do evento — venda direta", distribuicao: "Distribuidor do evento", oportunidade_distribuicao: "Distribuidor do evento — oportunidade de abrir distribuição" };
+const typeLabel = (t: string, st?: string | null) =>
+  t === "lead" && st === "venda_direta" ? TYPE.venda_direta : t === "distribuicao" && st === "oportunidade" ? TYPE.oportunidade_distribuicao : TYPE[t];
 const STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   collecting: { label: "Recebendo", variant: "outline" },
   processing: { label: "Processando", variant: "secondary" },
@@ -25,7 +27,7 @@ export function EventFieldCapturesButton({ eventId }: { eventId: string }) {
     enabled: open,
     queryFn: async () => {
       const { data, error } = await (supabase as any).from("field_capture_sessions")
-        .select("id, capture_type, status, opportunity_name, extracted, summary, drive_folder_url, error, created_at, team_member_id, field_capture_items(count)")
+        .select("id, capture_type, subtype, status, opportunity_name, extracted, summary, drive_folder_url, error, created_at, team_member_id, field_capture_items(count)")
         .eq("event_id", eventId).order("created_at", { ascending: false }).limit(200);
       if (error) throw error;
       const ids = [...new Set((data ?? []).map((r: any) => r.team_member_id))];
@@ -69,7 +71,7 @@ export function EventFieldCapturesButton({ eventId }: { eventId: string }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <strong>{r.opportunity_name || x.nome || "Sem nome ainda"}</strong>
                       <Badge variant={st.variant}>{st.label}</Badge>
-                      {r.capture_type && <Badge variant="outline">{TYPE[r.capture_type]}</Badge>}
+                      {r.capture_type && <Badge variant="outline">{typeLabel(r.capture_type, (r as any).subtype)}</Badge>}
                       <span className="ml-auto text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString("pt-BR")}</span>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">

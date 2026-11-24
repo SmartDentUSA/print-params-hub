@@ -5,3 +5,7 @@
 - [x] Venda direta confirmada: reutilizar exatamente o fluxo do formulário de leads do evento
 - [x] AUTO: cadastrar distribuidores pelo formulário de distribuição do evento (preserva o destino atual de distribuição)
 - [x] AUTO: opção 6 oportunidades de distribuição usa o mesmo formulário e fluxo de cadastro de leads de distribuição (17 testes aprovados e função publicada; envio real pelo WhatsApp não verificado)
+
+- [x] AUTO etapa A: menu de 4 tipos, subtipo SIM/NÃO, origem [DISTRIBUIÇÃO]
+- [ ] AUTO etapa B (aguarda verificação da A)
+- [ ] AUTO etapa C (aguarda B)

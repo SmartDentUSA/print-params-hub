@@ -1,14 +1,20 @@
 // Regras puras da captura WhatsApp (testáveis).
 import { countryCode, normalizePhoneForCountry } from "../_shared/phone-country.ts";
-export type CaptureType = "lead" | "kol" | "oportunidade" | "venda_direta" | "distribuicao" | "oportunidade_distribuicao";
-export type Command = { kind: "type"; type: CaptureType } | { kind: "end" } | { kind: "cancel" } | { kind: "start" };
+/** Tipos do menu atual (4). */
+export type CaptureType = "lead" | "kol" | "oportunidade" | "distribuicao";
+/** Valores gravados: inclui os tipos legados de capturas antigas (só leitura e rótulos). */
+export type StoredCaptureType = CaptureType | "venda_direta" | "oportunidade_distribuicao";
+export type CaptureSubtype = "venda_direta" | "padrao" | "distribuidor" | "oportunidade";
+export type Command = { kind: "type"; type: CaptureType; subtype?: CaptureSubtype } | { kind: "end" } | { kind: "cancel" } | { kind: "start" };
 
 /** Palavra que abre uma captura; sem ela, mensagens da equipe são conversa normal. */
 export const START_WORD = "AUTO";
 
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase().replace(/[.!*]+$/g, "");
 
-/** Comandos exatos; durante a conferência os números continuam sendo tratados pelo menu de edição. */
+export const MENU = "Responda com o tipo:\n1 - Lead (quer comprar / cliente)\n2 - KOL (profissional para parceria de conteúdo)\n3 - Outra oportunidade (parceria, instituição, imprensa, fornecedor)\n4 - Distribuidor (quer revender ou importar)\n\nDepois mande cartões, áudios, fotos e vídeos e termine com *FIM*. Para desistir: *CANCELAR*.";
+
+/** Comandos exatos; durante a conferência os números continuam sendo tratados pelo menu de edição. 5 e 6 não são mais comando. */
 export function parseCommand(text: string): Command | null {
   const t = norm(text);
   if (!t) return null;
@@ -18,24 +24,69 @@ export function parseCommand(text: string): Command | null {
   if (t === "1" || t === "LEAD") return { kind: "type", type: "lead" };
   if (t === "2" || t === "KOL") return { kind: "type", type: "kol" };
   if (t === "3" || t === "OPORTUNIDADE") return { kind: "type", type: "oportunidade" };
-  if (t === "4" || t === "VENDA DIRETA") return { kind: "type", type: "venda_direta" };
-  if (t === "5" || t === "DISTRIBUIDOR" || t === "DISTRIBUIDORES" || t === "DISTRIBUICAO") return { kind: "type", type: "distribuicao" };
-  if (t === "6" || t === "OPORTUNIDADE DE DISTRIBUICAO" || t === "OPORTUNIDADES DE DISTRIBUICAO") return { kind: "type", type: "oportunidade_distribuicao" };
+  if (t === "4" || t === "DISTRIBUIDOR" || t === "DISTRIBUIDORES" || t === "DISTRIBUICAO") return { kind: "type", type: "distribuicao" };
+  // Aliases legados, só por texto, já definem o subtipo.
+  if (t === "VENDA DIRETA") return { kind: "type", type: "lead", subtype: "venda_direta" };
+  if (t === "OPORTUNIDADE DE DISTRIBUICAO" || t === "OPORTUNIDADES DE DISTRIBUICAO") return { kind: "type", type: "distribuicao", subtype: "oportunidade" };
   return null;
 }
 
+/** Tipo atual a partir do valor gravado (legados viram tipo + subtipo). */
+export function baseType(t: StoredCaptureType): { type: CaptureType; subtype?: CaptureSubtype } {
+  if (t === "venda_direta") return { type: "lead", subtype: "venda_direta" };
+  if (t === "oportunidade_distribuicao") return { type: "distribuicao", subtype: "oportunidade" };
+  return { type: t };
+}
+
+/** Subtipo efetivo: o gravado, senão o implícito no tipo legado. */
+export const effectiveSubtype = (t: StoredCaptureType, subtype?: CaptureSubtype | null) => subtype ?? baseType(t).subtype ?? null;
+
+/** Lead e Distribuidor perguntam o subtipo uma vez (KOL e Oportunidade não). */
+export function needsSubtype(t: StoredCaptureType, subtype?: CaptureSubtype | null): boolean {
+  const b = baseType(t).type;
+  return (b === "lead" || b === "distribuicao") && !effectiveSubtype(t, subtype);
+}
+
+export function subtypeQuestion(t: StoredCaptureType): string {
+  return baseType(t).type === "distribuicao"
+    ? "Essa empresa já distribui produtos odontológicos? Responda SIM ou NÃO (NÃO = oportunidade de abrir distribuição)."
+    : "Esse contato quer comprar direto no evento? Responda SIM ou NÃO.";
+}
+
+/** SIM/S ou NÃO/NAO/N; qualquer outra coisa é null. */
+export function parseYesNo(text: string): boolean | null {
+  const t = norm(text);
+  if (t === "SIM" || t === "S") return true;
+  if (t === "NAO" || t === "N") return false;
+  return null;
+}
+
+export function subtypeFromAnswer(t: StoredCaptureType, yes: boolean): CaptureSubtype {
+  return baseType(t).type === "distribuicao" ? (yes ? "distribuidor" : "oportunidade") : (yes ? "venda_direta" : "padrao");
+}
+
+/** Rótulo único da mensagem final, das respostas, da timeline e da tela. */
+export function captureLabel(t: StoredCaptureType, subtype?: CaptureSubtype | null): string {
+  const b = baseType(t).type, st = effectiveSubtype(t, subtype);
+  if (b === "lead") return st === "venda_direta" ? "Lead do evento — venda direta" : "Lead do evento";
+  if (b === "kol") return "KOL do evento";
+  if (b === "oportunidade") return "Outra oportunidade do evento";
+  return st === "oportunidade" ? "Distribuidor do evento — oportunidade de abrir distribuição" : "Distribuidor do evento";
+}
+
 /** Uma única definição governa a seleção do formulário e o propósito enviado à ingestão. */
-export function captureFormPurpose(type: CaptureType) {
-  if (type === "lead" || type === "venda_direta") return "feira_evento";
+export function captureFormPurpose(t: StoredCaptureType) {
+  const type = baseType(t).type;
+  if (type === "lead") return "feira_evento";
   if (type === "kol") return "kol_expansao";
-  if (type === "distribuicao" || type === "oportunidade_distribuicao") return "distribuicao";
+  if (type === "distribuicao") return "distribuicao";
   return "oportunidade_evento";
 }
 
-/** Venda direta reaproveita o cadastro de visitantes; distribuição nunca entra no fluxo de Vendas. */
-export function captureRouting(type: CaptureType, sender?: { id: string; nome_completo: string } | null) {
-  const eventSales = type === "lead" || type === "venda_direta";
-  const formPurpose = captureFormPurpose(type);
+/** Lead (inclusive venda direta) reaproveita o cadastro de visitantes; distribuição nunca entra no fluxo de Vendas. */
+export function captureRouting(t: StoredCaptureType, sender?: { id: string; nome_completo: string } | null) {
+  const eventSales = baseType(t).type === "lead";
+  const formPurpose = captureFormPurpose(t);
   if (eventSales && !sender) throw new Error("Vendedor remetente não encontrado");
   return {
     formPurpose,
