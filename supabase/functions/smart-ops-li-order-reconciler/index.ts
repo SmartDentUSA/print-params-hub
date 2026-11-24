@@ -109,9 +109,20 @@ Deno.serve(async (req) => {
     updated_at: new Date().toISOString(),
   }).eq("id", "pedidos");
 
+  // Carrinhos sem pagamento há 2 h → lead [LOJA] - Carrinho abandonado no CRM
+  let lojaScan: unknown = null;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/loja-crm-lead`, {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+      body: JSON.stringify({ mode: "scan" }),
+    });
+    lojaScan = { status: r.status, body: (await r.text()).slice(0, 500) };
+  } catch (e) { lojaScan = { error: String(e) }; }
+
   return new Response(JSON.stringify({
     success: errors === 0,
     processed, errors, stopped_reason: stoppedReason,
     new_checkpoint: newCheckpoint,
+    loja_scan: lojaScan,
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });

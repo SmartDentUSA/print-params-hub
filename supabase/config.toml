@@ -754,3 +754,6 @@ verify_jwt = false
 
 [functions.daily-sales-whatsapp-report]
 verify_jwt = false
+
+[functions.loja-crm-lead]
+verify_jwt = false

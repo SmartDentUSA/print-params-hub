@@ -9,3 +9,4 @@
 - [x] AUTO etapa A: menu de 4 tipos, subtipo SIM/NÃO, origem [DISTRIBUIÇÃO]
 - [ ] AUTO etapa B (aguarda verificação da A)
 - [ ] AUTO etapa C (aguarda B)
+- [x] Loja: leads [LOJA] - Carrinho abandonado (2 h) e [LOJA] - Pedido cancelado no CRM com nota e categorias

@@ -1082,6 +1082,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ─── Pedido cancelado → lead [LOJA] - Pedido cancelado no CRM (Regra de Ouro) ───
+    if (eventType === "order_cancelled" && numeroPedido) {
+      const cancelReq = fetch(`${SUPABASE_URL}/functions/v1/loja-crm-lead`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({
+          mode: "cancel", lead_id: leadId,
+          order: {
+            pedido: String(numeroPedido), data: liPedidoData, status: liPedidoStatus, valor: valorTotal,
+            valor_envio: liValorEnvio, forma_pagamento: liFormaPagamento, forma_envio: liFormaEnvio,
+            cupom: (liCupomJson as any)?.codigo ?? null,
+            itens: items.map((i: any) => ({ nome: String(i.nome || i.name || "Produto"), qty: Number(i.quantidade || i.quantity || 1), preco: Number(i.preco_venda || i.price || 0) })),
+          },
+        }),
+      }).then((r) => r.text()).catch((e) => console.warn("[ecommerce-webhook] loja-crm-lead", e));
+      // @ts-ignore EdgeRuntime existe no runtime do Supabase
+      EdgeRuntime.waitUntil(cancelReq);
+    }
+
     // ─── Convert cart to "converted" when paid ───
     if (["order_paid", "order_invoiced", "order_delivered"].includes(eventType) && numeroPedido) {
       await supabase.from("lead_cart_history")
