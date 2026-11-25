@@ -1,6 +1,7 @@
 // zernio-whatsapp-inbox — recebe mensagens WhatsApp (Cloud API via Zernio) e grava em whatsapp_inbox.
 // POST webhook (assinado) | POST {action:"register"} (admin) cria o endpoint na Zernio | {action:"status"} lista endpoints.
-// Não envia nada e não dispara automações: apenas ingestão. Evolution/WaLeads continuam intocados.
+// Respostas de interesse são encaminhadas a wa-campaign-lead após persistir a inbox.
+// Não envia mensagens: Evolution/WaLeads e a resposta de botões continuam separados.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 
@@ -23,7 +24,10 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
 
   const raw = await req.text();
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceKey) return json({ error: 'service not configured' }, 500);
+  const supabase = createClient(supabaseUrl, serviceKey);
   const secret = Deno.env.get('ZERNIO_WA_WEBHOOK_SECRET');
   let payload: any;
   try { payload = JSON.parse(raw); } catch { return json({ error: 'bad json' }, 400); }
@@ -64,13 +68,27 @@ Deno.serve(async (req) => {
 
   const accountId = String(account.accountId ?? account.id ?? '');
   const inbound = event === 'message.received';
+  const forwardInterest = async (inboxId: string) => {
+    if (!inbound) return;
+    const response = await fetch(`${supabaseUrl}/functions/v1/wa-campaign-lead`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+      body: JSON.stringify({ inbox_id: inboxId, dry_run: false }),
+    });
+    if (!response.ok) throw new Error(`campaign lead forwarding failed (${response.status})`);
+  };
   const conv = payload?.conversation ?? {};
   const contactPhone = digits(inbound ? (msg.sender?.phoneNumber ?? msg.sender?.id) : (conv.participantId ?? ''));
   if (!contactPhone) return json({ ok: true, ignored: 'no_phone' });
   const wamid = String(msg.platformMessageId ?? msg.id ?? payload.id);
 
   const { data: dup } = await supabase.from('whatsapp_inbox').select('id').eq('wa_message_id', wamid).maybeSingle();
-  if (dup) return json({ ok: true, duplicate: true });
+  if (dup) {
+    // A provider redelivery retries failed forwarding but never duplicates a
+    // campaign conversion: the worker claims campaign+canonical phone atomically.
+    try { await forwardInterest(dup.id); }
+    catch (error) { console.error('campaign forwarding retry failed', error); return json({ error: 'campaign forwarding failed' }, 500); }
+    return json({ ok: true, duplicate: true });
+  }
 
   // Membro da equipe dono do número (pelo telefone da conta Zernio)
   const accountPhone = digits(account.username ?? account.displayName ?? '');
@@ -89,7 +107,7 @@ Deno.serve(async (req) => {
     .eq('telefone_normalized', phoneNorm).is('merged_into', null).order('created_at', { ascending: true }).limit(1).maybeSingle();
 
   const att = Array.isArray(msg.attachments) ? msg.attachments[0] : null;
-  const { error } = await supabase.from('whatsapp_inbox').insert({
+  const { data: stored, error } = await supabase.from('whatsapp_inbox').insert({
     created_at: msg.sentAt ?? payload.timestamp ?? new Date().toISOString(),
     phone: contactPhone,
     phone_normalized: phoneNorm,
@@ -106,7 +124,7 @@ Deno.serve(async (req) => {
     is_group: false,
     sender_name: inbound ? (msg.sender?.name ?? conv.participantName ?? null) : null,
     remote_jid: `${contactPhone}@s.whatsapp.net`,
-  });
+  }).select('id').single();
   if (error) { console.error('insert failed', error); return json({ error: error.message }, 500); }
 
   // ── Contatos (tela Social > Contatos): upsert em tempo real, sem depender do sync de 30 min ──
@@ -134,6 +152,9 @@ Deno.serve(async (req) => {
       });
     }
   } catch (e) { console.error('social_contacts upsert failed', e); }
+
+  try { if (stored?.id) await forwardInterest(stored.id); }
+  catch (error) { console.error('campaign forwarding failed', error); return json({ error: 'campaign forwarding failed' }, 500); }
 
   console.log(JSON.stringify({ event: 'zernio.wa.ingested', type: event, account: accountId, lead: lead?.id ?? null }));
   return json({ ok: true });

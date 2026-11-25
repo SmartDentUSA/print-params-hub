@@ -32396,6 +32396,142 @@ export type Database = {
           },
         ]
       }
+      wa_campaign_lead_jobs: {
+        Row: {
+          account_id: string | null
+          attempts: number
+          campaign_id: string
+          categories: Json
+          claim_token: string
+          context: Json
+          conversation_id: string | null
+          created_at: string
+          form_id: string
+          id: string
+          inbox_id: string
+          last_error: string | null
+          lead_id: string | null
+          menu_message_id: string | null
+          menu_sent_at: string | null
+          note_status: string | null
+          phone: string
+          selected_category: Json | null
+          selection_inbox_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          attempts?: number
+          campaign_id: string
+          categories?: Json
+          claim_token?: string
+          context?: Json
+          conversation_id?: string | null
+          created_at?: string
+          form_id: string
+          id?: string
+          inbox_id: string
+          last_error?: string | null
+          lead_id?: string | null
+          menu_message_id?: string | null
+          menu_sent_at?: string | null
+          note_status?: string | null
+          phone: string
+          selected_category?: Json | null
+          selection_inbox_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          attempts?: number
+          campaign_id?: string
+          categories?: Json
+          claim_token?: string
+          context?: Json
+          conversation_id?: string | null
+          created_at?: string
+          form_id?: string
+          id?: string
+          inbox_id?: string
+          last_error?: string | null
+          lead_id?: string | null
+          menu_message_id?: string | null
+          menu_sent_at?: string | null
+          note_status?: string | null
+          phone?: string
+          selected_category?: Json | null
+          selection_inbox_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_campaign_lead_jobs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_campaign_lead_jobs_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_campaign_lead_jobs_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "v_form_health"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wa_campaign_lead_jobs_inbox_id_fkey"
+            columns: ["inbox_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_inbox"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wa_campaign_reply_dispatch: {
+        Row: {
+          created_at: string
+          dispatch_token: string
+          inbox_id: string
+          last_error: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dispatch_token?: string
+          inbox_id: string
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dispatch_token?: string
+          inbox_id?: string
+          last_error?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_campaign_reply_dispatch_inbox_id_fkey"
+            columns: ["inbox_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_inbox"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wa_campaigns: {
         Row: {
           campaign_type: string
@@ -39330,6 +39466,75 @@ export type Database = {
       fn_claim_video_analytics_sync: {
         Args: { p_scheduled?: boolean }
         Returns: boolean
+      }
+      fn_claim_wa_campaign_lead: {
+        Args: {
+          p_campaign_id: string
+          p_form_id: string
+          p_inbox_id: string
+          p_phone: string
+        }
+        Returns: {
+          account_id: string | null
+          attempts: number
+          campaign_id: string
+          categories: Json
+          claim_token: string
+          context: Json
+          conversation_id: string | null
+          created_at: string
+          form_id: string
+          id: string
+          inbox_id: string
+          last_error: string | null
+          lead_id: string | null
+          menu_message_id: string | null
+          menu_sent_at: string | null
+          note_status: string | null
+          phone: string
+          selected_category: Json | null
+          selection_inbox_id: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "wa_campaign_lead_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fn_claim_wa_category: {
+        Args: { p_category_index: number; p_inbox_id: string; p_job_id: string }
+        Returns: {
+          account_id: string | null
+          attempts: number
+          campaign_id: string
+          categories: Json
+          claim_token: string
+          context: Json
+          conversation_id: string | null
+          created_at: string
+          form_id: string
+          id: string
+          inbox_id: string
+          last_error: string | null
+          lead_id: string | null
+          menu_message_id: string | null
+          menu_sent_at: string | null
+          note_status: string | null
+          phone: string
+          selected_category: Json | null
+          selection_inbox_id: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "wa_campaign_lead_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       fn_classify_deal_category: {
         Args: { p_category: string; p_product: string }

@@ -1,0 +1,1 @@
+INSERT INTO public.wa_campaign_reply_dispatch(inbox_id) SELECT id FROM public.whatsapp_inbox WHERE id='ebfb1e26-4943-496a-93dd-e38a50b8eed7' AND direction='inbound' AND instance_name LIKE 'zernio:%' ON CONFLICT(inbox_id) DO NOTHING;

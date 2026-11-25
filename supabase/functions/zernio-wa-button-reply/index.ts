@@ -8,6 +8,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import {
   type ButtonReply, buttonKey, firstNameOf, isOptOutText, matchReply, renderReply, resolveFormIdForLink, withWhatsappOrigin,
 } from '../_shared/wa-button-replies.ts';
+import { campaignIntent } from '../_shared/wa-campaign-intent.ts';
 
 const ZERNIO = 'https://zernio.com/api/v1';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -127,6 +128,12 @@ Deno.serve(async (req) => {
   if (lead?.do_not_contact || lead?.whatsapp_opt_out) {
     await finish({ status: 'skipped', skip_reason: 'opt_out' });
     return json({ ok: true, skipped: 'opt_out' });
+  }
+  // Interest clicks now get the category menu from wa-campaign-lead. Keep the
+  // click metric, but never send the old link in parallel with qualification.
+  if (campaignIntent('', pressed) !== 'none') {
+    await finish({ status: 'skipped', skip_reason: 'category_qualification' });
+    return json({ ok: true, skipped: 'category_qualification' });
   }
   const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
   const { data: prev } = await db.from('wa_button_reply_log').select('id')

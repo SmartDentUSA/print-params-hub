@@ -10,3 +10,5 @@
 - [ ] AUTO etapa B (aguarda verificação da A)
 - [ ] AUTO etapa C (aguarda B)
 - [x] Loja: leads [LOJA] - Carrinho abandonado (2 h) e [LOJA] - Pedido cancelado no CRM com nota e categorias
+- [x] WhatsApp Oficial: pedidos de informação/contato recebem categorias; só após selecionar o interesse entram na ingestão oficial pela Regra de Ouro, com respostas originais nas notas do PipeRun e sem duplicidades (12 testes e envio real do menu verificados; entrada/nota reais aguardam escolha do cliente).
+- [x] WhatsApp Oficial: histórico autorizado desde 18/11 preparado — 84 interessados, 5 menus enviados, 79 aguardando reabertura da janela por nova mensagem.
