@@ -79,6 +79,11 @@ export const kbGlassStyles = `
 .kbs-root .kb-card:hover,.kbs-root .kb-rcard:hover,.kbs-root .kb-glass-tile:hover,.kbs-root .pp-root .pp-card:hover,.kbs-root .pc-card:hover,.kbs-content a:hover>.bg-card{
   transform:translateY(-4px);border-color:#fff!important;box-shadow:inset 0 1px 0 #fff,var(--g-sh-h)!important}
 .kbs-root .kb-card:hover:after,.kbs-root .kb-rcard:hover:after,.kbs-root .kb-glass-tile:hover:after{opacity:1}
+.kbs-root .kb-card,.kbs-root .kb-rcard,.kbs-root .kb-glass-tile{overflow:hidden}
+.kbs-root .kb-card:before,.kbs-root .kb-rcard:before,.kbs-root .kb-glass-tile:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:3;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.55) 48%,transparent 62%);transform:translateX(-120%);transition:transform 1s cubic-bezier(.2,.7,.2,1)}
+.kbs-root .kb-card:hover:before,.kbs-root .kb-rcard:hover:before,.kbs-root .kb-glass-tile:hover:before{transform:translateX(120%)}
+.kbs-root .kb-card:hover,.kbs-root .kb-rcard:hover,.kbs-root .kb-glass-tile:hover{transform:translateY(-6px);box-shadow:inset 0 1px 0 #fff,0 2px 4px rgba(54,62,86,.06),0 40px 80px -36px rgba(54,62,86,.55)!important}
 .kbs-root .kb-cthumb-wrap{background:rgba(255,255,255,.35)}
 .kbs-root .kb-cfoot,.kbs-root .kb-rcard-top,.kbs-root .kb-rfoot,.kbs-root .kb-rnotes,.kbs-root .kb-side-h{border-color:var(--g-hair)}
 .kbs-root .kb-rnotes{background:rgba(255,255,255,.35)}
