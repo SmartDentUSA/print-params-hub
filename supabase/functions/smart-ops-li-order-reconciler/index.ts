@@ -109,12 +109,15 @@ Deno.serve(async (req) => {
     updated_at: new Date().toISOString(),
   }).eq("id", "pedidos");
 
+  // Opcional: { loja_cancel_pedidos: [...] } reprocessa cancelamentos já na timeline (idempotente por pedido)
+  const reqBody = await req.clone().json().catch(() => ({}));
+  const cancelPedidos: string[] = Array.isArray(reqBody?.loja_cancel_pedidos) ? reqBody.loja_cancel_pedidos.map(String).slice(0, 20) : [];
   // Carrinhos sem pagamento há 2 h → lead [LOJA] - Carrinho abandonado no CRM
   let lojaScan: unknown = null;
   try {
     const r = await fetch(`${SUPABASE_URL}/functions/v1/loja-crm-lead`, {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
-      body: JSON.stringify({ mode: "scan" }),
+      body: JSON.stringify({ mode: "scan", ...(cancelPedidos.length ? { cancel_pedidos: cancelPedidos } : {}) }),
     });
     lojaScan = { status: r.status, body: (await r.text()).slice(0, 500) };
   } catch (e) { lojaScan = { error: String(e) }; }

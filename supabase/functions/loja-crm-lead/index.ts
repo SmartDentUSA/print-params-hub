@@ -132,12 +132,33 @@ async function scan() {
   return results;
 }
 
+// Reprocessa cancelamentos já registrados na timeline (dados lidos do banco, nunca do chamador).
+async function cancelBackfill(pedidos: string[]) {
+  const out = [];
+  for (const p of pedidos) {
+    const { data } = await sb.from("lead_activity_log").select("lead_id, event_data, event_timestamp")
+      .eq("event_type", "ecommerce_order_cancelled").eq("entity_id", p).order("created_at", { ascending: false }).limit(1);
+    const ev = data?.[0];
+    if (!ev) { out.push({ skipped: "cancelamento_nao_encontrado", pedido: p }); continue; }
+    const ed = (ev.event_data ?? {}) as Record<string, any>;
+    const itens = (Array.isArray(ed.itens) ? ed.itens : []).map((i: any) => ({ nome: String(i.nome ?? i.name ?? "Produto"), qty: Number(i.qty ?? 1), preco: Number(i.preco ?? i.price ?? 0) }));
+    out.push(await process("cancelado", ev.lead_id, {
+      pedido: p, data: ev.event_timestamp, status: "Pedido Cancelado", itens, valor: ed.valor ?? null,
+      valor_envio: ed.valor_envio ?? null, forma_pagamento: ed.forma_pagamento ?? null, forma_envio: ed.forma_envio ?? null, cupom: ed.cupom?.codigo ?? null,
+    }));
+  }
+  return out;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.headers.get("Authorization") !== `Bearer ${SRK}`) return json({ error: "unauthorized" }, 401);
   try {
     const body = await req.json().catch(() => ({}));
-    if (body.mode === "scan") return json({ ok: true, results: await scan() });
+    if (body.mode === "scan") {
+      const pedidos = Array.isArray(body.cancel_pedidos) ? body.cancel_pedidos.map(String).slice(0, 20) : [];
+      return json({ ok: true, results: await scan(), cancel_backfill: pedidos.length ? await cancelBackfill(pedidos) : [] });
+    }
     if (body.mode === "cancel" && typeof body.lead_id === "string" && body.order?.pedido) {
       const o = body.order as OrderInfo;
       o.pedido = String(o.pedido);
