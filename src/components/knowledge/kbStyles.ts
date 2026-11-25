@@ -206,15 +206,17 @@ export const kbStyles = `
   display: flex; justify-content: space-between; align-items: center; gap: 6px;
 }
 .kb-date { font-size: 11px; color: #9AA0A6; }
+/* Botões dos cards de produto — mesmo visual dos cards da página institucional (.sdi-card-a a.b) */
 .kb-action-btn {
-  font-size: 11px; font-weight: 500; color: #363E56;
-  padding: 4px 10px;
-  border: 1px solid rgba(54,62,86,0.30); border-radius: 16px;
-  background: transparent; cursor: pointer;
-  text-decoration: none; display: inline-flex; align-items: center; gap: 4px;
-  font-family: inherit; transition: all 0.15s;
+  font-size: 12.5px; font-weight: 600; color: #363E56;
+  height: 34px; padding: 0 14px;
+  border: 1px solid rgba(255,255,255,0.55); border-radius: 10px;
+  background: rgba(255,255,255,0.26); cursor: pointer;
+  text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: inherit; white-space: nowrap;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-.kb-action-btn:hover { background: rgba(54,62,86,0.08); border-color: #363E56; }
+.kb-action-btn:hover { background: rgba(255,255,255,0.78); border-color: #FFFFFF; color: #363E56; }
 
 /* Empty state */
 .kb-empty {

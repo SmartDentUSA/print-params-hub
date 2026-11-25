@@ -109,10 +109,11 @@ export const kbGlassStyles = `
 .kbs-root .kb-lc-view-btn{color:var(--g-mut)}
 .kbs-root .kb-lc-view-btn:hover{background:rgba(255,255,255,.5);color:var(--g-ink)}
 .kbs-root .kb-lc-view-btn.on svg{color:var(--g-or)}
-.kbs-root .kb-action-btn{border-radius:10px;font-weight:600}
-.kbs-root .kb-action-btn.pri{background:rgba(255,255,255,.66);border-color:rgba(255,255,255,.9)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 4px 14px -8px rgba(54,62,86,.35)}
-.kbs-root .kb-action-btn.pri:before{content:"";width:5px;height:5px;border-radius:50%;background:var(--g-or)}
+.kbs-root .kb-action-btn{border-radius:10px;font-weight:600;background:rgba(255,255,255,.26);border-color:rgba(255,255,255,.55)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.kbs-root .kb-action-btn:hover{background:rgba(255,255,255,.78)!important;border-color:#fff!important}
+.kbs-root .kb-action-btn.pri{background:rgba(255,255,255,.6);border-color:rgba(255,255,255,.85)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 4px 14px -8px rgba(54,62,86,.35)}
 .kbs-root .kb-switcher{background:rgba(255,255,255,.5);border:1px solid var(--g-line);backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 #fff,0 14px 34px -24px rgba(54,62,86,.4)}
 .kbs-root .kb-tab-btn.on{background:var(--g-s3);color:var(--g-ink);box-shadow:inset 0 1px 0 #fff,0 6px 16px -10px rgba(54,62,86,.45)}
 .kbs-root [role="group"][aria-label="Idioma"] button[aria-pressed="true"]{--tw-ring-color:rgba(229,104,56,.72)}

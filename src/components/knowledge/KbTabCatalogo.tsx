@@ -994,11 +994,12 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                     <p className="kb-excerpt">{stripHtml(p.description) || p.product_subcategory}</p>
                   )}
                   {(lojaUrl || fdsUrl || ifuUrl || allExtraDocs.length > 0 || landingShortCtaUrl || formShortCtaUrl) && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(54,62,86,0.08)' }}>
                       {lojaUrl && (
                         <button
                           type="button"
                           className="kb-action-btn pri"
+                          style={{ gridColumn: '1 / -1' }}
                           onClick={() => open(lojaUrl)}
                           title={t('kb.catalogo.actions.loja_title')}
                         >
