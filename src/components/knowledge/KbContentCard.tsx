@@ -66,7 +66,7 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
   const thumbH = portrait ? 720 : 270;
   // O corte central do CDN descartaria o rosto antes de object-position atuar.
   const imageHeight = thumbPosition === 'top' ? undefined : thumbH;
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const translatedCat = (() => {
     if (!data.categoryTk) return data.categoryName;
     const tr = t(data.categoryTk);
@@ -179,7 +179,7 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
               <button
                 type="button"
                 onClick={handleShare}
-                title="Compartilhar"
+                title={language === 'en' ? 'Share' : language === 'es' ? 'Compartir' : 'Compartilhar'}
                 style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: '#5F6368', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}
               >
                 <Share2 size={14} />

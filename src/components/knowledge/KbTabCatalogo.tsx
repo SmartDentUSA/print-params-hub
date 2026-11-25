@@ -980,7 +980,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                   </div>
                   <h3 className="kb-title">{p.name}</h3>
                   {shades.length > 0 && (
-                    <ul className="mt-2 flex flex-wrap gap-2" aria-label="Cores disponíveis">
+                    <ul className="mt-2 flex flex-wrap gap-2" aria-label={specLang === 'en' ? 'Available shades' : specLang === 'es' ? 'Colores disponibles' : 'Cores disponíveis'}>
                       {shades.map(shade => (
                         <li key={shade.label} title={shade.label}>
                           <span className="kb-resin-shade inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-border px-1 text-[10px] font-semibold" data-tone={shade.tone} aria-label={shade.label}>
