@@ -1,0 +1,3 @@
+UPDATE public.campaigns SET nome = 'BlackFriday 2026' WHERE id = 'd8280a2b-4f27-43e0-a8bd-e1e841a302f4';
+UPDATE public.smartops_forms SET name = '[WHTASATIVO] - BlackFriday 2026', title = '[WHTASATIVO] - BlackFriday 2026' WHERE slug = 'whatsapp-oficial-d8280a2b-4f27-43e0-a8bd-e1e841a302f4' AND active = false;
+UPDATE public.wa_campaign_lead_jobs SET context = context || jsonb_build_object('campaign_name', 'BlackFriday 2026', 'form_name', '[WHTASATIVO] - BlackFriday 2026') WHERE campaign_id = 'd8280a2b-4f27-43e0-a8bd-e1e841a302f4' AND status IN ('awaiting_category','waiting_window','failed','menu_sending') AND selection_inbox_id IS NULL;

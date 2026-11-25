@@ -11,7 +11,7 @@ function fakeDb() {
     campaign_send_log: [{ campaign_id: 'session', source_campaign_id: 'campaign', lead_id: 'lead', nome: 'Cliente Real', telefone: PHONE,
       provider: 'zernio_cloud_api', status: 'sent', sent_at: '2026-01-01T00:00:00Z' }],
     campaign_sessions: [{ id: 'session', results: { account_id: 'account' } }],
-    campaigns: [{ id: 'campaign', nome: 'Campanha existente', metadata: {} }],
+    campaigns: [{ id: 'campaign', nome: 'BlackFriday 2026', metadata: {} }],
     lia_attendances: [{ id: 'lead', nome: 'Cliente Real', email: 'cliente@dominio.com', telefone_normalized: `+${PHONE}`, merged_into: null }],
     smartops_forms: [{ id: 'standard', name: '# - [CHATSITE] - Oportunidade', active: true, capture_buttons: [
       { label: 'Resinas' }, { label: 'Scanner intraoral', product_name: 'Scanner intraoral INO200', product_catalog_id: 'catalog-scanner' },
@@ -90,7 +90,7 @@ Deno.test('WhatsApp: clique abre categorias sem criar lead; escolha envia produt
   assertEquals(payloads[0].produto_interesse, 'Scanner intraoral INO200');
   assertEquals(payloads[0].product_catalog_id, 'catalog-scanner');
   assertEquals(payloads[0].phone, `+${PHONE}`);
-  assertEquals(payloads[0].form_name, '[WHATSAPP OFICIAL] - Campanha existente');
+  assertEquals(payloads[0].form_name, '[WHTASATIVO] - BlackFriday 2026');
   assertEquals(payloads[0].form_responses.find((r: any) => r.label === 'Mensagem recebida (WhatsApp Oficial)').value, 'Falar com consultor');
   assertEquals(payloads[0].force_new_deal, undefined);
   assertEquals(payloads[0].event_consultant_team_member_id, undefined);
@@ -107,4 +107,13 @@ Deno.test('WhatsApp: histórico fora da janela fica aguardando, sem menu e sem C
   assert('waiting_window' in result && result.waiting_window);
   assertEquals(calls, 0);
   assertEquals(db.tables.wa_campaign_lead_jobs[0].status, 'waiting_window');
+});
+
+Deno.test('WhatsApp: formulário vinculado fornece categorias sem substituir origem da campanha', async () => {
+  const db = fakeDb();
+  db.tables.campaigns[0].metadata = { button_replies: [{ label: 'Falar com consultor', form_id: 'linked' }] };
+  db.tables.smartops_forms.push({ id: 'linked', name: 'Origem do formulário', form_purpose: 'sdr_captacao', capture_buttons: [{ label: 'Resinas' }] });
+  const result = await processCampaignReply(db, 'original', true, async () => ({}), async () => null);
+  assert('origin' in result);
+  assertEquals(result.origin, '[WHTASATIVO] - BlackFriday 2026');
 });

@@ -109,8 +109,7 @@ export async function processCampaignReply(db: any, inboxId: string, dryRun: boo
   const buttons = campaign.metadata?.button_replies ?? session.results?.button_replies ?? [];
   const reply = pressed ? matchReply(buttons, pressed) : null;
   let formId = reply?.form_id ?? (reply?.link ? await resolveFormIdForLink(db, reply.link) : null);
-  // Typed requests use the form only when every published campaign action has
-  // the same destination; otherwise keep a distinct campaign origin.
+  // Linked forms supply categories, never the campaign's CRM origin.
   if (!formId && !pressed) {
     const ids = [...new Set((Array.isArray(buttons) ? buttons : []).map((b: any) => b.form_id).filter(Boolean))];
     if (ids.length === 1) formId = String(ids[0]);
@@ -121,7 +120,7 @@ export async function processCampaignReply(db: any, inboxId: string, dryRun: boo
     if (error) throw error;
     if (data?.form_purpose === 'sdr_captacao') form = data;
   }
-  const origin = form?.name ?? `[WHATSAPP OFICIAL] - ${campaign.nome}`;
+  const origin = `[WHTASATIVO] - ${campaign.nome}`;
   const submissionId = campaignSubmissionId(campaign.id, identity.phone);
   let categories = Array.isArray(form?.capture_buttons) ? form.capture_buttons : [];
   if (!categories.length) {
@@ -136,9 +135,9 @@ export async function processCampaignReply(db: any, inboxId: string, dryRun: boo
   if (!categories.length) throw new Error('system interest categories unavailable');
   if (dryRun) return { inbox_id: inboxId, eligible: true, action: 'offer_categories', intent, lead_id: lead?.id ?? null, campaign_id: campaign.id, origin, submission_id: submissionId, categories: categories.map((c: any) => c.label) };
 
-  if (!form) {
+  {
     const slug = `whatsapp-oficial-${campaign.id}`;
-    const { error } = await db.from('smartops_forms').upsert({ slug, name: origin, title: origin, form_purpose: 'sdr_captacao', active: false }, { onConflict: 'slug', ignoreDuplicates: true });
+    const { error } = await db.from('smartops_forms').upsert({ slug, name: origin, title: origin, form_purpose: 'sdr_captacao', active: false }, { onConflict: 'slug' });
     if (error) throw error;
     const { data, error: readError } = await db.from('smartops_forms').select('id,name,form_purpose,product_catalog_id,capture_buttons').eq('slug', slug).single();
     if (readError) throw readError;

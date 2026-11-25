@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Origem WhatsApp ativo padronizada; campanha BlackFriday 2026 e 84 interessados pendentes atualizados (13 testes aprovados e função publicada).
 - [x] Captura WhatsApp Oficial (cartões/áudio/fotos) → Drive do evento + CRM (Lead do evento: dono vendedor; KOL evento 109840 e Oportunidade 109841: Beatriz); agrupa até FIM
 - [x] Tela "Capturas WhatsApp" com status e reprocessar
 - [x] AUTO: adicionar venda direta do evento com vendedor remetente no Funil de Vendas (mesmo formulário/fluxo de visitantes; 16 testes aprovados e função publicada)
