@@ -67,16 +67,16 @@ export const kbGlassStyles = `
 
 /* Superfícies de vidro (cards e painéis das abas) */
 .kbs-root .kb-card,.kbs-root .kb-rcard,.kbs-root .kb-glass-tile,
-.kbs-root .pp-root .pp-card,.kbs-content .bg-card{
+.kbs-root .pp-root .pp-card,.kbs-root .pc-card,.kbs-content .bg-card{
   background:linear-gradient(150deg,rgba(255,255,255,.78) 0%,rgba(255,255,255,.44) 55%,rgba(255,255,255,.32) 100%)!important;
   border:1px solid var(--g-line)!important;-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.95),var(--g-sh)!important}
-.kbs-root .kb-card,.kbs-root .kb-rcard,.kbs-root .pp-root .pp-card{border-radius:20px!important}
+.kbs-root .kb-card,.kbs-root .kb-rcard,.kbs-root .pp-root .pp-card,.kbs-root .pc-card{border-radius:20px!important}
 .kbs-root .kb-glass-tile{border-radius:16px!important}
 .kbs-root .kb-card,.kbs-root .kb-rcard,.kbs-root .kb-glass-tile{position:relative;transition:transform .45s cubic-bezier(.2,.7,.2,1),box-shadow .45s,border-color .45s}
 .kbs-root .kb-card:after,.kbs-root .kb-rcard:after,.kbs-root .kb-glass-tile:after{content:"";position:absolute;left:0;right:0;top:0;height:1px;z-index:2;pointer-events:none;
   background:linear-gradient(90deg,transparent,rgba(229,104,56,.55),transparent);opacity:0;transition:opacity .45s}
-.kbs-root .kb-card:hover,.kbs-root .kb-rcard:hover,.kbs-root .kb-glass-tile:hover,.kbs-root .pp-root .pp-card:hover,.kbs-content a:hover>.bg-card{
+.kbs-root .kb-card:hover,.kbs-root .kb-rcard:hover,.kbs-root .kb-glass-tile:hover,.kbs-root .pp-root .pp-card:hover,.kbs-root .pc-card:hover,.kbs-content a:hover>.bg-card{
   transform:translateY(-4px);border-color:#fff!important;box-shadow:inset 0 1px 0 #fff,var(--g-sh-h)!important}
 .kbs-root .kb-card:hover:after,.kbs-root .kb-rcard:hover:after,.kbs-root .kb-glass-tile:hover:after{opacity:1}
 .kbs-root .kb-cthumb-wrap{background:rgba(255,255,255,.35)}

@@ -318,17 +318,17 @@
         "simulacao_gengiva": "Simulación de encía"
       },
       "actions": {
-        "loja": "🛒 Tienda",
+        "loja": "Tienda",
         "loja_title": "Tienda",
         "fds_title": "Ficha de Datos de Seguridad",
         "ifu_title": "Instrucciones de Uso",
-        "docs": "📑 Documentos ({{count}})",
+        "docs": "Documentos ({{count}})",
         "docs_title": "Certificados, informes, presentaciones y guías",
-        "specs": "📊 Ficha técnica",
+        "specs": "Ficha técnica",
         "specs_title": "Tabla de especificaciones técnicas",
-        "pre_post": "🧪 Pre/Post-Procesado",
+        "pre_post": "Pre/Post-Procesado",
         "pre_post_title": "Instrucciones de Pre y Post Procesado",
-        "parametrization": "📖 Parametrización",
+        "parametrization": "Parametrización",
         "parametrization_title": "Ir a la pestaña Parámetros"
       },
       "dialogs": {

@@ -318,17 +318,17 @@
         "simulacao_gengiva": "Gingiva simulation"
       },
       "actions": {
-        "loja": "🛒 Shop",
+        "loja": "Shop",
         "loja_title": "Shop",
         "fds_title": "Safety Data Sheet",
         "ifu_title": "Instructions for Use",
-        "docs": "📑 Documents ({{count}})",
+        "docs": "Documents ({{count}})",
         "docs_title": "Certificates, reports, presentations and guides",
-        "specs": "📊 Tech sheet",
+        "specs": "Tech sheet",
         "specs_title": "Technical specifications table",
-        "pre_post": "🧪 Pre/Post-Processing",
+        "pre_post": "Pre/Post-Processing",
         "pre_post_title": "Pre and Post Processing instructions",
-        "parametrization": "📖 Parameters",
+        "parametrization": "Parameters",
         "parametrization_title": "Go to the Parameters tab"
       },
       "dialogs": {

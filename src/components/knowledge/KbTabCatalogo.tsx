@@ -1008,12 +1008,12 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                       )}
                       {fdsUrl && (
                         <button type="button" className="kb-action-btn" onClick={() => open(fdsUrl)} title={t('kb.catalogo.actions.fds_title')}>
-                          📄 FDS
+                          FDS
                         </button>
                       )}
                       {ifuUrl && (
                         <button type="button" className="kb-action-btn" onClick={() => open(ifuUrl)} title={t('kb.catalogo.actions.ifu_title')}>
-                          📘 IFU
+                          IFU
                         </button>
                       )}
                       {allExtraDocs.length > 0 && (

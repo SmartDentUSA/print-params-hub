@@ -318,17 +318,17 @@
         "simulacao_gengiva": "Simulação de gengiva"
       },
       "actions": {
-        "loja": "🛒 Loja",
+        "loja": "Loja",
         "loja_title": "Loja",
         "fds_title": "Ficha de Dados de Segurança",
         "ifu_title": "Instruções de Uso",
-        "docs": "📑 Documentos ({{count}})",
+        "docs": "Documentos ({{count}})",
         "docs_title": "Certificados, laudos, apresentações e guias",
-        "specs": "📊 Tabela técnica",
+        "specs": "Tabela técnica",
         "specs_title": "Tabela de especificações técnicas",
-        "pre_post": "🧪 Pré/Pós-Processamento",
+        "pre_post": "Pré/Pós-Processamento",
         "pre_post_title": "Instruções de Pré e Pós Processamento",
-        "parametrization": "📖 Parametrização",
+        "parametrization": "Parametrização",
         "parametrization_title": "Ir para a aba Parâmetros"
       },
       "dialogs": {
