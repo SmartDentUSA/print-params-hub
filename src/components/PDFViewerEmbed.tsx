@@ -18,7 +18,7 @@ export function PDFViewerEmbed({ url, title, subtitle }: PDFViewerEmbedProps) {
   return (
     <Card className="overflow-hidden border-0 rounded-none my-0 sm:border-2 sm:rounded-lg sm:my-8 sm:border-amber-200 dark:sm:border-amber-800">
       <CardContent className="p-0">
-        <div className={`${isMobile ? 'w-screen touch-pan-y' : 'w-full'} overflow-x-hidden`}>
+        <div className={`w-full min-w-0 ${isMobile ? 'touch-pan-y' : ''} overflow-x-hidden`}>
           <iframe
             src={iframeSrc}
             className={`block w-full ${isMobile ? 'h-[1200px]' : 'h-[1200px] sm:h-[1400px] md:h-[900px] lg:h-[1123px]'} border-none`}

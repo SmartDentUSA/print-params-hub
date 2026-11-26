@@ -407,7 +407,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
           )}
         </KbShellLayout>
         <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[calc(100%-1rem)] min-w-0 max-w-5xl max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain rounded-lg p-4 pt-10 [overflow-wrap:anywhere] [&>*]:min-w-0 [&_button]:max-w-full [&_button]:whitespace-normal [&_button]:h-auto [&_button]:min-h-10 sm:max-h-[90dvh] sm:p-6">
             {dialogContent && <KnowledgeContentViewer content={dialogContent} />}
           </DialogContent>
         </Dialog>
@@ -436,7 +436,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       </main>
 
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100%-1rem)] min-w-0 max-w-5xl max-h-[calc(100dvh-1rem)] overflow-y-auto overscroll-contain rounded-lg p-4 pt-10 [overflow-wrap:anywhere] [&>*]:min-w-0 [&_button]:max-w-full [&_button]:whitespace-normal [&_button]:h-auto [&_button]:min-h-10 sm:max-h-[90dvh] sm:p-6">
           {dialogContent && <KnowledgeContentViewer content={dialogContent} />}
         </DialogContent>
       </Dialog>

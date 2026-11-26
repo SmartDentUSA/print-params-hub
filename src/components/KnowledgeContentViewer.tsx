@@ -546,7 +546,7 @@ ${processedHTML}
         aiContextEs={content.ai_context_es}
       />
       
-      <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
+      <div className="min-w-0 bg-gradient-card rounded-xl border border-border shadow-medium p-3 sm:p-6 max-sm:[&_.article-content_div]:!min-w-0 max-sm:[&_.article-content_div]:max-w-full">
         {/* PDFs selecionados - sempre no topo */}
         {selectedPdfs.length > 0 && (
           <div className="space-y-4 mb-8">
