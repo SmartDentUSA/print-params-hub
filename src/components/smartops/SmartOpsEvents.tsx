@@ -26,6 +26,7 @@ import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEve
 import { EventFieldCapturesButton } from "@/components/smartops/events/EventFieldCapturesButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import { DEFAULT_EVENT_TYPE, EVENT_TYPE_OPTIONS, eventTypeLabel, normalizeEventType } from "@/lib/eventTypes";
+import { eventPromotionRevenue } from "@/lib/eventPromotionRevenue";
 
 type EventRow = {
   id: string;
@@ -486,6 +487,26 @@ export function SmartOpsEvents() {
                         {!!st?.coupons_discount && <Badge variant="outline">{st.coupons_discount} cupons desconto</Badge>}
                         {!!st?.coupons_freight && <Badge variant="outline">{st.coupons_freight} cupons frete</Badge>}
                       </div>
+
+                      {r.event_type === "campanha_promocional" && (
+                        <div className="border-y border-border py-3">
+                          <div className="text-[11px] uppercase text-muted-foreground">Faturamento total da promoção</div>
+                          {statsLoading ? (
+                            <p className="text-sm text-muted-foreground">Carregando faturamento…</p>
+                          ) : !st || storeError || !st.store ? (
+                            <p className="text-xs text-muted-foreground">Total indisponível: aguardando os valores de conversão e da loja.</p>
+                          ) : (
+                            <>
+                              <div className="text-2xl font-bold tabular-nums break-words">
+                                {exactBrl(eventPromotionRevenue(st.won_value, st.store.valor_total))}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                CRM {exactBrl(st.won_value)} · Loja {exactBrl(st.store.valor_total)}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-2">
                         <div className="rounded-md bg-muted/50 p-2">
