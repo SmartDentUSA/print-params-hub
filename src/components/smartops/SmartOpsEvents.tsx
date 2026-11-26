@@ -666,8 +666,8 @@ export function SmartOpsEvents() {
                         const total = [...acc.values()].sort((x, y) => y.receita - x.receita);
                         return (
                           <>
-                            {lista("Produtos mais vendidos · CRM", crm, "Itens das propostas dos negócios ganhos da campanha")}
-                            {lista("Produtos mais vendidos · E-commerce", loja, "Pedidos pagos na loja · receita pelo preço dos itens, antes de desconto e frete")}
+                            {lista("Produtos mais vendidos · CRM", crm, "Itens dos negócios ganhos · receita rateada pelo valor do negócio")}
+                            {lista("Produtos mais vendidos · E-commerce", loja, "Pedidos pagos na loja · receita pelo valor pago, rateada entre os itens")}
                             {lista("Total consolidado · CRM + E-commerce", total, "Soma por produto dos itens do CRM e da loja")}
                           </>
                         );
@@ -787,7 +787,7 @@ export function SmartOpsEvents() {
                               </li>
                             ))}
                           </ul>
-                          <div className="text-[10px] text-muted-foreground mt-1">Funil do último negócio do lead criado antes da primeira conversão na campanha</div>
+                          <div className="text-[10px] text-muted-foreground mt-1">Funil do último negócio do lead criado antes da campanha (negócios da própria campanha não contam)</div>
                         </div>
                       )}
 
