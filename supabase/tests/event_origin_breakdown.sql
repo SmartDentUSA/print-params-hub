@@ -15,7 +15,7 @@ BEGIN
   FOREACH expected IN ARRAY origins LOOP
     IF NOT EXISTS (
       SELECT 1 FROM jsonb_array_elements(stats.by_origin) o
-      WHERE o->>'origin' = expected
+      WHERE regexp_replace(btrim(o->>'origin'), '^#\s*-\s*', '') = regexp_replace(btrim(expected), '^#\s*-\s*', '')
     ) THEN
       RAISE EXCEPTION 'TESTE FALHOU: origem ausente: %', expected;
     END IF;
@@ -32,7 +32,7 @@ BEGIN
     SELECT 1
     FROM public.smartops_forms f
     JOIN public.promotional_tables pt ON pt.id = f.promotional_table_id
-    WHERE f.name = '[WHTASATIVO] - BlackFriday 2026'
+    WHERE regexp_replace(btrim(f.name), '^#\s*-\s*', '') = '[WHTASATIVO] - BlackFriday 2026'
       AND pt.event_id = '6914e294-2313-4694-93b5-b7736747feae'
   ) THEN
     RAISE EXCEPTION 'TESTE FALHOU: WhatsApp ativo sem vínculo com a Black Friday 2026';

@@ -69,7 +69,8 @@ type EventRow = {
 
 type SellerStat = { seller: string; qtd: number; ganhos?: number; valor?: number };
 type OriginStat = { origin: string; qtd: number; ganhos?: number; valor?: number };
-type ChannelStat = { canal: string; campanhas: number; envios: number; abertos: number; cliques: number; leads: number };
+type ChannelStat = { canal: string; campanhas: number; envios: number; abertos: number; cliques: number; leads: number; entregues: number; custo: number | null; convertidos: number; valor_convertido: number };
+type StoreStat = { pedidos: number; valor_total: number; pedidos_cupom: number; valor_cupons: number; atualizado_em: string | null };
 type ProductStat = { produto: string; qtd: number };
 type AreaStat = { area: string; qtd: number };
 type EspecialidadeStat = { especialidade: string; qtd: number };
@@ -98,6 +99,7 @@ type EventStats = {
   coupons_used_list: { code: string; qtd: number }[];
   coupons_checked_at: string | null;
   channels?: ChannelStat[];
+  store?: StoreStat;
 };
 
 const emptyStats: EventStats = {
@@ -128,6 +130,7 @@ const emptyStats: EventStats = {
 
 const brl = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const exactBrl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 
 const ALL_COUNTRIES = Country.getAllCountries();
@@ -177,7 +180,8 @@ function fmtRange(start?: string | null, end?: string | null) {
   if (!start && !end) return "—";
   const fmt = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
   if (start && end && start !== end) return `${fmt(start)} → ${fmt(end)}`;
-  return fmt((start || end)!);
+  const date = start || end;
+  return date ? fmt(date) : "—";
 }
 
 export function SmartOpsEvents() {
@@ -190,6 +194,9 @@ export function SmartOpsEvents() {
   const [countryOpen, setCountryOpen] = useState(false);
 
   const [stats, setStats] = useState<Record<string, EventStats>>({});
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [channelsError, setChannelsError] = useState(false);
+  const [storeError, setStoreError] = useState(false);
 
   // Repete uma vez quando o banco recusa/expira, para um card não aparecer zerado por falha momentânea.
   async function rpcRetry(fn: string, args: Record<string, unknown>) {
@@ -204,6 +211,7 @@ export function SmartOpsEvents() {
   }
 
   async function loadStats(eventIds: string[] = []) {
+    setStatsLoading(true);
     // Um cálculo por evento, em paralelo: o cálculo de todos de uma vez estoura o tempo limite e zera os valores.
     const leadStatsP = eventIds.length
       ? Promise.all(eventIds.map((id) => rpcRetry("fn_event_lead_stats", { p_event_id: id })))
@@ -212,15 +220,19 @@ export function SmartOpsEvents() {
             return { data: rs.flatMap((r) => r.data || []) };
           })
       : (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null });
-    const [{ data: leadStats }, { data: tables }, { data: lpViews }, { data: chStats }] = await Promise.all([
+    const [{ data: leadStats }, { data: tables }, { data: lpViews }, channelResult, storeResult] = await Promise.all([
       leadStatsP,
       (supabase as any)
         .from("promotional_tables")
         .select("id, event_id, promotional_coupons(id, code, free_shipping, li_used_count, li_usage_checked_at)")
         .not("event_id", "is", null),
       rpcRetry("fn_event_landing_views", { p_event_id: null }),
-      rpcRetry("fn_event_campaign_stats", { p_event_id: null }),
+      rpcRetry("fn_event_campaign_metrics", { p_event_id: null }),
+      rpcRetry("fn_event_store_stats", { p_event_id: null }),
     ]);
+    const chStats = channelResult.data;
+    setChannelsError(Boolean(channelResult.error));
+    setStoreError(Boolean(storeResult.error));
     const map: Record<string, EventStats> = {};
     for (const s of (leadStats || []) as any[]) {
       map[s.event_id] = {
@@ -254,8 +266,19 @@ export function SmartOpsEvents() {
       cur.channels = [...(cur.channels || []), {
         canal: c.canal, campanhas: Number(c.campanhas) || 0, envios: Number(c.envios) || 0,
         abertos: Number(c.abertos) || 0, cliques: Number(c.cliques) || 0, leads: Number(c.leads) || 0,
+        entregues: Number(c.entregues) || 0, custo: c.custo == null ? null : Number(c.custo),
+        convertidos: Number(c.convertidos) || 0, valor_convertido: Number(c.valor_convertido) || 0,
       }];
       map[c.event_id] = cur;
+    }
+    for (const s of (storeResult.data || []) as any[]) {
+      const cur = map[s.event_id] || { ...emptyStats };
+      cur.store = {
+        pedidos: Number(s.pedidos) || 0, valor_total: Number(s.valor_total) || 0,
+        pedidos_cupom: Number(s.pedidos_cupom) || 0, valor_cupons: Number(s.valor_cupons) || 0,
+        atualizado_em: s.atualizado_em || null,
+      };
+      map[s.event_id] = cur;
     }
     for (const v of (lpViews || []) as any[]) {
       const cur = map[v.event_id] || { ...emptyStats };
@@ -282,6 +305,7 @@ export function SmartOpsEvents() {
       map[t.event_id] = cur;
     }
     setStats(map);
+    setStatsLoading(false);
   }
 
   async function load() {
@@ -294,7 +318,12 @@ export function SmartOpsEvents() {
     if (error) toast.error(error.message);
     setRows((data || []) as unknown as EventRow[]);
     setLoading(false);
-    loadStats(((data || []) as any[]).map((r) => r.id)).catch(() => {});
+    loadStats(((data || []) as any[]).map((r) => r.id)).catch((error) => {
+      console.error("Indicadores do evento", error);
+      setChannelsError(true);
+      setStoreError(true);
+      setStatsLoading(false);
+    });
   }
 
   useEffect(() => { load(); }, []);
@@ -491,6 +520,9 @@ export function SmartOpsEvents() {
                         </div>
                       </div>
 
+                      {r.event_type === "campanha_promocional" && (statsLoading || channelsError) && (
+                        <p className="text-xs text-muted-foreground">{statsLoading ? "Carregando envios…" : "Não foi possível carregar os envios. Atualize a página para tentar novamente."}</p>
+                      )}
                       {!!st?.channels?.length && (
                         <div className="rounded-md border bg-muted/20 p-2">
                           <div className="text-[11px] uppercase text-muted-foreground mb-1.5">
@@ -507,7 +539,7 @@ export function SmartOpsEvents() {
                               ];
                               return (
                                 <div key={c.canal}>
-                                  <div className="text-xs font-semibold mb-1">{c.canal === "email" ? "E-mails" : "WhatsApp API"}</div>
+                                  <div className="text-xs font-semibold mb-1">{c.canal === "email" ? "E-mails" : c.canal === "sms" ? "SMS" : "WhatsApp API"}</div>
                                   <div className="grid grid-cols-4 gap-1">
                                     {cells.map((x) => (
                                       <div key={x.l} className="rounded bg-muted/50 px-1.5 py-1">
@@ -517,10 +549,44 @@ export function SmartOpsEvents() {
                                       </div>
                                     ))}
                                   </div>
+                                  <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                                    {c.canal !== "email" && <div>
+                                      <div className="text-[10px] uppercase text-muted-foreground">Custo do envio</div>
+                                      <div className="font-semibold tabular-nums">{c.custo == null ? "Não informado" : exactBrl(c.custo)}</div>
+                                      {c.canal === "whatsapp_oficial" && <div className="text-[10px] text-muted-foreground">{c.entregues.toLocaleString("pt-BR")} mensagens entregues</div>}
+                                    </div>}
+                                    <div>
+                                      <div className="text-[10px] uppercase text-muted-foreground">Conversão em vendas</div>
+                                      <div className="font-semibold tabular-nums">{exactBrl(c.valor_convertido)}</div>
+                                      <div className="text-[10px] text-muted-foreground">{c.convertidos} leads que compraram{c.leads ? ` (${Math.round(c.convertidos / c.leads * 100)}%)` : ""}</div>
+                                    </div>
+                                  </div>
                                 </div>
                               );
                             })}
                           </div>
+                        </div>
+                      )}
+
+                      {r.event_type === "campanha_promocional" && !statsLoading && !channelsError && !st?.channels?.length && (
+                        <p className="text-xs text-muted-foreground">Nenhum disparo vinculado à campanha.</p>
+                      )}
+
+                      {r.event_type === "campanha_promocional" && (
+                        <div className="border-t border-border pt-2">
+                          <div className="text-[11px] uppercase text-muted-foreground mb-1">Vendas no site · período da campanha</div>
+                          {statsLoading ? <p className="text-xs text-muted-foreground">Carregando vendas…</p> : storeError || !st?.store ? (
+                            <p className="text-xs text-muted-foreground">Não foi possível carregar as vendas da loja.</p>
+                          ) : (
+                            <>
+                              <div className="text-xl font-bold tabular-nums">{exactBrl(st.store.valor_total)}</div>
+                              <div className="text-xs text-muted-foreground">{st.store.pedidos} pedidos pagos registrados · cancelados excluídos</div>
+                              <div className="mt-2 text-[10px] uppercase text-muted-foreground">Vendas com cupons da campanha</div>
+                              <div className="text-sm font-semibold tabular-nums">{exactBrl(st.store.valor_cupons)}</div>
+                              <div className="text-[10px] text-muted-foreground">{st.store.pedidos_cupom} pedidos pagos com cupom · valor dos pedidos, não do desconto</div>
+                              <div className="text-[10px] text-muted-foreground mt-1">{st.store.atualizado_em ? `Último registro da loja: ${new Date(st.store.atualizado_em).toLocaleString("pt-BR")}` : "Sem pedidos pagos registrados neste período."}</div>
+                            </>
+                          )}
                         </div>
                       )}
 
@@ -548,21 +614,21 @@ export function SmartOpsEvents() {
                         <div>
                           <div className="text-[11px] uppercase text-muted-foreground mb-1">Cupons utilizados na loja</div>
                           <div className="text-sm font-semibold">
-                            {st!.coupons_used} uso{st!.coupons_used === 1 ? "" : "s"}
+                            {st?.coupons_used ?? 0} uso{st?.coupons_used === 1 ? "" : "s"}
                             <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                              de {st!.coupons_discount + st!.coupons_freight} cupons
+                              de {(st?.coupons_discount ?? 0) + (st?.coupons_freight ?? 0)} cupons
                             </span>
                           </div>
-                          {st!.coupons_used_list.length > 0 && (
+                          {!!st?.coupons_used_list.length && (
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {st!.coupons_used_list.slice(0, 8).map((c) => (
+                              {st.coupons_used_list.slice(0, 8).map((c) => (
                                 <Badge key={c.code} variant="secondary" className="text-[10px] font-normal">{c.code} · {c.qtd}</Badge>
                               ))}
                             </div>
                           )}
                           <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {st!.coupons_checked_at
-                              ? `Loja Integrada · atualizado ${new Date(st!.coupons_checked_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} (08h, 12h e 17h30)`
+                            {st?.coupons_checked_at
+                              ? `Loja Integrada · atualizado ${new Date(st.coupons_checked_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} (08h, 12h e 17h30)`
                               : "Aguardando a primeira leitura da loja (08h, 12h e 17h30)"}
                           </div>
                         </div>

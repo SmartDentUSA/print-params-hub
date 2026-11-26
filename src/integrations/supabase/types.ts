@@ -39686,6 +39686,22 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_event_campaign_metrics: {
+        Args: { p_event_id?: string }
+        Returns: {
+          abertos: number
+          campanhas: number
+          canal: string
+          cliques: number
+          convertidos: number
+          custo: number
+          entregues: number
+          envios: number
+          event_id: string
+          leads: number
+          valor_convertido: number
+        }[]
+      }
       fn_event_campaign_stats: {
         Args: { p_event_id?: string }
         Returns: {
@@ -39774,6 +39790,17 @@ export type Database = {
         }[]
       }
       fn_event_store_ingest: { Args: { p_limit?: number }; Returns: Json }
+      fn_event_store_stats: {
+        Args: { p_event_id?: string }
+        Returns: {
+          atualizado_em: string
+          event_id: string
+          pedidos: number
+          pedidos_cupom: number
+          valor_cupons: number
+          valor_total: number
+        }[]
+      }
       fn_expand_deal_proposals_to_items: {
         Args: { p_deal_id: string }
         Returns: number
