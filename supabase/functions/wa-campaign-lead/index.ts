@@ -62,8 +62,20 @@ Deno.serve(async (req) => {
         return out?.data?.messageId ?? out?.messageId ?? null;
       });
       results.push(result);
-      if ('ingested' in result && result.ingested && result.lead_id && result.job_id) {
-        const leadId = String(result.lead_id), jobId = String(result.job_id);
+      let noteLeadId: string | null = 'ingested' in result && result.ingested ? String(result.lead_id) : null;
+      let noteJobId: string | null = 'ingested' in result && result.ingested ? String(result.job_id) : null;
+      if (!parsed.data.dry_run && !noteLeadId) {
+        // Re-dispatching an accepted original message retries only its note.
+        const { data: completed, error } = await db.from('wa_campaign_lead_jobs')
+          .select('id,lead_id,note_status').eq('inbox_id', id).eq('status', 'ingested').maybeSingle();
+        if (error) throw error;
+        if (completed?.lead_id && completed.note_status !== 'sent') {
+          noteLeadId = completed.lead_id;
+          noteJobId = completed.id;
+        }
+      }
+      if (!parsed.data.dry_run && noteLeadId && noteJobId) {
+        const leadId = noteLeadId, jobId = noteJobId;
         EdgeRuntime.waitUntil(syncFormNote(db, leadId).then(async () => {
           const { error } = await db.from('wa_campaign_lead_jobs').update({ note_status: 'sent' }).eq('id', jobId);
           if (error) throw error;

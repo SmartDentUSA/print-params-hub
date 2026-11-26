@@ -215,11 +215,19 @@ async function finalizeChoice(db: any, job: any, msg: any, ingest: (payload: Rec
     if (error) throw error;
   };
   try {
+    let recoveredLeadId: string | null = null;
     if (ctx.lead_id) {
-      const { data: restrictions, error } = await db.from('lia_attendances').select('do_not_contact,whatsapp_opt_out')
+      const { data: restrictions, error } = await db.from('lia_attendances').select('id,do_not_contact,whatsapp_opt_out,raw_payload')
         .eq('id', ctx.lead_id).is('merged_into', null).maybeSingle();
       if (error) throw error;
       if (restrictions?.do_not_contact || restrictions?.whatsapp_opt_out) { await finish({ status: 'blocked' }); return { skipped: 'existing_contact_restriction' }; }
+      // A timeout can occur after ingest has persisted this exact conversion.
+      // Recover its receipt rather than call ingestion/assignment a second time.
+      const key = `form:${ctx.form_name}:${ctx.submission_id}`;
+      const history = restrictions?.raw_payload?.form_submissions;
+      if (Array.isArray(history) && history.some((s: any) => s?.conversion_key === key && s?.form_name === ctx.form_name)) {
+        recoveredLeadId = restrictions.id;
+      }
     }
     const product = selected?.product_name || selected?.label || 'Identificar produto de interesse';
     // Keep every explicit customer request before the category choice, not
@@ -239,7 +247,7 @@ async function finalizeChoice(db: any, job: any, msg: any, ingest: (payload: Rec
       { label: 'Campanha', value: ctx.campaign_name },
     ];
     if (ctx.email) responses.push({ label: 'E-mail', value: ctx.email });
-    const result = await ingest({
+    const result = recoveredLeadId ? { lead_id: recoveredLeadId } : await ingest({
       source: 'form', form_name: ctx.form_name, form_id: job.form_id, form_purpose: 'sdr_captacao',
       nome: ctx.nome, phone: job.phone, telefone_raw: job.phone, ...(ctx.email ? { email: ctx.email } : {}),
       produto_interesse: product, ...(selected?.product_catalog_id ? { product_catalog_id: selected.product_catalog_id } : {}),

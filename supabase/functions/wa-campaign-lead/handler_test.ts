@@ -99,6 +99,40 @@ Deno.test('WhatsApp: clique abre categorias sem criar lead; escolha envia produt
   assertEquals(payloads.length, 1);
 });
 
+Deno.test('WhatsApp: conversão histórica já persistida recupera confirmação sem repetir ingestão', async () => {
+  const db = fakeDb();
+  db.tables.whatsapp_inbox[0].created_at = '2026-01-01T00:01:00Z';
+  await processCampaignReply(db, 'original', false, async () => ({}), async () => null);
+  const job = db.tables.wa_campaign_lead_jobs[0];
+  Object.assign(job, { status: 'failed' });
+  Object.assign(job.context, { historical_authorized: true, historical_until: new Date().toISOString() });
+  db.tables.lia_attendances[0].raw_payload = { form_submissions: [{
+    form_name: '[WHTASATIVO] - BlackFriday 2026',
+    conversion_key: `form:[WHTASATIVO] - BlackFriday 2026:${job.context.submission_id}`,
+  }] };
+  let calls = 0;
+  const result = await processCampaignReply(db, 'original', false, async () => { calls++; return { lead_id: 'lead' }; }, async () => null);
+  assert('ingested' in result && result.ingested);
+  assertEquals(calls, 0);
+  assertEquals(job.lead_id, 'lead');
+  assertEquals(job.status, 'ingested');
+  assertEquals(db.tables.lead_activity_log[0].event_data.produto_interesse, 'Identificar produto de interesse');
+});
+
+Deno.test('WhatsApp: outra conversão no histórico não impede cadastrar o interesse autorizado', async () => {
+  const db = fakeDb();
+  db.tables.whatsapp_inbox[0].created_at = '2026-01-01T00:01:00Z';
+  await processCampaignReply(db, 'original', false, async () => ({}), async () => null);
+  const job = db.tables.wa_campaign_lead_jobs[0];
+  Object.assign(job.context, { historical_authorized: true, historical_until: new Date().toISOString() });
+  db.tables.lia_attendances[0].raw_payload = { form_submissions: [{
+    form_name: '[WHTASATIVO] - BlackFriday 2026', conversion_key: 'outra-conversao',
+  }] };
+  let calls = 0;
+  await processCampaignReply(db, 'original', false, async () => { calls++; return { lead_id: 'lead' }; }, async () => null);
+  assertEquals(calls, 1);
+});
+
 Deno.test('WhatsApp: histórico fora da janela fica aguardando, sem menu e sem CRM', async () => {
   const db = fakeDb();
   db.tables.whatsapp_inbox[0].created_at = '2026-01-01T00:01:00Z';
