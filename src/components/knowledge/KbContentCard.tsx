@@ -6,6 +6,27 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorageImageUrl } from '@/utils/storageImage';
 import { shortenUrl } from '@/utils/shortLink';
 import { QrCodeButton } from '@/components/smartops/QrCodeButton';
+import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
+
+/** QR Code visível no card, apontando para o link compartilhável da publicação. */
+function KbInlineQr({ url, label }: { url: string; label: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let off = false;
+    QRCode.toDataURL(url, { width: 240, margin: 1, errorCorrectionLevel: 'M' })
+      .then((d) => { if (!off) setSrc(d); })
+      .catch(() => {});
+    return () => { off = true; };
+  }, [url]);
+  if (!src) return null;
+  return (
+    <div className="kb-inline-qr" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+      <img src={src} alt={label} width={84} height={84} loading="lazy" style={{ borderRadius: 8, background: 'hsl(0 0% 100%)', padding: 4 }} />
+      <span style={{ fontSize: 11, lineHeight: 1.3, opacity: 0.75 }}>{label}</span>
+    </div>
+  );
+}
 
 export interface KbContentCardData {
   id: string;
@@ -33,6 +54,8 @@ interface Props {
   thumbPosition?: 'center' | 'top';
   /** Exibe botão de QR Code (somente administradores) */
   showQrCode?: boolean;
+  /** Exibe o QR Code do link compartilhável direto no card (e-books). */
+  showInlineQr?: boolean;
 }
 
 function formatDuration(sec: number): string {
@@ -59,7 +82,7 @@ function formatViews(n: number | null | undefined): string {
   return `${v}`;
 }
 
-export default function KbContentCard({ data, index, buttonLabel, onClick, thumbAspect = 'video', thumbPosition = 'center', showQrCode = false }: Props) {
+export default function KbContentCard({ data, index, buttonLabel, onClick, thumbAspect = 'video', thumbPosition = 'center', showQrCode = false, showInlineQr = false }: Props) {
   const cat = getCategoryColor(data.categoryLetter);
   const portrait = thumbAspect === 'portrait';
   const thumbW = portrait ? 405 : 480;
@@ -169,6 +192,12 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
         <h3 className="kb-title">{data.title}</h3>
         {data.excerpt && <p className="kb-excerpt">{data.excerpt}</p>}
         <LanguageFlags size="sm" className="mt-2" />
+        {showInlineQr && data.shareUrl && (
+          <KbInlineQr
+            url={data.shareUrl}
+            label={language === 'en' ? 'Scan to open this e-book' : language === 'es' ? 'Escanea para abrir este e-book' : 'Aponte a câmera para abrir este e-book'}
+          />
+        )}
         <div className="kb-cfoot">
           <span className="kb-date">
             {formatDate(data.createdAt)}
