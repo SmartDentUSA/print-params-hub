@@ -455,7 +455,7 @@ export function SmartOpsEvents() {
           ) : filtered.length === 0 ? (
             <div className="text-sm text-muted-foreground py-8 text-center">Nenhum evento cadastrado.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filtered.map((r) => {
                 const st = stats[r.id];
                 const sellers = st?.by_seller ?? [];
