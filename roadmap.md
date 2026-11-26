@@ -1,4 +1,6 @@
 # Roadmap
+- [x] Indicadores de Eventos e Histórico WhatsApp: publicação progressiva, concorrência limitada, resultados preservados e sem zeros provisórios em totais principais; 14 testes aprovados. Consultas registradas levam cerca de 2–4 s; fórmulas e rotinas não foram alteradas.
+- [ ] Medir tempo final na tela autenticada de Eventos/Histórico WhatsApp: bloqueado pela indisponibilidade de sessão do Supabase externo.
 - [x] Campanhas: evento opcional em e-mail, WhatsApp Evolution, WhatsApp API, SMS e Push; vínculo salvo e indicadores priorizam o evento escolhido, com custos registrados sem duplicar sessões (12 testes locais, 3 de tentativas WhatsApp e teste SQL transacional aprovados; funções publicadas).
 - [ ] Conferir seleção e gravação do evento na tela autenticada de Campanhas/Push: bloqueado porque o Supabase externo não permite disponibilizar sessão de teste; nenhum disparo real foi feito.
 - [x] 85 interessados BlackFriday 2026: todos cadastrados pela Regra de Ouro (últimos 11 em 26/11).

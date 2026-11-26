@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEve
 import { EventFieldCapturesButton } from "@/components/smartops/events/EventFieldCapturesButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import { DEFAULT_EVENT_TYPE, EVENT_TYPE_OPTIONS, eventTypeLabel, normalizeEventType } from "@/lib/eventTypes";
+import { mergeMetricFields, progressiveMetrics } from "@/lib/progressiveMetrics";
 import { consolidateEventProducts, eventPromotionRevenue } from "@/lib/eventPromotionRevenue";
 
 type EventRow = {
@@ -199,7 +200,12 @@ export function SmartOpsEvents() {
   const [countryOpen, setCountryOpen] = useState(false);
 
   const [stats, setStats] = useState<Record<string, EventStats>>({});
-  const [statsLoading, setStatsLoading] = useState(false);
+  const statsRun = useRef(0);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [storeLoading, setStoreLoading] = useState(false);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [leadReady, setLeadReady] = useState<Record<string, boolean>>({});
+  const [viewsReady, setViewsReady] = useState(false);
   const [channelsError, setChannelsError] = useState(false);
   const [storeError, setStoreError] = useState(false);
 
@@ -216,31 +222,32 @@ export function SmartOpsEvents() {
   }
 
   async function loadStats(eventIds: string[] = []) {
-    setStatsLoading(true);
-    // Um cálculo por evento, em paralelo: o cálculo de todos de uma vez estoura o tempo limite e zera os valores.
-    const leadStatsP = eventIds.length
-      ? Promise.all(eventIds.map((id) => rpcRetry("fn_event_lead_stats", { p_event_id: id })))
-          .then((rs: any[]) => {
-            rs.forEach((r) => r.error && console.error("fn_event_lead_stats", r.error));
-            return { data: rs.flatMap((r) => r.data || []) };
-          })
-      : (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null });
-    const [{ data: leadStats }, { data: tables }, { data: lpViews }, channelResult, storeResult, breakdownResult, crmProductsResult, prevFunnelResult] = await Promise.all([
-      leadStatsP,
-      (supabase as any)
-        .from("promotional_tables")
-        .select("id, event_id, promotional_coupons(id, code, free_shipping, li_used_count, li_usage_checked_at)")
-        .not("event_id", "is", null),
-      rpcRetry("fn_event_landing_views", { p_event_id: null }),
-      rpcRetry("fn_event_campaign_metrics", { p_event_id: null }),
-      rpcRetry("fn_event_store_stats", { p_event_id: null }),
-      rpcRetry("fn_event_store_breakdown", { p_event_id: null }),
-      rpcRetry("fn_event_crm_products", { p_event_id: null }),
-      rpcRetry("fn_event_previous_funnel", { p_event_id: null }),
-    ]);
-    const chStats = channelResult.data;
-    setChannelsError(Boolean(channelResult.error));
-    setStoreError(Boolean(storeResult.error));
+    const run = ++statsRun.current;
+    setChannelsLoading(true); setStoreLoading(true); setLeadsLoading(true);
+    setChannelsError(false); setStoreError(false);
+
+    const fields: Record<string, (keyof EventStats)[]> = {
+      leads: ["total_leads", "by_seller", "by_origin", "by_product", "by_area", "by_especialidade", "tem_scanner_sim", "tem_impressora_sim", "imprime_placas_sim", "imprime_modelos_sim", "imprime_nanohibrida_sim", "imprime_guias_sim", "won_leads", "won_deals", "won_value"],
+      channels: ["channels"], store: ["store"], breakdown: ["coupon_revenue", "top_products"],
+      crm: ["crm_products"], funnel: ["previous_funnel"], views: ["landing_pages", "lp_views", "lp_unique_visitors"],
+      coupons: ["coupons_discount", "coupons_freight", "coupons_used", "coupons_used_list", "coupons_checked_at"],
+    };
+
+    const publish = (group: string, result: { data?: any[]; error?: unknown }, leadEventId?: string) => {
+      if (run !== statsRun.current) return;
+      if (group === "channels") { setChannelsLoading(false); setChannelsError(Boolean(result.error)); }
+      if (group === "store") { setStoreLoading(false); setStoreError(Boolean(result.error)); }
+      if (result.error) return;
+      if (group === "views") setViewsReady(true);
+      if (group === "leads" && leadEventId) setLeadReady((previous) => ({ ...previous, [leadEventId]: true }));
+      const leadStats = group === "leads" ? result.data : [];
+      const chStats = group === "channels" ? result.data : [];
+      const storeResult = { data: group === "store" ? result.data : [] };
+      const breakdownResult = { data: group === "breakdown" ? result.data : [] };
+      const crmProductsResult = { data: group === "crm" ? result.data : [] };
+      const prevFunnelResult = { data: group === "funnel" ? result.data : [] };
+      const lpViews = group === "views" ? result.data : [];
+      const tables = group === "coupons" ? result.data : [];
     const map: Record<string, EventStats> = {};
     for (const s of (leadStats || []) as any[]) {
       map[s.event_id] = {
@@ -328,8 +335,36 @@ export function SmartOpsEvents() {
       cur.coupons_used_list = [...cur.coupons_used_list].sort((a, b) => b.qtd - a.qtd);
       map[t.event_id] = cur;
     }
-    setStats(map);
-    setStatsLoading(false);
+
+      setStats((previous) => {
+        const updated = { ...previous };
+        // Replace only this calculation's fields; a refresh must not append duplicate products/channels.
+        for (const id of group === "leads" ? (leadEventId ? [leadEventId] : Object.keys(map)) : eventIds) {
+          const patch = map[id] || { ...emptyStats };
+          updated[id] = mergeMetricFields(previous[id] || { ...emptyStats }, patch, fields[group] || []);
+        }
+        return updated;
+      });
+    };
+    const tasks = [
+      { group: "views", query: () => rpcRetry("fn_event_landing_views", { p_event_id: null }) },
+      { group: "channels", query: () => rpcRetry("fn_event_campaign_metrics", { p_event_id: null }) },
+      { group: "store", query: () => rpcRetry("fn_event_store_stats", { p_event_id: null }) },
+      { group: "coupons", query: async () => await (supabase as any).from("promotional_tables")
+        .select("id, event_id, promotional_coupons(id, code, free_shipping, li_used_count, li_usage_checked_at)")
+        .not("event_id", "is", null) },
+      { group: "breakdown", query: () => rpcRetry("fn_event_store_breakdown", { p_event_id: null }) },
+      { group: "crm", query: () => rpcRetry("fn_event_crm_products", { p_event_id: null }) },
+      { group: "funnel", query: () => rpcRetry("fn_event_previous_funnel", { p_event_id: null }) },
+    ];
+    // Separate bounded queues: publish each event and each metric as soon as it finishes.
+    const leadWork = progressiveMetrics(eventIds.map((id) => () => rpcRetry("fn_event_lead_stats", { p_event_id: id })),
+      (result, index) => publish("leads", result, eventIds[index]), (error) => console.error("Indicadores de leads", error), 2)
+      .finally(() => { if (run === statsRun.current) setLeadsLoading(false); });
+    const detailWork = progressiveMetrics(tasks.map((task) => task.query),
+      (result, index) => publish(tasks[index].group, result),
+      (error, index) => { console.error(tasks[index].group, error); publish(tasks[index].group, { error }); }, 3);
+    await Promise.all([leadWork, detailWork]);
   }
 
   async function load() {
@@ -346,11 +381,11 @@ export function SmartOpsEvents() {
       console.error("Indicadores do evento", error);
       setChannelsError(true);
       setStoreError(true);
-      setStatsLoading(false);
+      setChannelsLoading(false); setStoreLoading(false); setLeadsLoading(false);
     });
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); return () => { statsRun.current++; }; }, []);
 
 
   const filtered = useMemo(() => {
@@ -517,9 +552,9 @@ export function SmartOpsEvents() {
                       {r.event_type === "campanha_promocional" && (
                         <div className="border-y border-border py-3">
                           <div className="text-[11px] uppercase text-muted-foreground">Faturamento total da promoção</div>
-                          {statsLoading ? (
+                          {(!leadReady[r.id] && leadsLoading) || (storeLoading && !st?.store) ? (
                             <p className="text-sm text-muted-foreground">Carregando faturamento…</p>
-                          ) : !st || storeError || !st.store ? (
+                          ) : !leadReady[r.id] || !st || storeError || !st.store ? (
                             <p className="text-xs text-muted-foreground">Total indisponível: aguardando os valores de conversão e da loja.</p>
                           ) : (
                             <>
@@ -537,26 +572,26 @@ export function SmartOpsEvents() {
                       <div className="grid grid-cols-2 gap-2">
                         <div className="rounded-md bg-muted/50 p-2">
                           <div className="text-[11px] uppercase text-muted-foreground">Visualizações das LPs</div>
-                          <div className="text-2xl font-bold leading-none">{(st?.lp_views ?? 0).toLocaleString("pt-BR")}</div>
+                          <div className="text-2xl font-bold leading-none">{viewsReady ? (st?.lp_views ?? 0).toLocaleString("pt-BR") : "—"}</div>
                           <div className="text-[10px] text-muted-foreground">
-                            {st?.landing_pages
+                            {!viewsReady ? "Carregando…" : st?.landing_pages
                               ? `${(st.lp_unique_visitors ?? 0).toLocaleString("pt-BR")} visitantes · ${st.landing_pages} landing page${st.landing_pages === 1 ? "" : "s"}`
                               : "Nenhuma landing page publicada"}
                           </div>
                         </div>
                         <div className="rounded-md bg-muted/50 p-2">
                           <div className="text-[11px] uppercase text-muted-foreground">Valor convertido</div>
-                          <div className="text-xl font-bold leading-none">{brl(st?.won_value ?? 0)}</div>
-                          <div className="text-[10px] text-muted-foreground">{(st?.won_deals ?? 0)} negócio{st?.won_deals === 1 ? "" : "s"} ganho{st?.won_deals === 1 ? "" : "s"}</div>
+                          <div className="text-xl font-bold leading-none">{leadReady[r.id] ? brl(st?.won_value ?? 0) : "—"}</div>
+                          <div className="text-[10px] text-muted-foreground">{!leadReady[r.id] ? (leadsLoading ? "Carregando…" : "Não foi possível carregar") : `${st?.won_deals ?? 0} negócios ganhos`}</div>
                         </div>
                         <div className="rounded-md bg-muted/50 p-2">
                           <div className="text-[11px] uppercase text-muted-foreground">Leads gerados</div>
-                          <div className="text-2xl font-bold leading-none">{st?.total_leads ?? 0}</div>
+                          <div className="text-2xl font-bold leading-none">{leadReady[r.id] ? st?.total_leads ?? 0 : "—"}</div>
                         </div>
                         <div className="rounded-md bg-muted/50 p-2">
                           <div className="text-[11px] uppercase text-muted-foreground">Convertidos</div>
                           <div className="text-2xl font-bold leading-none">
-                            {st?.won_leads ?? 0}
+                            {leadReady[r.id] ? st?.won_leads ?? 0 : "—"}
                             <span className="text-xs font-medium text-muted-foreground ml-1">
                               {st?.total_leads
                                 ? `(${Math.round(((st.won_leads || 0) / st.total_leads) * 100)}%)`
@@ -567,8 +602,8 @@ export function SmartOpsEvents() {
                         </div>
                       </div>
 
-                      {r.event_type === "campanha_promocional" && (statsLoading || channelsError) && (
-                        <p className="text-xs text-muted-foreground">{statsLoading ? "Carregando envios…" : "Não foi possível carregar os envios. Atualize a página para tentar novamente."}</p>
+                      {r.event_type === "campanha_promocional" && (channelsLoading || channelsError) && (
+                        <p className="text-xs text-muted-foreground">{channelsLoading ? "Carregando envios…" : "Não foi possível carregar os envios. Atualize a página para tentar novamente."}</p>
                       )}
                       {!!st?.channels?.length && (
                         <div className="rounded-md border bg-muted/20 p-2">
@@ -620,14 +655,14 @@ export function SmartOpsEvents() {
                         </div>
                       )}
 
-                      {r.event_type === "campanha_promocional" && !statsLoading && !channelsError && !st?.channels?.length && (
+                      {r.event_type === "campanha_promocional" && !channelsLoading && !channelsError && !st?.channels?.length && (
                         <p className="text-xs text-muted-foreground">Nenhum disparo vinculado à campanha.</p>
                       )}
 
                       {r.event_type === "campanha_promocional" && (
                         <div className="border-t border-border pt-2">
                           <div className="text-[11px] uppercase text-muted-foreground mb-1">Vendas no site · período da campanha</div>
-                          {statsLoading ? <p className="text-xs text-muted-foreground">Carregando vendas…</p> : storeError || !st?.store ? (
+                          {storeLoading && !st?.store ? <p className="text-xs text-muted-foreground">Carregando vendas…</p> : storeError || !st?.store ? (
                             <p className="text-xs text-muted-foreground">Não foi possível carregar as vendas da loja.</p>
                           ) : (
                             <>

@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { progressiveMetrics } from "@/lib/progressiveMetrics";
 import {
   filterRecipients, orderedButtons, waOfficialAudience, waOfficialRow,
   type RecipientSegment, type TemplateButton, type WaEngagement, type WaRecipient,
@@ -38,34 +39,43 @@ export default function WaOfficialHistoryTab() {
   const [selected, setSelected] = useState<Session | null>(null);
 
   useEffect(() => {
+    let alive = true;
     (async () => {
-      setLoading(true);
+      if (!sessions.length) setLoading(true);
       const { data, error } = await supabase.from("campaign_sessions")
         .select("id,name,status,lead_count,lead_filters,created_at,started_at,completed_at,results")
         .eq("channel", "whatsapp_oficial")
         .in("status", ["queued", "scheduled", "running", "completed", "completed_with_errors", "failed"])
         .order("created_at", { ascending: false }).limit(100);
+      if (!alive) return;
       if (error) { toast.error("Erro ao carregar campanhas do WhatsApp Oficial"); setLoading(false); return; }
       const list = (data as Session[]) ?? [];
+      setSessions(list);
+      setLoading(false);
+      // Saved totals appear immediately; engagement and provider refresh do not block the table.
+      if (list.length) {
+        void supabase.rpc("fn_wa_official_campaign_engagement" as any, { p_ids: list.map((c) => c.id) }).then(({ data: e, error: engError }) => {
+          if (!alive || engError) return;
+          const map: Record<string, WaEngagement> = {};
+          for (const row of ((e as any[]) ?? [])) map[row.session_id] = row;
+          setEng(map);
+        });
+      }
       // Números ao vivo da Zernio para campanhas ainda em envio ou sem a ordem dos botões gravada.
-      await Promise.all(list.map(async (c) => {
+      await progressiveMetrics(list.map((c) => async () => {
         const r = c.results ?? {};
         const ids = r.broadcast_ids ?? (r.broadcast_id ? [r.broadcast_id] : []);
-        if (!ids.length) return;
+        if (!ids.length) return null;
         const live = ["scheduled", "running", "queued"].includes(c.status ?? "") || !r.summary || !Array.isArray(r.template_buttons);
-        if (!live) return;
+        if (!live) return null;
         const { data: st } = await supabase.functions.invoke("zernio-wa-broadcast", { body: { action: "status", campaignId: c.id } });
-        if (st?.summary) c.results = { ...r, summary: st.summary, ...(st.template_buttons ? { template_buttons: st.template_buttons } : {}) };
-      }));
-      setSessions(list);
-      if (list.length) {
-        const { data: e } = await supabase.rpc("fn_wa_official_campaign_engagement" as any, { p_ids: list.map((c) => c.id) });
-        const map: Record<string, WaEngagement> = {};
-        for (const row of ((e as any[]) ?? [])) map[row.session_id] = row;
-        setEng(map);
-      }
-      setLoading(false);
+        return st?.summary ? { ...c, results: { ...r, summary: st.summary, ...(st.template_buttons ? { template_buttons: st.template_buttons } : {}) } } : null;
+      }), (updated) => {
+        if (!alive || !updated) return;
+        setSessions((current) => current.map((c) => c.id === updated.id ? updated : c));
+      }, (error) => console.error("Atualização WhatsApp Oficial", error), 2);
     })();
+    return () => { alive = false; };
   }, [reload]);
 
   const rows = useMemo(() => sessions.map((c) => {
