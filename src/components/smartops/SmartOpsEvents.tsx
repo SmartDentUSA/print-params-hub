@@ -99,6 +99,8 @@ type EventStats = {
   coupons_used: number;
   coupons_used_list: { code: string; qtd: number }[];
   coupons_checked_at: string | null;
+  coupon_revenue?: { code: string; pedidos: number; receita: number }[];
+  top_products?: { nome: string; pedidos: number; quantidade: number; receita: number }[];
   channels?: ChannelStat[];
   store?: StoreStat;
 };
@@ -221,7 +223,7 @@ export function SmartOpsEvents() {
             return { data: rs.flatMap((r) => r.data || []) };
           })
       : (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null });
-    const [{ data: leadStats }, { data: tables }, { data: lpViews }, channelResult, storeResult] = await Promise.all([
+    const [{ data: leadStats }, { data: tables }, { data: lpViews }, channelResult, storeResult, breakdownResult] = await Promise.all([
       leadStatsP,
       (supabase as any)
         .from("promotional_tables")
@@ -230,6 +232,7 @@ export function SmartOpsEvents() {
       rpcRetry("fn_event_landing_views", { p_event_id: null }),
       rpcRetry("fn_event_campaign_metrics", { p_event_id: null }),
       rpcRetry("fn_event_store_stats", { p_event_id: null }),
+      rpcRetry("fn_event_store_breakdown", { p_event_id: null }),
     ]);
     const chStats = channelResult.data;
     setChannelsError(Boolean(channelResult.error));
@@ -280,6 +283,12 @@ export function SmartOpsEvents() {
         atualizado_em: s.atualizado_em || null,
       };
       map[s.event_id] = cur;
+    }
+    for (const b of (breakdownResult.data || []) as any[]) {
+      const cur = map[b.event_id] || { ...emptyStats };
+      if (b.tipo === "cupom") cur.coupon_revenue = [...(cur.coupon_revenue || []), { code: String(b.rotulo), pedidos: Number(b.pedidos) || 0, receita: Number(b.receita) || 0 }].sort((x, y) => y.receita - x.receita);
+      else cur.top_products = [...(cur.top_products || []), { nome: String(b.rotulo), pedidos: Number(b.pedidos) || 0, quantidade: Number(b.quantidade) || 0, receita: Number(b.receita) || 0 }].sort((x, y) => y.receita - x.receita);
+      map[b.event_id] = cur;
     }
     for (const v of (lpViews || []) as any[]) {
       const cur = map[v.event_id] || { ...emptyStats };
@@ -611,6 +620,24 @@ export function SmartOpsEvents() {
                         </div>
                       )}
 
+                      {r.event_type === "campanha_promocional" && !!st?.top_products?.length && (
+                        <div className="rounded-md border bg-muted/20 p-2">
+                          <div className="text-[11px] uppercase text-muted-foreground mb-1.5">Produtos mais vendidos na campanha</div>
+                          <ul className="space-y-1">
+                            {st.top_products.slice(0, 10).map((p) => (
+                              <li key={p.nome} className="flex items-start justify-between gap-2 text-xs border-b border-border/60 pb-1 last:border-0 last:pb-0">
+                                <span className="leading-snug break-words">{p.nome}</span>
+                                <span className="shrink-0 text-right tabular-nums">
+                                  <span className="font-semibold">{exactBrl(p.receita)}</span>
+                                  <span className="block text-[10px] text-muted-foreground">{p.quantidade} un.</span>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="text-[10px] text-muted-foreground mt-1">Pedidos pagos na loja · receita pelo preço dos itens, antes de desconto e frete</div>
+                        </div>
+                      )}
+
                       {origins.length > 0 && (
                         <div className="rounded-md border bg-muted/20 p-2">
                           <div className="text-[11px] uppercase text-muted-foreground mb-1.5">Leads por origem</div>
@@ -646,6 +673,17 @@ export function SmartOpsEvents() {
                                 <Badge key={c.code} variant="secondary" className="text-[10px] font-normal">{c.code} · {c.qtd}</Badge>
                               ))}
                             </div>
+                          )}
+                          {!!st?.coupon_revenue?.length && (
+                            <ul className="mt-2 space-y-0.5">
+                              <li className="text-[10px] uppercase text-muted-foreground">Receita por cupom · pedidos pagos</li>
+                              {st.coupon_revenue.map((c) => (
+                                <li key={c.code} className="flex justify-between gap-2 text-xs">
+                                  <span>{c.code} <span className="text-muted-foreground">· {c.pedidos} pedido{c.pedidos === 1 ? "" : "s"}</span></span>
+                                  <span className="font-semibold tabular-nums">{exactBrl(c.receita)}</span>
+                                </li>
+                              ))}
+                            </ul>
                           )}
                           <div className="text-[10px] text-muted-foreground mt-0.5">
                             {st?.coupons_checked_at

@@ -39789,6 +39789,17 @@ export type Database = {
           event_id: string
         }[]
       }
+      fn_event_store_breakdown: {
+        Args: { p_event_id?: string }
+        Returns: {
+          event_id: string
+          pedidos: number
+          quantidade: number
+          receita: number
+          rotulo: string
+          tipo: string
+        }[]
+      }
       fn_event_store_ingest: { Args: { p_limit?: number }; Returns: Json }
       fn_event_store_stats: {
         Args: { p_event_id?: string }
