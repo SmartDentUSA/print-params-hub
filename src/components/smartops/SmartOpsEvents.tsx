@@ -69,6 +69,7 @@ type EventRow = {
 
 type SellerStat = { seller: string; qtd: number; ganhos?: number; valor?: number };
 type OriginStat = { origin: string; qtd: number; ganhos?: number; valor?: number };
+type ChannelStat = { canal: string; campanhas: number; envios: number; abertos: number; cliques: number; leads: number };
 type ProductStat = { produto: string; qtd: number };
 type AreaStat = { area: string; qtd: number };
 type EspecialidadeStat = { especialidade: string; qtd: number };
@@ -96,6 +97,7 @@ type EventStats = {
   coupons_used: number;
   coupons_used_list: { code: string; qtd: number }[];
   coupons_checked_at: string | null;
+  channels?: ChannelStat[];
 };
 
 const emptyStats: EventStats = {
@@ -190,13 +192,14 @@ export function SmartOpsEvents() {
   const [stats, setStats] = useState<Record<string, EventStats>>({});
 
   async function loadStats() {
-    const [{ data: leadStats }, { data: tables }, { data: lpViews }] = await Promise.all([
+    const [{ data: leadStats }, { data: tables }, { data: lpViews }, { data: chStats }] = await Promise.all([
       (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null }),
       (supabase as any)
         .from("promotional_tables")
         .select("id, event_id, promotional_coupons(id, code, free_shipping, li_used_count, li_usage_checked_at)")
         .not("event_id", "is", null),
       (supabase as any).rpc("fn_event_landing_views", { p_event_id: null }),
+      (supabase as any).rpc("fn_event_campaign_stats", { p_event_id: null }),
     ]);
     const map: Record<string, EventStats> = {};
     for (const s of (leadStats || []) as any[]) {
@@ -225,6 +228,14 @@ export function SmartOpsEvents() {
         coupons_used_list: [],
         coupons_checked_at: null,
       };
+    }
+    for (const c of (chStats || []) as any[]) {
+      const cur = map[c.event_id] || { ...emptyStats };
+      cur.channels = [...(cur.channels || []), {
+        canal: c.canal, campanhas: Number(c.campanhas) || 0, envios: Number(c.envios) || 0,
+        abertos: Number(c.abertos) || 0, cliques: Number(c.cliques) || 0, leads: Number(c.leads) || 0,
+      }];
+      map[c.event_id] = cur;
     }
     for (const v of (lpViews || []) as any[]) {
       const cur = map[v.event_id] || { ...emptyStats };
@@ -459,6 +470,39 @@ export function SmartOpsEvents() {
                           <div className="text-[10px] text-muted-foreground">leads que compraram</div>
                         </div>
                       </div>
+
+                      {!!st?.channels?.length && (
+                        <div className="rounded-md border bg-muted/20 p-2">
+                          <div className="text-[11px] uppercase text-muted-foreground mb-1.5">
+                            Total de envios · {st.channels.reduce((a, c) => a + c.envios, 0).toLocaleString("pt-BR")}
+                          </div>
+                          <div className="space-y-2">
+                            {[...st.channels].sort((a, b) => (a.canal === "email" ? -1 : 1) - (b.canal === "email" ? -1 : 1)).map((c) => {
+                              const pct = (n: number) => (c.envios ? ` (${Math.round((n / c.envios) * 100)}%)` : "");
+                              const cells = [
+                                { l: "Envios", v: c.envios, p: "" },
+                                { l: "Abertos", v: c.abertos, p: pct(c.abertos) },
+                                { l: c.canal === "email" ? "Cliques" : "Interações", v: c.cliques, p: pct(c.cliques) },
+                                { l: "Leads", v: c.leads, p: pct(c.leads) },
+                              ];
+                              return (
+                                <div key={c.canal}>
+                                  <div className="text-xs font-semibold mb-1">{c.canal === "email" ? "E-mails" : "WhatsApp API"}</div>
+                                  <div className="grid grid-cols-4 gap-1">
+                                    {cells.map((x) => (
+                                      <div key={x.l} className="rounded bg-muted/50 px-1.5 py-1">
+                                        <div className="text-[9px] uppercase text-muted-foreground">{x.l}</div>
+                                        <div className="text-sm font-bold tabular-nums leading-tight">{x.v.toLocaleString("pt-BR")}</div>
+                                        {x.p && <div className="text-[9px] text-muted-foreground">{x.p.trim()}</div>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {origins.length > 0 && (
                         <div className="rounded-md border bg-muted/20 p-2">
