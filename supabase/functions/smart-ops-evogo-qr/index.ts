@@ -29,7 +29,7 @@ async function call(url: string, token: string, init: RequestInit = {}, timeoutM
 }
 
 async function toDataUrl(body: any): Promise<string | null> {
-  const raw = body?.data?.QRCode ?? body?.data?.qrcode ?? body?.QRCode ?? body?.qrcode ?? body?.data?.code;
+  const raw = body?.data?.Qrcode ?? body?.data?.QRCode ?? body?.data?.qrcode ?? body?.data?.Code ?? body?.data?.code ?? body?.QRCode ?? body?.qrcode ?? body?.data?.code;
   if (typeof raw !== "string" || raw.length < 20) return null;
   if (raw.startsWith("data:image")) return raw;
   if (/^[A-Za-z0-9+/=]{200,}$/.test(raw)) return `data:image/png;base64,${raw}`;
@@ -66,16 +66,26 @@ Deno.serve(async (req) => {
     const debug: Record<string, unknown> = { status_http: st.status };
 
     // Garante sessão ativa antes de pedir o QR
-    const conn = await call(`${base}/session/connect`, token, {
+    // EvolutionGO usa /instance/*; wuzapi legado usa /session/*.
+    let prefix = "/instance";
+    let conn = await call(`${base}/instance/connect`, token, {
       method: "POST",
-      body: JSON.stringify({ Subscribe: ["Message"], Immediate: true }),
+      body: JSON.stringify({ subscribe: ["MESSAGE"], immediate: true }),
     }, 15_000);
+    if (conn.status === 404) {
+      prefix = "/session";
+      conn = await call(`${base}/session/connect`, token, {
+        method: "POST",
+        body: JSON.stringify({ Subscribe: ["Message"], Immediate: true }),
+      }, 15_000);
+    }
     debug.connect_http = conn.status;
+    debug.prefix = prefix;
 
     let qr: string | null = null;
     for (let i = 0; i < 4 && !qr; i++) {
       await sleep(i === 0 ? 800 : 2000);
-      const r = await call(`${base}/session/qr`, token, { method: "GET" }, 15_000);
+      const r = await call(`${base}${prefix}/qr`, token, { method: "GET" }, 15_000);
       debug[`qr${i + 1}_http`] = r.status;
       qr = await toDataUrl(r.body);
     }
