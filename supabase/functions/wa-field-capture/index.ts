@@ -24,6 +24,8 @@ import {
   parseConfirmChoice, validateEdit, applyEdits, hasContact, confirmSummary, EDIT_PROMPT, type ConfirmField,
   contactCard, type ContactCard, pickPhones, normalizeCapturePhone, captureRouting, captureFormPurpose,
 } from "./logic.ts";
+import { handleProductAgent } from "./product-agent.ts";
+import { isProductAgentTestPhone } from "./product-agent-logic.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -441,6 +443,10 @@ async function handleInbox(inboxId: string) {
     // FIM/CANCELAR sem captura aberta: explica em vez de ficar em silêncio.
     await reply({ account_id: accountId, conversation_id: conversationId }, "Não há captura aberta. Mande *AUTO* para começar uma.");
     return { ignored: "no_session", cmd: cmd.kind };
+  }
+  if (!session && !cmd && !msg.media_url && isProductAgentTestPhone(msg.phone)) {
+    // Teste do atendente de produto: AUTO e capturas abertas têm prioridade.
+    return await handleProductAgent({ db, url: SUPABASE_URL, anon: ANON_KEY || SERVICE_KEY, reply, sendCard: sendContactCard }, msg, { account_id: accountId, conversation_id: conversationId });
   }
   if (!session && cmd?.kind !== "start") return { ignored: "no_start_word" }; // só AUTO abre captura; o resto é conversa normal
   if (session && cmd?.kind === "start") {
