@@ -39714,6 +39714,16 @@ export type Database = {
           leads: number
         }[]
       }
+      fn_event_crm_products: {
+        Args: { p_event_id?: string }
+        Returns: {
+          event_id: string
+          negocios: number
+          nome: string
+          quantidade: number
+          receita: number
+        }[]
+      }
       fn_event_extra_stats: { Args: { p_event_id: string }; Returns: Json }
       fn_event_form_answer: {
         Args: { p_form_data: Json; p_labels: string[] }

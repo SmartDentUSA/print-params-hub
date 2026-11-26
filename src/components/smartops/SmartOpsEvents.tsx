@@ -101,6 +101,7 @@ type EventStats = {
   coupons_checked_at: string | null;
   coupon_revenue?: { code: string; pedidos: number; receita: number }[];
   top_products?: { nome: string; pedidos: number; quantidade: number; receita: number }[];
+  crm_products?: { nome: string; pedidos: number; quantidade: number; receita: number }[];
   channels?: ChannelStat[];
   store?: StoreStat;
 };
@@ -223,7 +224,7 @@ export function SmartOpsEvents() {
             return { data: rs.flatMap((r) => r.data || []) };
           })
       : (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null });
-    const [{ data: leadStats }, { data: tables }, { data: lpViews }, channelResult, storeResult, breakdownResult] = await Promise.all([
+    const [{ data: leadStats }, { data: tables }, { data: lpViews }, channelResult, storeResult, breakdownResult, crmProductsResult] = await Promise.all([
       leadStatsP,
       (supabase as any)
         .from("promotional_tables")
@@ -233,6 +234,7 @@ export function SmartOpsEvents() {
       rpcRetry("fn_event_campaign_metrics", { p_event_id: null }),
       rpcRetry("fn_event_store_stats", { p_event_id: null }),
       rpcRetry("fn_event_store_breakdown", { p_event_id: null }),
+      rpcRetry("fn_event_crm_products", { p_event_id: null }),
     ]);
     const chStats = channelResult.data;
     setChannelsError(Boolean(channelResult.error));
@@ -288,6 +290,11 @@ export function SmartOpsEvents() {
       const cur = map[b.event_id] || { ...emptyStats };
       if (b.tipo === "cupom") cur.coupon_revenue = [...(cur.coupon_revenue || []), { code: String(b.rotulo), pedidos: Number(b.pedidos) || 0, receita: Number(b.receita) || 0 }].sort((x, y) => y.receita - x.receita);
       else cur.top_products = [...(cur.top_products || []), { nome: String(b.rotulo), pedidos: Number(b.pedidos) || 0, quantidade: Number(b.quantidade) || 0, receita: Number(b.receita) || 0 }].sort((x, y) => y.receita - x.receita);
+      map[b.event_id] = cur;
+    }
+    for (const b of (crmProductsResult.data || []) as any[]) {
+      const cur = map[b.event_id] || { ...emptyStats };
+      cur.crm_products = [...(cur.crm_products || []), { nome: String(b.nome), pedidos: Number(b.negocios) || 0, quantidade: Number(b.quantidade) || 0, receita: Number(b.receita) || 0 }].sort((x, y) => y.receita - x.receita);
       map[b.event_id] = cur;
     }
     for (const v of (lpViews || []) as any[]) {
@@ -623,23 +630,41 @@ export function SmartOpsEvents() {
                         </div>
                       )}
 
-                      {r.event_type === "campanha_promocional" && !!st?.top_products?.length && (
-                        <div className="rounded-md border bg-muted/20 p-2">
-                          <div className="text-[11px] uppercase text-muted-foreground mb-1.5">Produtos mais vendidos na campanha</div>
-                          <ul className="space-y-1">
-                            {st.top_products.slice(0, 10).map((p) => (
-                              <li key={p.nome} className="flex items-start justify-between gap-2 text-xs border-b border-border/60 pb-1 last:border-0 last:pb-0">
-                                <span className="leading-snug break-words">{p.nome}</span>
-                                <span className="shrink-0 text-right tabular-nums">
-                                  <span className="font-semibold">{exactBrl(p.receita)}</span>
-                                  <span className="block text-[10px] text-muted-foreground">{p.quantidade} un.</span>
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                          <div className="text-[10px] text-muted-foreground mt-1">Pedidos pagos na loja · receita pelo preço dos itens, antes de desconto e frete</div>
-                        </div>
-                      )}
+                      {r.event_type === "campanha_promocional" && (() => {
+                        const lista = (titulo: string, itens: { nome: string; quantidade: number; receita: number }[], nota: string) => itens.length ? (
+                          <div className="rounded-md border bg-muted/20 p-2">
+                            <div className="text-[11px] uppercase text-muted-foreground mb-1.5">{titulo}</div>
+                            <ul className="space-y-1">
+                              {itens.slice(0, 10).map((p) => (
+                                <li key={p.nome} className="flex items-start justify-between gap-2 text-xs border-b border-border/60 pb-1 last:border-0 last:pb-0">
+                                  <span className="leading-snug break-words">{p.nome}</span>
+                                  <span className="shrink-0 text-right tabular-nums">
+                                    <span className="font-semibold">{exactBrl(p.receita)}</span>
+                                    <span className="block text-[10px] text-muted-foreground">{p.quantidade.toLocaleString("pt-BR")} un.</span>
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="text-[10px] text-muted-foreground mt-1">{nota}</div>
+                          </div>
+                        ) : null;
+                        const loja = st?.top_products ?? [];
+                        const crm = st?.crm_products ?? [];
+                        const acc = new Map<string, { nome: string; quantidade: number; receita: number }>();
+                        for (const p of [...crm, ...loja]) {
+                          const k = p.nome.trim().toLowerCase();
+                          const c = acc.get(k) || { nome: p.nome, quantidade: 0, receita: 0 };
+                          c.quantidade += p.quantidade; c.receita += p.receita; acc.set(k, c);
+                        }
+                        const total = [...acc.values()].sort((x, y) => y.receita - x.receita);
+                        return (
+                          <>
+                            {lista("Produtos mais vendidos · CRM", crm, "Itens das propostas dos negócios ganhos da campanha")}
+                            {lista("Produtos mais vendidos · E-commerce", loja, "Pedidos pagos na loja · receita pelo preço dos itens, antes de desconto e frete")}
+                            {lista("Total consolidado · CRM + E-commerce", total, "Soma por produto dos itens do CRM e da loja")}
+                          </>
+                        );
+                      })()}
 
                       {origins.length > 0 && (
                         <div className="rounded-md border bg-muted/20 p-2">
@@ -729,17 +754,18 @@ export function SmartOpsEvents() {
 
 
                       <div>
-                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Produtos de interesse</div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Principais categorias de interesse</div>
                         {produtos.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum produto informado.</p>
                         ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {produtos.slice(0, 5).map((p) => (
-                              <Badge key={p.produto} variant="secondary" className="text-[10px] font-normal">
-                                {p.produto} · {p.qtd}
-                              </Badge>
+                          <ul className="space-y-1">
+                            {produtos.slice(0, 10).map((p) => (
+                              <li key={p.produto} className="flex items-start gap-2 text-xs border-b border-border/60 pb-1 last:border-0 last:pb-0">
+                                <span className="shrink-0 w-8 text-right font-semibold tabular-nums">{p.qtd}</span>
+                                <span className="leading-snug break-words">{p.produto}</span>
+                              </li>
                             ))}
-                          </div>
+                          </ul>
                         )}
                       </div>
 
