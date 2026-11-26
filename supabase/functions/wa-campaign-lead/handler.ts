@@ -27,6 +27,19 @@ export async function processCampaignReply(db: any, inboxId: string, dryRun: boo
   if (pendingError) throw pendingError;
   const choice = pressed || msg.message_text;
   for (const pending of pendingRows ?? []) {
+    // One-time historical exception, authorized in service-only job context;
+    // neither webhook callers nor new replies can request this bypass.
+    if (pending.context?.historical_authorized === true && pending.inbox_id === inboxId && intent !== 'none') {
+      if (dryRun) return { inbox_id: inboxId, eligible: true, action: 'historical_ingestion' };
+      const { data: claimed, error } = await db.from('wa_campaign_lead_jobs')
+        .update({ status: 'processing', claim_token: crypto.randomUUID(), attempts: (pending.attempts ?? 0) + 1 })
+        .eq('id', pending.id).eq('claim_token', pending.claim_token)
+        .in('status', ['awaiting_category', 'waiting_window', 'failed']).select('*');
+      if (error) throw error;
+      const job = claimed?.[0];
+      if (!job) return { inbox_id: inboxId, skipped: 'already_registered_or_processing' };
+      return await finalizeChoice(db, job, msg, ingest);
+    }
     const index = selectedCategory(pending.id, pending.categories ?? [], choice);
     if (index !== null && pending.menu_sent_at) {
       if (dryRun) return { inbox_id: inboxId, eligible: true, action: 'category_selected', category: pending.categories[index].label };
@@ -195,7 +208,8 @@ async function offerCategories(db: any, job: any, msg: any, sendMenu: (conversat
 async function finalizeChoice(db: any, job: any, msg: any, ingest: (payload: Record<string, unknown>) => Promise<any>) {
   const ctx = job.context;
   const selected = job.selected_category;
-  if (!selected || !ctx?.nome) throw new Error('category or saved identity missing');
+  const historical = ctx?.historical_authorized === true && job.inbox_id === msg.id;
+  if ((!selected && !historical) || !ctx?.nome) throw new Error('category or saved identity missing');
   const finish = async (patch: any) => {
     const { error } = await db.from('wa_campaign_lead_jobs').update(patch).eq('id', job.id).eq('claim_token', job.claim_token);
     if (error) throw error;
@@ -207,13 +221,13 @@ async function finalizeChoice(db: any, job: any, msg: any, ingest: (payload: Rec
       if (error) throw error;
       if (restrictions?.do_not_contact || restrictions?.whatsapp_opt_out) { await finish({ status: 'blocked' }); return { skipped: 'existing_contact_restriction' }; }
     }
-    const product = selected.product_name || selected.label;
+    const product = selected?.product_name || selected?.label || 'Identificar produto de interesse';
     // Keep every explicit customer request before the category choice, not
     // merely the first button click (including the authorized historical replies).
     const variants = campaignPhone(job.phone)?.variants ?? [job.phone];
     const { data: messages, error: transcriptError } = await db.from('whatsapp_inbox').select('message_text,raw_payload,created_at')
       .eq('direction', 'inbound').eq('instance_name', `zernio:${job.account_id}`).in('phone', variants)
-      .gte('created_at', ctx.conversation_start_at ?? ctx.received_at).lte('created_at', msg.created_at)
+      .gte('created_at', ctx.conversation_start_at ?? ctx.received_at).lte('created_at', historical ? ctx.historical_until : msg.created_at)
       .order('created_at', { ascending: true }).limit(200);
     if (transcriptError) throw transcriptError;
     const transcript = (messages ?? []).filter((m: any) => campaignIntent(m.message_text, m.raw_payload?.metadata?.buttonPayload) !== 'none')
@@ -228,11 +242,11 @@ async function finalizeChoice(db: any, job: any, msg: any, ingest: (payload: Rec
     const result = await ingest({
       source: 'form', form_name: ctx.form_name, form_id: job.form_id, form_purpose: 'sdr_captacao',
       nome: ctx.nome, phone: job.phone, telefone_raw: job.phone, ...(ctx.email ? { email: ctx.email } : {}),
-      produto_interesse: product, ...(selected.product_catalog_id ? { product_catalog_id: selected.product_catalog_id } : {}),
+      produto_interesse: product, ...(selected?.product_catalog_id ? { product_catalog_id: selected.product_catalog_id } : {}),
       submission_id: ctx.submission_id, form_responses: responses,
-      utm_source: 'whatsapp_oficial', utm_medium: 'categoria_selecionada', utm_campaign: ctx.campaign_name,
-      raw_payload: { whatsapp_campaign_response: { inbox_id: job.inbox_id, selection_inbox_id: msg.id, campaign_id: job.campaign_id,
-        mensagem: transcript, category: selected, received_at: ctx.received_at, selected_at: msg.created_at } },
+      utm_source: 'whatsapp_oficial', utm_medium: historical ? 'interesse_historico' : 'categoria_selecionada', utm_campaign: ctx.campaign_name,
+      raw_payload: { whatsapp_campaign_response: { inbox_id: job.inbox_id, selection_inbox_id: historical ? null : msg.id, campaign_id: job.campaign_id,
+        mensagem: transcript, category: selected ?? null, historical_authorized: historical, received_at: ctx.received_at, selected_at: historical ? null : msg.created_at } },
     });
     if (!result?.lead_id) throw new Error('ingestion did not return a lead');
     const { data: previous, error: previousError } = await db.from('lead_activity_log').select('id')
@@ -244,7 +258,7 @@ async function finalizeChoice(db: any, job: any, msg: any, ingest: (payload: Rec
         entity_name: 'Solicitou atendimento — WhatsApp Oficial', event_timestamp: msg.created_at, source_channel: 'whatsapp',
         event_data: { label: 'Solicitou atendimento — WhatsApp Oficial', mensagem: transcript, produto_interesse: product,
           campaign_id: job.campaign_id, campanha: ctx.campaign_name, form_name: ctx.form_name, inbox_id: job.inbox_id,
-          selection_inbox_id: msg.id, received_at: ctx.received_at, submission_id: ctx.submission_id },
+          selection_inbox_id: historical ? null : msg.id, historical_authorized: historical, received_at: ctx.received_at, submission_id: ctx.submission_id },
       });
       if (error) throw error;
     }

@@ -117,3 +117,22 @@ Deno.test('WhatsApp: formulário vinculado fornece categorias sem substituir ori
   assert('origin' in result);
   assertEquals(result.origin, '[WHTASATIVO] - BlackFriday 2026');
 });
+
+Deno.test('WhatsApp: histórico autorizado entra sem categoria, preservando nota e Regra de Ouro, uma única vez', async () => {
+  const db = fakeDb();
+  const payloads: any[] = [];
+  db.tables.whatsapp_inbox[0].created_at = '2026-01-01T00:01:00Z';
+  await processCampaignReply(db, 'original', false, async () => ({}), async () => { throw new Error('não deve enviar menu'); });
+  Object.assign(db.tables.wa_campaign_lead_jobs[0].context, { historical_authorized: true, historical_until: new Date().toISOString() });
+  const ingest = async (p: any) => { payloads.push(p); return { lead_id: 'lead' }; };
+  await processCampaignReply(db, 'original', false, ingest, async () => { throw new Error('não deve enviar menu'); });
+  assertEquals(payloads.length, 1);
+  assertEquals(payloads[0].produto_interesse, 'Identificar produto de interesse');
+  assertEquals(payloads[0].form_name, '[WHTASATIVO] - BlackFriday 2026');
+  assertEquals(payloads[0].form_responses.find((r: any) => r.label === 'Mensagem recebida (WhatsApp Oficial)').value, 'Falar com consultor');
+  assertEquals(payloads[0].force_new_deal, undefined);
+  assertEquals(payloads[0].event_consultant_team_member_id, undefined);
+  assertEquals(payloads[0].raw_payload.whatsapp_campaign_response.selected_at, null);
+  await processCampaignReply(db, 'original', false, ingest, async () => null);
+  assertEquals(payloads.length, 1);
+});
