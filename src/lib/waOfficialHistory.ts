@@ -43,6 +43,92 @@ export function waOfficialRow(opts: {
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
+const AUDIENCE_FILTER_LABELS: Record<string, string> = {
+  produto_interesse: "Produto",
+  temperatura_lead: "Temperatura",
+  piperun_stage_name: "Etapa CRM",
+  especialidade: "Especialidade",
+  area_atuacao: "Área de atuação",
+  uf: "UF",
+  proprietario_lead_crm: "Responsável",
+  real_status: "Status real",
+  tem_scanner: "Tem scanner",
+  tem_printer: "Tem impressora",
+  recencia_dias: "Atualizado nos últimos dias",
+  cliente_filter: "Tipo de lead",
+  piperun_pipeline_name: "Funil",
+  origem_primeiro_contato: "Origem",
+  piperun_status: "Status PipeRun",
+  prazo_compra: "Prazo de compra",
+  tipo_local: "Tipo de local",
+  cidade: "Cidade",
+  form_name: "Formulário",
+  utm_campaign: "Campanha UTM",
+  marca_scanner: "Marca do scanner",
+  marca_impressora: "Marca da impressora",
+  tem_fresadora: "Tem fresadora",
+  tem_cad: "Tem CAD",
+  imprime_modelos: "Imprime modelos",
+  imprime_placas: "Imprime placas",
+  imprime_guias: "Imprime guias",
+  imprime_resinas_ld: "Imprime resinas LD",
+  reuniao_agendada: "Reunião agendada",
+  omie_inadimplente: "Inadimplente",
+  recompra_alert: "Alerta de recompra",
+  sdr_completo: "SDR completo",
+  tem_email: "Tem e-mail",
+  tem_telefone: "Tem telefone",
+  aceita_contato: "Aceita contato",
+  wa_sair: "Pediu SAIR",
+  eng_campanha: "Histórico de campanha",
+  eng_acao: "Interação",
+  conv_form: "Converteu no formulário",
+  ltv_min: "LTV mínimo",
+  score_min: "Score mínimo",
+  ecom_cliente: "Cliente da loja",
+  ecom_produtos: "Produtos comprados",
+  ecom_pedidos_min: "Pedidos mínimos",
+  ecom_gasto_min: "Gasto mínimo",
+  ecom_gasto_max: "Gasto máximo",
+  ecom_ultima_compra: "Última compra",
+  ecom_primeira_compra: "Primeira compra",
+  ecom_status: "Status do pedido",
+  ecom_pagamento: "Pagamento",
+  ecom_cupom: "Cupom",
+  ecom_tipo_pessoa: "Tipo de pessoa",
+};
+
+const audienceValue = (key: string, value: unknown): string => {
+  if (Array.isArray(value)) return value.map(String).join(", ");
+  if (value === "yes") return "Sim";
+  if (value === "no") return "Não";
+  if (key === "cliente_filter") return value === "clientes" ? "Clientes" : "Somente leads";
+  if (key === "wa_sair") return value === "exclude" ? "Excluir" : "Somente estes";
+  if (key === "eng_campanha" && value === "any_email") return "Qualquer e-mail";
+  if (key === "eng_campanha" && value === "any_wa") return "Qualquer WhatsApp";
+  if (key === "ecom_cupom" && value === "any") return "Com cupom";
+  if (key === "ecom_cupom" && value === "none") return "Sem cupom";
+  return String(value ?? "—");
+};
+
+/** Público congelado no disparo; campanhas antigas sem esse marco não têm seu filtro presumido. */
+export function waOfficialAudience(opts: {
+  filters: Record<string, unknown> | null | undefined;
+  segmentName: string | null | undefined;
+  snapshotRecorded: boolean;
+}) {
+  if (!opts.snapshotRecorded) return { label: "Não registrada", details: "" };
+  const details = Object.entries(opts.filters ?? {})
+    .filter(([, value]) => value != null && value !== "" && (!Array.isArray(value) || value.length > 0))
+    .map(([key, value]) => `${AUDIENCE_FILTER_LABELS[key] ?? key}: ${audienceValue(key, value)}`)
+    .join(" · ");
+  const savedName = opts.segmentName?.trim() || "";
+  return {
+    label: savedName || details || "Todos os leads com telefone válido",
+    details: savedName && details ? details : "",
+  };
+}
+
 export type RecipientSegment = "button" | "sair" | "no_action" | "failed" | "in_progress" | "delivered" | "all";
 
 export interface WaRecipient {

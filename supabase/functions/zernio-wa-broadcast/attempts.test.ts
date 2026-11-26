@@ -24,3 +24,13 @@ Deno.test('tentativa com erro fica como falha do WhatsApp Oficial com o motivo e
   assertEquals(row.sent_count, 0);
   assertEquals(row.results.error, 'O disparo geraria 450 envios distintos (máx. 400).');
 });
+
+Deno.test('tentativa com erro preserva o retrato da segmentação enviada', () => {
+  const row = failedAttemptSession({
+    name: 'BlackFriday', userId: 'u1', leadIds: ['a'], accountId: 'acc', templateName: 'tpl', language: 'pt_BR',
+    leadFilters: { uf: 'SP' }, segmentName: 'Clientes SP',
+  }, 'Falha no provedor', new Date('2026-11-17T12:00:00Z'));
+  assertEquals(row.lead_filters, { uf: 'SP' });
+  assertEquals(row.results.audience_snapshot, true);
+  assertEquals(row.results.segment_name, 'Clientes SP');
+});

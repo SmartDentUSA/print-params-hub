@@ -60,12 +60,14 @@ interface Props {
   campaignName: string;
   description: string;
   audienceCount: number;
+  leadFilters: Record<string, unknown>;
+  segmentName?: string | null;
   resolveLeadIds: () => Promise<string[]>;
   onBack: () => void;
   onSent: () => void;
 }
 
-export default function WhatsAppTemplateMapper({ account, campaignName, description, audienceCount, resolveLeadIds, onBack, onSent }: Props) {
+export default function WhatsAppTemplateMapper({ account, campaignName, description, audienceCount, leadFilters, segmentName, resolveLeadIds, onBack, onSent }: Props) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loadingTpl, setLoadingTpl] = useState(false);
   const [tplKey, setTplKey] = useState("");
@@ -251,7 +253,7 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
       const r = await callWaBroadcast({
         action: "send", accountId: account!.accountId, profileId: account!.profileId,
         templateName: tpl!.name, language: tpl!.language, name: campaignName.trim(), description,
-        leadIds, variableMap: vars, campaignId: draftCampaignId, buttonLinks: cleanButtonLinks(), buttonReplies: cleanReplyTexts(),
+        leadIds, leadFilters, segmentName, variableMap: vars, campaignId: draftCampaignId, buttonLinks: cleanButtonLinks(), buttonReplies: cleanReplyTexts(),
         ...(needsMedia ? { headerMediaUrl: headerMediaUrl.trim() } : {}),
         ...(perHour && perHourValid ? { perHour } : {}),
         ...(scheduledAtIso ? { scheduledAt: scheduledAtIso } : {}),

@@ -9,6 +9,8 @@ export type PendingAttempt = {
   accountId: string;
   templateName: string;
   language: string;
+  leadFilters?: Record<string, unknown> | null;
+  segmentName?: string | null;
   /** Linha de campaigns já criada nesta tentativa (falha entre criar a campanha e a sessão). */
   campaignRowId?: string | null;
 };
@@ -27,6 +29,7 @@ export function failedAttemptSession(a: PendingAttempt, error: string, now: Date
     status: 'failed',
     lead_ids: ids,
     lead_count: ids.length,
+    lead_filters: a.leadFilters ?? null,
     sent_count: 0,
     failed_count: 0,
     started_at: now.toISOString(),
@@ -34,6 +37,7 @@ export function failedAttemptSession(a: PendingAttempt, error: string, now: Date
     created_by: a.userId,
     results: {
       provider: 'zernio_cloud_api', account_id: a.accountId, template: a.templateName, language: a.language,
+      audience_snapshot: a.leadFilters != null, segment_name: a.segmentName ?? null,
       error: (error || 'Erro desconhecido').slice(0, 1000), attempt_failed: true,
       campaign_id: a.campaignRowId ?? null,
     },

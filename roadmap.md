@@ -20,3 +20,4 @@
 - [x] WhatsApp Oficial: histórico autorizado desde 18/11 preparado — 84 interessados, 5 menus enviados, 79 aguardando reabertura da janela por nova mensagem.
 - [x] Eventos: todos os produtos pagos do e-commerce aparecem no card; loja e produtos compartilham os mesmos pedidos (24 pedidos, 29 produtos, 60 unidades, R$ 24.418,38 e diferença zero na validação).
 - [x] Eventos: tipos de formulários/origens apresentados em acordeões com leads, ganhos e valor convertido.
+- [x] Histórico WhatsApp API: coluna Segmentação (público), congelando os filtros dos próximos disparos e identificando os antigos como não registrados (12 testes; função publicada; tela autenticada indisponível nesta sessão).

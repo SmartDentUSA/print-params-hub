@@ -1,6 +1,26 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { orderedButtons, waOfficialRow, filterRecipients, type WaRecipient } from "./waOfficialHistory";
+import { orderedButtons, waOfficialAudience, waOfficialRow, filterRecipients, type WaRecipient } from "./waOfficialHistory";
+
+test("público antigo sem retrato não tem a segmentação presumida", () => {
+  assert.deepEqual(waOfficialAudience({ filters: {}, segmentName: null, snapshotRecorded: false }), { label: "Não registrada", details: "" });
+});
+
+test("público sem filtros informa todos os leads com telefone válido", () => {
+  assert.deepEqual(waOfficialAudience({ filters: {}, segmentName: null, snapshotRecorded: true }), { label: "Todos os leads com telefone válido", details: "" });
+});
+
+test("público salvo mostra o nome e conserva os filtros realmente enviados", () => {
+  assert.deepEqual(waOfficialAudience({ filters: { tem_cad: "yes", uf: "SP" }, segmentName: "Todos com exocad", snapshotRecorded: true }), {
+    label: "Todos com exocad", details: "Tem CAD: Sim · UF: SP",
+  });
+});
+
+test("público personalizado apresenta os filtros em linguagem legível", () => {
+  assert.deepEqual(waOfficialAudience({ filters: { wa_sair: "exclude", cliente_filter: "clientes" }, segmentName: null, snapshotRecorded: true }), {
+    label: "Pediu SAIR: Excluir · Tipo de lead: Clientes", details: "",
+  });
+});
 
 test("botões seguem a ordem do template: Botão 1 e Botão 2, mesmo sem cliques", () => {
   const out = orderedButtons(

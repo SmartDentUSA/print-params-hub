@@ -2127,6 +2127,8 @@ function CreateCampaign({
           campaignName={campaignName}
           description={campaignDesc}
           audienceCount={leadCount ?? 0}
+          leadFilters={currentFilters}
+          segmentName={savedSegments.find((s) => s.id === selectedSegmentId && JSON.stringify(s.filters ?? {}) === JSON.stringify(currentFilters))?.name ?? null}
           resolveLeadIds={resolveWaLeadIds}
           onBack={() => setStep(2)}
           onSent={() => setStep(1)}

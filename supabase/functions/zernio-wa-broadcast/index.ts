@@ -161,9 +161,15 @@ Deno.serve(async (req) => {
       const leadIds: string[] = isTest ? (testPhones.length ? [] : [TEST_LEAD_ID]) : p.leadIds;
       if (!accountId || !profileId || !templateName || !language || !name || !Array.isArray(leadIds) || (!leadIds.length && !testPhones.length))
         return json({ error: 'accountId, profileId, templateName, language, name e leadIds são obrigatórios' }, 400);
+      const leadFilters = !isTest && p.leadFilters && typeof p.leadFilters === 'object' && !Array.isArray(p.leadFilters) && JSON.stringify(p.leadFilters).length <= 20000
+        ? p.leadFilters as Record<string, unknown>
+        : null;
+      const segmentName = !isTest && typeof p.segmentName === 'string' && p.segmentName.trim()
+        ? p.segmentName.trim().slice(0, 200)
+        : null;
       if (!isTest) attempt = {
         name: String(name), description: description ?? null, userId: u.user.id, leadIds, accountId: String(accountId),
-        templateName: String(templateName), language: String(language),
+        templateName: String(templateName), language: String(language), leadFilters, segmentName,
       };
       if (leadIds.length > 10000) return json({ error: 'máximo 10.000 leads por disparo' }, 400);
       const nowDate = new Date();
@@ -401,6 +407,7 @@ Deno.serve(async (req) => {
         header_type: meta.headerType, header_media_url: mediaHeader ? headerMediaUrl : null,
         per_hour: perHour, per_day: perDay, scheduled_at: startAt, button_links: btn.stored, button_replies: buttonReplies,
         cost_per_message: costPerMessage, estimated_cost: estimatedCost,
+        audience_snapshot: leadFilters != null, segment_name: segmentName,
         template_buttons: meta.buttons.map((b) => ({ type: b.type, text: b.text })),
       };
 
@@ -411,9 +418,9 @@ Deno.serve(async (req) => {
       const { data: camp } = await admin.from('campaigns').insert({
         ...(campaignId ? { id: campaignId } : {}),
         nome: name, descricao: description ?? null, canal: 'whatsapp_oficial', status: isScheduled ? 'scheduled' : 'sending',
-        mensagem_template: `template:${templateName}`, total_leads: valid.length,
+        mensagem_template: `template:${templateName}`, total_leads: valid.length, lead_filter: leadFilters,
         send_window_start: SEND_WINDOW[0], send_window_end: SEND_WINDOW[1],
-        metadata: { button_links: btn.stored, button_replies: buttonReplies, per_day: perDay, cost_per_message: costPerMessage, estimated_cost: estimatedCost },
+        metadata: { button_links: btn.stored, button_replies: buttonReplies, per_day: perDay, cost_per_message: costPerMessage, estimated_cost: estimatedCost, segment_name: segmentName },
         ...(isScheduled ? { scheduled_at: startAt } : { started_at: nowDate.toISOString() }),
         created_by: u.user.id,
       }).select('id').maybeSingle();
@@ -422,7 +429,7 @@ Deno.serve(async (req) => {
       const { data: session, error: sErr } = await admin.from('campaign_sessions').insert({
         name, channel: 'whatsapp_oficial', status: isScheduled ? 'scheduled' : 'running',
         ...(isScheduled ? { scheduled_at: startAt } : { started_at: nowDate.toISOString() }),
-        lead_ids: valid.map((l) => l.id), lead_count: valid.length, created_by: u.user.id,
+        lead_ids: valid.map((l) => l.id), lead_count: valid.length, lead_filters: leadFilters, created_by: u.user.id,
         results: { ...baseResults, campaign_id: camp?.id ?? null },
       }).select('id').single();
       if (sErr) throw sErr;

@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Download, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import {
-  filterRecipients, orderedButtons, waOfficialRow,
+  filterRecipients, orderedButtons, waOfficialAudience, waOfficialRow,
   type RecipientSegment, type TemplateButton, type WaEngagement, type WaRecipient,
 } from "@/lib/waOfficialHistory";
 
 interface Session {
   id: string; name: string; status: string | null; lead_count: number | null;
+  lead_filters: Record<string, unknown> | null;
   created_at: string; started_at: string | null; completed_at: string | null; results: any;
 }
 
@@ -40,7 +41,7 @@ export default function WaOfficialHistoryTab() {
     (async () => {
       setLoading(true);
       const { data, error } = await supabase.from("campaign_sessions")
-        .select("id,name,status,lead_count,created_at,started_at,completed_at,results")
+        .select("id,name,status,lead_count,lead_filters,created_at,started_at,completed_at,results")
         .eq("channel", "whatsapp_oficial")
         .in("status", ["queued", "scheduled", "running", "completed", "completed_with_errors", "failed"])
         .order("created_at", { ascending: false }).limit(100);
@@ -72,7 +73,8 @@ export default function WaOfficialHistoryTab() {
     const e = eng[c.id];
     const m = waOfficialRow({ leadCount: c.lead_count, summary: r.summary, engagement: e, costPerMessage: r.cost_per_message, estimatedCost: r.estimated_cost });
     const buttons = orderedButtons(r.template_buttons as TemplateButton[] | undefined, e?.buttons);
-    return { c, m, e, buttons };
+    const audience = waOfficialAudience({ filters: c.lead_filters, segmentName: r.segment_name, snapshotRecorded: r.audience_snapshot === true });
+    return { c, m, e, buttons, audience };
   }), [sessions, eng]);
 
   if (loading) return <div className="h-40 flex items-center justify-center text-muted-foreground">Carregando...</div>;
@@ -94,6 +96,7 @@ export default function WaOfficialHistoryTab() {
           <thead>
             <tr className="border-b bg-muted/50 text-xs">
               <th className="text-left p-2 font-medium">Campanha</th>
+              <th className="text-left p-2 font-medium">Segmentação (público)</th>
               <th className="text-left p-2 font-medium">Status</th>
               <th className="text-right p-2 font-medium">Leads</th>
               <th className="text-right p-2 font-medium">Disparos</th>
@@ -110,7 +113,7 @@ export default function WaOfficialHistoryTab() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ c, m, e, buttons }) => {
+            {rows.map(({ c, m, e, buttons, audience }) => {
               const st = STATUS[c.status ?? ""] ?? { label: c.status ?? "—", variant: "outline" as const };
               const b = (i: number) => buttons[i]
                 ? <><div className="font-medium">{num(buttons[i].count)}</div><div className="text-[10px] text-muted-foreground max-w-[110px] truncate ml-auto" title={buttons[i].label}>{buttons[i].label}</div></>
@@ -118,6 +121,10 @@ export default function WaOfficialHistoryTab() {
               return (
                 <tr key={c.id} className="border-b hover:bg-accent/5 cursor-pointer" onClick={() => setSelected(c)}>
                   <td className="p-2 font-medium max-w-[220px]">{c.name}</td>
+                  <td className="p-2 max-w-[280px]" title={[audience.label, audience.details].filter(Boolean).join(" — ")}>
+                    <div className="font-medium">{audience.label}</div>
+                    {audience.details && <div className="text-[10px] text-muted-foreground line-clamp-2">{audience.details}</div>}
+                  </td>
                   <td className="p-2"><Badge variant={st.variant}>{st.label}</Badge></td>
                   <td className="p-2 text-right">{num(m.leads)}</td>
                   <td className="p-2 text-right">{num(m.dispatched)}</td>
