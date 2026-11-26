@@ -455,7 +455,7 @@ export function SmartOpsEvents() {
           ) : filtered.length === 0 ? (
             <div className="text-sm text-muted-foreground py-8 text-center">Nenhum evento cadastrado.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
               {filtered.map((r) => {
                 const st = stats[r.id];
                 const sellers = st?.by_seller ?? [];
@@ -497,6 +497,9 @@ export function SmartOpsEvents() {
                         {!!st?.coupons_freight && <Badge variant="outline">{st.coupons_freight} cupons frete</Badge>}
                       </div>
 
+                      <details className="group rounded-md border">
+                        <summary className="cursor-pointer select-none px-2 py-1.5 text-xs font-medium flex items-center justify-between">Ver indicadores<span className="transition-transform group-open:rotate-180">▾</span></summary>
+                        <div className="p-2 flex flex-col gap-2">
                       {r.event_type === "campanha_promocional" && (
                         <div className="border-y border-border py-3">
                           <div className="text-[11px] uppercase text-muted-foreground">Faturamento total da promoção</div>
@@ -786,6 +789,8 @@ export function SmartOpsEvents() {
                         )}
                       </div>
 
+                        </div>
+                      </details>
                       <div className="mt-auto flex items-center justify-between gap-1 pt-2 border-t">
                         <div className="flex items-center gap-1">
                           <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
