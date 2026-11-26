@@ -16,7 +16,7 @@ Gatilho: a mensagem começa com o nome de um produto do portfólio (ex.: "Vitali
 Fluxo:
 1. Identifica o produto pelo catálogo (nome e apelidos já cadastrados). Sem produto reconhecido: responde pedindo o nome do produto, sem criar lead.
 2. Responde dúvidas sobre o produto e conteúdos da base de conhecimento (mesmo motor da Dra. LIA, sem preços).
-3. Envia o lead para o fluxo de novo lead com Regra de Ouro, origem `[WHTSPRODUTO] - <produto>` (sugestão, confirmável), produto de interesse = produto citado, conversa nas notas do PipeRun.
+3. Envia o lead para o fluxo de novo lead com Regra de Ouro, origem `[SDRWHTAS] - Qualificação Automática`, produto de interesse = produto citado, conversa nas notas do PipeRun.
 4. Retorna o cartão de contato do vendedor designado pela Regra de Ouro.
 5. Envia o link do grupo de especialistas do produto (grupo vinculado à categoria do produto).
 6. Perguntas seguintes na mesma conversa continuam sendo respondidas sem criar novo lead.
@@ -24,7 +24,6 @@ Fluxo:
 Restrição de teste: só o 19 99261-2348 aciona esse fluxo, mesmo sendo membro da equipe. Liberar para clientes fica para depois do teste.
 
 ## Pontos a confirmar durante a construção
-- Origem no CRM (sugestão acima).
 - De onde vem o grupo de especialistas por produto: usar o grupo já vinculado aos formulários/landing do produto; se algum produto não tiver, ele é listado e o envio do grupo é pulado.
 
 ## Detalhes técnicos
