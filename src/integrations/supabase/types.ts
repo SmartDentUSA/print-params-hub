@@ -39792,6 +39792,14 @@ export type Database = {
           won_value: number
         }[]
       }
+      fn_event_previous_funnel: {
+        Args: { p_event_id?: string }
+        Returns: {
+          event_id: string
+          funil: string
+          leads: number
+        }[]
+      }
       fn_event_seller_crm_stats: {
         Args: never
         Returns: {

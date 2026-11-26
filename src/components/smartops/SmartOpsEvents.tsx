@@ -101,6 +101,7 @@ type EventStats = {
   coupons_checked_at: string | null;
   coupon_revenue?: { code: string; pedidos: number; receita: number }[];
   top_products?: { nome: string; pedidos: number; quantidade: number; receita: number }[];
+  previous_funnel?: { funil: string; leads: number }[];
   crm_products?: { nome: string; pedidos: number; quantidade: number; receita: number }[];
   channels?: ChannelStat[];
   store?: StoreStat;
@@ -224,7 +225,7 @@ export function SmartOpsEvents() {
             return { data: rs.flatMap((r) => r.data || []) };
           })
       : (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null });
-    const [{ data: leadStats }, { data: tables }, { data: lpViews }, channelResult, storeResult, breakdownResult, crmProductsResult] = await Promise.all([
+    const [{ data: leadStats }, { data: tables }, { data: lpViews }, channelResult, storeResult, breakdownResult, crmProductsResult, prevFunnelResult] = await Promise.all([
       leadStatsP,
       (supabase as any)
         .from("promotional_tables")
@@ -235,6 +236,7 @@ export function SmartOpsEvents() {
       rpcRetry("fn_event_store_stats", { p_event_id: null }),
       rpcRetry("fn_event_store_breakdown", { p_event_id: null }),
       rpcRetry("fn_event_crm_products", { p_event_id: null }),
+      rpcRetry("fn_event_previous_funnel", { p_event_id: null }),
     ]);
     const chStats = channelResult.data;
     setChannelsError(Boolean(channelResult.error));
@@ -295,6 +297,11 @@ export function SmartOpsEvents() {
     for (const b of (crmProductsResult.data || []) as any[]) {
       const cur = map[b.event_id] || { ...emptyStats };
       cur.crm_products = [...(cur.crm_products || []), { nome: String(b.nome), pedidos: Number(b.negocios) || 0, quantidade: Number(b.quantidade) || 0, receita: Number(b.receita) || 0 }].sort((x, y) => y.receita - x.receita);
+      map[b.event_id] = cur;
+    }
+    for (const b of (prevFunnelResult.data || []) as any[]) {
+      const cur = map[b.event_id] || { ...emptyStats };
+      cur.previous_funnel = [...(cur.previous_funnel || []), { funil: String(b.funil), leads: Number(b.leads) || 0 }].sort((x, y) => y.leads - x.leads);
       map[b.event_id] = cur;
     }
     for (const v of (lpViews || []) as any[]) {
@@ -769,18 +776,34 @@ export function SmartOpsEvents() {
                         )}
                       </div>
 
+                      {!!st?.previous_funnel?.length && (
+                        <div>
+                          <div className="text-[11px] uppercase text-muted-foreground mb-1">Leads gerados · funil anterior à conversão</div>
+                          <ul className="space-y-1">
+                            {st.previous_funnel.map((x) => (
+                              <li key={x.funil} className="flex items-start gap-2 text-xs border-b border-border/60 pb-1 last:border-0 last:pb-0">
+                                <span className="shrink-0 w-8 text-right font-semibold tabular-nums">{x.leads}</span>
+                                <span className="leading-snug break-words">{x.funil}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="text-[10px] text-muted-foreground mt-1">Funil do último negócio do lead criado antes da primeira conversão na campanha</div>
+                        </div>
+                      )}
+
                       <div>
                         <div className="text-[11px] uppercase text-muted-foreground mb-1">Área de atuação</div>
                         {areas.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Não informado.</p>
                         ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {areas.slice(0, 4).map((a) => (
-                              <Badge key={a.area} variant="outline" className="text-[10px] font-normal">
-                                {a.area} · {a.qtd}
-                              </Badge>
+                          <ul className="space-y-1">
+                            {areas.slice(0, 10).map((x) => (
+                              <li key={x.area} className="flex items-start gap-2 text-xs border-b border-border/60 pb-1 last:border-0 last:pb-0">
+                                <span className="shrink-0 w-8 text-right font-semibold tabular-nums">{x.qtd}</span>
+                                <span className="leading-snug break-words">{x.area}</span>
+                              </li>
                             ))}
-                          </div>
+                          </ul>
                         )}
                       </div>
 
@@ -789,13 +812,14 @@ export function SmartOpsEvents() {
                         {especialidades.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Não informado.</p>
                         ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {especialidades.slice(0, 4).map((e) => (
-                              <Badge key={e.especialidade} variant="outline" className="text-[10px] font-normal">
-                                {e.especialidade} · {e.qtd}
-                              </Badge>
+                          <ul className="space-y-1">
+                            {especialidades.slice(0, 10).map((x) => (
+                              <li key={x.especialidade} className="flex items-start gap-2 text-xs border-b border-border/60 pb-1 last:border-0 last:pb-0">
+                                <span className="shrink-0 w-8 text-right font-semibold tabular-nums">{x.qtd}</span>
+                                <span className="leading-snug break-words">{x.especialidade}</span>
+                              </li>
                             ))}
-                          </div>
+                          </ul>
                         )}
                       </div>
 
