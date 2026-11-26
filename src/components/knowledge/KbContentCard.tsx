@@ -14,7 +14,9 @@ function KbInlineQr({ url, label }: { url: string; label: string }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     let off = false;
-    QRCode.toDataURL(url, { width: 240, margin: 1, errorCorrectionLevel: 'M' })
+    // Link curto: o endereço completo gera um QR denso demais para a câmera ler no tamanho do card.
+    shortenUrl(url)
+      .then((short) => QRCode.toDataURL(short, { width: 360, margin: 2, errorCorrectionLevel: 'M' }))
       .then((d) => { if (!off) setSrc(d); })
       .catch(() => {});
     return () => { off = true; };
@@ -22,7 +24,7 @@ function KbInlineQr({ url, label }: { url: string; label: string }) {
   if (!src) return null;
   return (
     <div className="kb-inline-qr" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-      <img src={src} alt={label} width={84} height={84} loading="lazy" style={{ borderRadius: 8, background: 'hsl(0 0% 100%)', padding: 4 }} />
+      <img src={src} alt={label} width={112} height={112} loading="lazy" style={{ borderRadius: 8, background: 'hsl(0 0% 100%)' }} />
       <span style={{ fontSize: 11, lineHeight: 1.3, opacity: 0.75 }}>{label}</span>
     </div>
   );
