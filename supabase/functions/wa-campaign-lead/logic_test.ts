@@ -27,6 +27,9 @@ Deno.test('WhatsApp: respostas automáticas não viram lead comercial', () => {
   assertEquals(campaignIntent('Agradecemos sua mensagem. Não estamos disponíveis no momento, mas responderemos assim que possível.'), 'none');
   assertEquals(campaignIntent('Seja bem-vindo! Gostaria de saber seu nome para agendar sua consulta.'), 'none');
   assertEquals(campaignIntent('Nosso horário de atendimento é das 8h às 18h.'), 'none');
+  assertEquals(campaignIntent('Esta é uma resposta automática. Recebemos sua mensagem.'), 'none');
+  assertEquals(campaignIntent('Obrigado pelo contato, em breve retornaremos.'), 'none');
+  assertEquals(campaignIntent('No momento estou em atendimento, gostaria de saber seu nome?'), 'none');
 });
 Deno.test('WhatsApp: SAIR e desinteresse não entram no fluxo', () => {
   assertEquals(campaignIntent('SAIR'), 'none');
@@ -38,6 +41,8 @@ Deno.test('WhatsApp: saudação e mensagem sem pedido não entram no fluxo', () 
   assertEquals(campaignIntent('Bom dia'), 'none');
   assertEquals(campaignIntent('Oi'), 'none');
   assertEquals(campaignIntent('[Unsupported message]'), 'none');
+  assertEquals(campaignIntent('Preciso de ajuda'), 'none');
+  assertEquals(campaignIntent('Ok, obrigado'), 'none');
 });
 Deno.test('WhatsApp: várias respostas na mesma campanha têm uma chave única', () => {
   assertEquals(campaignSubmissionId('campanha-1', '+5516998765432'), 'wa-campaign:campanha-1:+5516998765432');

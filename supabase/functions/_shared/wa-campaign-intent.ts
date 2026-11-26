@@ -9,7 +9,9 @@ export function campaignIntent(text: unknown, button?: unknown): CampaignIntent 
   const raw = String(button || text || '');
   const n = normLabel(raw);
   if (!n || isOptOutText(n) || /\b(nao (?:quero|desejo|tenho interesse)|remov[ae]|retir[ae].*lista|pare de|nao envie|nao mand[ae])\b/.test(n)) return 'none';
-  if (/agradec(?:e|emos|o).*contato|agradec(?:o|emos).*mensagem|nao estamos disponiveis|fora do horario|horario de atendimento|responderemos|retornaremos|assim que possivel|seja.*bem.vind|mensagens.*ordem|agend(?:amento|ar).*(?:consulta|procedimento)|o que.*incomoda.*sorriso|como (?:podemos|posso) (?:ajudar|te ajudar)|qual.*tratamento.*procura|secretaria.*clinica/.test(n)) return 'none';
+  if (/agradec(?:e|emos|o).*contato|agradec(?:o|emos).*mensagem|nao estamos disponiveis|fora do horario|horario de atendimento|responderemos|retornaremos|assim que possivel|seja.*bem.vind|mensagens.*ordem|agend(?:amento|ar).*(?:consulta|procedimento)|o que.*incomoda.*sorriso|como (?:podemos|posso) (?:ajudar|te ajudar)|qual.*tratamento.*procura|secretaria.*clinica|resposta automatica|mensagem automatica|(?:obrigad[oa]|grat[oa]) (?:pelo|por) (?:seu )?contato|(?:recebemos|recebi) sua mensagem|no momento (?:nao|estou)|estou (?:ocupad|em atendimento|de ferias|viajando)|em breve (?:retorn|respond)|deixe sua mensagem|ausente/.test(n)) return 'none';
+  // Vague replies without a product or a request for information/contact are not interest.
+  if (/^(?:preciso de ajuda|ajuda|ok|okay|obrigad[oa]|valeu|blz|beleza|sim|nao|\?+)[.!? ]*$/.test(n)) return 'none';
   if (button) {
     const key = buttonKey(button);
     if (key === 'consultor') return 'contact';
