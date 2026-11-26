@@ -1,5 +1,5 @@
 # Roadmap
-- [ ] Card Black Friday 2026: incluir as origens Campanha ativa, WhatsApp ativo e Engajamento no total e separar os indicadores visualmente por origem.
+- [x] Card Black Friday 2026: Campanha ativa, WhatsApp ativo e Engajamento entram no total e aparecem separados por origem (137 leads únicos verificados).
 - [ ] Concluir e confirmar os 84 interessados anteriores do WhatsApp com “Identificar produto de interesse”: 19 ingestões confirmadas (15 notas enviadas, 4 pendentes), 24 chamadas expiradas, 7 execuções sem retorno e 34 ainda não executados. Bloqueio: indisponibilidade intermitente do Supabase e demora/expiração das chamadas do CRM; não reenviar cegamente os casos incertos. Novos interessados continuam com categorias obrigatórias (14 testes aprovados).
 - [x] Origem WhatsApp ativo padronizada; campanha BlackFriday 2026 e 84 interessados pendentes atualizados (13 testes aprovados e função publicada).
 - [x] Captura WhatsApp Oficial (cartões/áudio/fotos) → Drive do evento + CRM (Lead do evento: dono vendedor; KOL evento 109840 e Oportunidade 109841: Beatriz); agrupa até FIM
