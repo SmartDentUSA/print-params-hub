@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, RefreshCw } from "lucide-react";
+import { Download, RefreshCw, Pause, Play, Square, Loader2 } from "lucide-react";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { progressiveMetrics } from "@/lib/progressiveMetrics";
 import {
@@ -25,7 +26,13 @@ const STATUS: Record<string, { label: string; variant: "default" | "secondary" |
   completed: { label: "Concluída", variant: "outline" },
   completed_with_errors: { label: "Concluída c/ falhas", variant: "outline" },
   failed: { label: "Falhou", variant: "destructive" },
+  paused: { label: "Pausada", variant: "secondary" },
+  cancelled: { label: "Cancelada", variant: "outline" },
+  pausing: { label: "Pausando", variant: "secondary" },
+  resuming: { label: "Retomando", variant: "secondary" },
+  cancelling: { label: "Cancelando", variant: "secondary" },
 };
+type ControlAction = "pause" | "resume" | "cancel";
 const brl = (v: number | null) => v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const dt = (v: string | null) => v ? new Date(v).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
 const num = (v: number) => v ? v.toLocaleString("pt-BR") : "—";
@@ -37,6 +44,47 @@ export default function WaOfficialHistoryTab() {
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
   const [selected, setSelected] = useState<Session | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{ session: Session; action: ControlAction } | null>(null);
+
+  const runControl = async (session: Session, action: ControlAction) => {
+    setBusy(session.id);
+    try {
+      for (let batch = 0; batch < 150; batch++) {
+        const { data, error } = await supabase.functions.invoke("zernio-wa-broadcast", { body: { action, campaignId: session.id } });
+        if (error || !data?.ok) {
+          const detail = error && "context" in error ? await error.context?.json?.().catch(() => null) : null;
+          throw new Error(data?.error ?? detail?.error ?? error?.message ?? "Não foi possível concluir a ação");
+        }
+        setSessions((current) => current.map((s) => s.id === session.id ? { ...s, status: data.status } : s));
+        if (data.done) {
+          toast.success(action === "pause" ? "Campanha pausada" : action === "resume" ? "Pendentes reagendados; envios anteriores preservados" : "Campanha cancelada");
+          return;
+        }
+      }
+      throw new Error("Operação parcial. Use Continuar para concluir os lotes restantes.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao controlar campanha");
+    } finally {
+      setBusy(null);
+      setReload((k) => k + 1);
+    }
+  };
+
+  const controls = (session: Session) => {
+    const status = session.status ?? "";
+    const active = ["queued", "scheduled", "running"].includes(status);
+    const continuing = status === "pausing" ? "pause" : status === "resuming" ? "resume" : status === "cancelling" ? "cancel" : null;
+    return <div className="flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+      {busy === session.id ? <span className="flex items-center gap-1 text-xs text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Aguarde…</span> : <>
+        {continuing && <Button variant="outline" size="sm" disabled={!!busy} onClick={() => setConfirm({ session, action: continuing })}><Play className="w-3.5 h-3.5 mr-1" /> Continuar</Button>}
+        {active && <Button variant="outline" size="sm" disabled={!!busy} onClick={() => setConfirm({ session, action: "pause" })}><Pause className="w-3.5 h-3.5 mr-1" /> Pausar</Button>}
+        {status === "paused" && <Button variant="outline" size="sm" disabled={!!busy} onClick={() => setConfirm({ session, action: "resume" })}><Play className="w-3.5 h-3.5 mr-1" /> Retomar</Button>}
+        {status === "resuming" && <Button variant="outline" size="sm" disabled={!!busy} onClick={() => setConfirm({ session, action: "pause" })}><Pause className="w-3.5 h-3.5 mr-1" /> Pausar</Button>}
+        {(active || ["paused", "pausing", "resuming"].includes(status)) && <Button variant="outline" size="sm" className="text-destructive" disabled={!!busy} onClick={() => setConfirm({ session, action: "cancel" })}><Square className="w-3.5 h-3.5 mr-1" /> Cancelar</Button>}
+      </>}
+    </div>;
+  };
 
   useEffect(() => {
     let alive = true;
@@ -45,7 +93,7 @@ export default function WaOfficialHistoryTab() {
       const { data, error } = await supabase.from("campaign_sessions")
         .select("id,name,status,lead_count,lead_filters,created_at,started_at,completed_at,results")
         .eq("channel", "whatsapp_oficial")
-        .in("status", ["queued", "scheduled", "running", "completed", "completed_with_errors", "failed"])
+        .in("status", ["queued", "scheduled", "running", "completed", "completed_with_errors", "failed", "paused", "cancelled", "pausing", "resuming", "cancelling"])
         .order("created_at", { ascending: false }).limit(100);
       if (!alive) return;
       if (error) { toast.error("Erro ao carregar campanhas do WhatsApp Oficial"); setLoading(false); return; }
@@ -66,13 +114,13 @@ export default function WaOfficialHistoryTab() {
         const r = c.results ?? {};
         const ids = r.broadcast_ids ?? (r.broadcast_id ? [r.broadcast_id] : []);
         if (!ids.length) return null;
-        const live = ["scheduled", "running", "queued"].includes(c.status ?? "") || !r.summary || !Array.isArray(r.template_buttons);
+        const live = !["paused", "cancelled", "pausing", "resuming", "cancelling"].includes(c.status ?? "") && (["scheduled", "running", "queued"].includes(c.status ?? "") || !r.summary || !Array.isArray(r.template_buttons));
         if (!live) return null;
         const { data: st } = await supabase.functions.invoke("zernio-wa-broadcast", { body: { action: "status", campaignId: c.id } });
-        return st?.summary ? { ...c, results: { ...r, summary: st.summary, ...(st.template_buttons ? { template_buttons: st.template_buttons } : {}) } } : null;
+        return st?.summary ? { ...c, status: st.status ?? c.status, results: { ...r, summary: st.summary, ...(st.template_buttons ? { template_buttons: st.template_buttons } : {}) } } : null;
       }), (updated) => {
         if (!alive || !updated) return;
-        setSessions((current) => current.map((c) => c.id === updated.id ? updated : c));
+        setSessions((current) => current.map((c) => c.id === updated.id && !["paused", "cancelled", "pausing", "resuming", "cancelling"].includes(c.status ?? "") ? updated : c));
       }, (error) => console.error("Atualização WhatsApp Oficial", error), 2);
     })();
     return () => { alive = false; };
@@ -108,6 +156,7 @@ export default function WaOfficialHistoryTab() {
               <th className="text-left p-2 font-medium">Campanha</th>
               <th className="text-left p-2 font-medium">Segmentação (público)</th>
               <th className="text-left p-2 font-medium">Status</th>
+              <th className="text-left p-2 font-medium">Ações</th>
               <th className="text-right p-2 font-medium">Leads</th>
               <th className="text-right p-2 font-medium">Disparos</th>
               <th className="text-right p-2 font-medium">Sucesso<br /><span className="font-normal text-muted-foreground">entregues</span></th>
@@ -136,6 +185,7 @@ export default function WaOfficialHistoryTab() {
                     {audience.details && <div className="text-[10px] text-muted-foreground line-clamp-2">{audience.details}</div>}
                   </td>
                   <td className="p-2"><Badge variant={st.variant}>{st.label}</Badge></td>
+                  <td className="p-2 min-w-[220px]">{controls(c)}</td>
                   <td className="p-2 text-right">{num(m.leads)}</td>
                   <td className="p-2 text-right">{num(m.dispatched)}</td>
                   <td className="p-2 text-right"><div className="text-success font-medium">{num(m.delivered)}</div><div className="text-[10px] text-muted-foreground">{pct(m.delivered, m.dispatched)}</div></td>
@@ -162,11 +212,26 @@ export default function WaOfficialHistoryTab() {
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <SheetContent className="sm:max-w-2xl overflow-y-auto">
           {selected && (() => {
-            const row = rows.find((r) => r.c.id === selected.id)!;
-            return <CampaignDetail session={selected} m={row.m} e={row.e} buttons={row.buttons} />;
+            const row = rows.find((r) => r.c.id === selected.id);
+            if (!row) return null;
+            return <><div className="mt-6 mb-3">{controls(row.c)}</div><CampaignDetail session={row.c} m={row.m} e={row.e} buttons={row.buttons} /></>;
           })()}
         </SheetContent>
       </Sheet>
+      <AlertDialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirm?.action === "cancel" ? "Cancelar campanha?" : confirm?.action === "resume" ? "Retomar campanha?" : "Pausar campanha?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirm?.session.name}. {confirm?.action === "cancel" ? "Os envios pendentes serão interrompidos definitivamente. Mensagens já enviadas e respostas permanecem registradas." : confirm?.action === "resume" ? "Somente os destinatários ainda não enviados serão reagendados, mantendo os lotes, os limites e o horário de envio. Os próximos horários podem mudar para respeitar o limite de 24 horas." : "Os lotes pendentes serão interrompidos e poderão ser retomados depois. Mensagens que já saíram não podem ser recolhidas."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (confirm) void runControl(confirm.session, confirm.action); }}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

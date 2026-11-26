@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Histórico WhatsApp API: pausar, retomar somente pendentes e cancelar com confirmação; função publicada, 39 testes aprovados e envios/público/limites preservados. Tela autenticada não conferida por indisponibilidade de sessão do Supabase externo; nenhuma campanha real alterada.
 - [x] Próximas transições: posições oficiais de 83 etapas do PipeRun, data original compartilhada e intervalo entre eventos; histórico preservado e testes transacionais aprovados sem alterar leads reais.
 - [x] Indicadores de Eventos e Histórico WhatsApp: publicação progressiva, concorrência limitada, resultados preservados e sem zeros provisórios em totais principais; 14 testes aprovados. Consultas registradas levam cerca de 2–4 s; fórmulas e rotinas não foram alteradas.
 - [ ] Medir tempo final na tela autenticada de Eventos/Histórico WhatsApp: bloqueado pela indisponibilidade de sessão do Supabase externo.

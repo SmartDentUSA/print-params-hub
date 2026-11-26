@@ -33360,6 +33360,41 @@ export type Database = {
           },
         ]
       }
+      wa_official_campaign_control: {
+        Row: {
+          created_at: string
+          lock_token: string | null
+          lock_until: string | null
+          session_id: string
+          state: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          lock_token?: string | null
+          lock_until?: string | null
+          session_id: string
+          state?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          lock_token?: string | null
+          lock_until?: string | null
+          session_id?: string
+          state?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_official_campaign_control_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "campaign_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wa_official_sair_leads: {
         Row: {
           first_reply_at: string
@@ -39496,6 +39531,10 @@ export type Database = {
       }
       fn_claim_video_analytics_sync: {
         Args: { p_scheduled?: boolean }
+        Returns: boolean
+      }
+      fn_claim_wa_campaign_control: {
+        Args: { p_session: string; p_token: string }
         Returns: boolean
       }
       fn_claim_wa_campaign_lead: {

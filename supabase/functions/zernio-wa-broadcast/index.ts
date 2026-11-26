@@ -1,5 +1,5 @@
 // zernio-wa-broadcast — Disparo em massa pelo WhatsApp oficial (Cloud API via Zernio).
-// Ações (staff-only): accounts | templates | send | test | sample | status
+// Ações (staff-only): accounts | templates | send | test | sample | status; controles admin-only: pause | resume | cancel
 // Botões de resposta rápida com link ganham resposta automática (wa_button_reply_rules → zernio-wa-button-reply).
 // test = mesmo template para até MAX_TEST_PHONES números digitados (ou o lead fixo TEST_LEAD_ID), sem criar campanha.
 // Fora da janela de 24h a Meta só aceita modelo APROVADO; por isso o envio exige template.
@@ -13,6 +13,8 @@ import {
 } from './plan.ts';
 import { buildButtonReplies, resolveFormIdForLink } from '../_shared/wa-button-replies.ts';
 import { type PendingAttempt, recordFailedAttempt, shouldRecordFailure } from './attempts.ts';
+import { controlCampaign, CONTROL_STATES } from './control.ts';
+import { z as schema } from 'npm:zod@3';
 
 const ZERNIO = 'https://zernio.com/api/v1';
 const json = (b: unknown, s = 200) =>
@@ -128,6 +130,20 @@ Deno.serve(async (req) => {
   let attempt: PendingAttempt | null = null;
   const res = await (async () => {
   try {
+    if (['pause', 'resume', 'cancel'].includes(action)) {
+      const parsed = schema.object({ action: schema.enum(['pause', 'resume', 'cancel']), campaignId: schema.string().uuid() }).safeParse(p);
+      if (!parsed.success) return json({ error: 'Campanha ou ação inválida' }, 400);
+      const { data: isAdmin } = await admin.rpc('is_admin', { user_id: u.user.id });
+      if (!isAdmin) return json({ error: 'Somente administradores podem controlar campanhas' }, 403);
+      const controlZ = async (path: string, init?: RequestInit) => {
+        const response = await fetch(`${ZERNIO}${path}`, { ...init, signal: AbortSignal.timeout(10_000),
+          headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } });
+        const body = await response.json();
+        if (!response.ok) throw new Error(`Zernio ${response.status}: ${body?.error ?? 'Não foi possível controlar o disparo. Tente continuar.'}`);
+        return body;
+      };
+      return json(await controlCampaign(admin, controlZ, parsed.data.campaignId, parsed.data.action, u.user.id));
+    }
     if (action === 'accounts') {
       const b = await z('/accounts');
       const list = (b.accounts ?? b.data ?? []).filter((a: any) => a.platform === 'whatsapp').map((a: any) => ({
@@ -409,7 +425,7 @@ Deno.serve(async (req) => {
       const estimatedCost = costPerMessage != null ? Math.round(valid.length * costPerMessage * 100) / 100 : null;
       const startAt = slots[0]?.at ?? null;
       const baseResults = {
-        provider: 'zernio_cloud_api', account_id: accountId, template: templateName, language, variable_map: vmap,
+        provider: 'zernio_cloud_api', account_id: accountId, profile_id: profileId, template: templateName, language, variable_map: vmap,
         header_type: meta.headerType, header_media_url: mediaHeader ? headerMediaUrl : null,
         per_hour: perHour, per_day: perDay, scheduled_at: startAt, button_links: btn.stored, button_replies: buttonReplies,
         cost_per_message: costPerMessage, estimated_cost: estimatedCost,
@@ -512,14 +528,25 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'status') {
-      const { data: s } = await admin.from('campaign_sessions').select('id,results').eq('id', p.campaignId).single();
+      if (!UUID_RE.test(String(p.campaignId ?? ''))) return json({ error: 'Campanha inválida' }, 400);
+      const statusToken = crypto.randomUUID();
+      const { data: statusLock, error: statusLockError } = await admin.rpc('fn_claim_wa_campaign_control', { p_session: p.campaignId, p_token: statusToken });
+      if (statusLockError) throw statusLockError;
+      if (!statusLock) return json({ error: 'Campanha em atualização; tente novamente' }, 409);
+      try {
+      const { data: s } = await admin.from('campaign_sessions').select('id,results,status,lead_count,channel').eq('id', p.campaignId).single();
+      if (!s || s.channel !== 'whatsapp_oficial') return json({ error: 'Campanha não encontrada' }, 404);
+      if (CONTROL_STATES.includes(s.status)) return json({ summary: s.results?.summary ?? null, status: s.status, template_buttons: s.results?.template_buttons ?? null });
       const ids: string[] = s?.results?.broadcast_ids ?? (s?.results?.broadcast_id ? [s.results.broadcast_id] : []);
       if (!ids.length) return json({ error: 'broadcast não encontrado' }, 404);
       const sum: Record<string, number> = {};
       const failedByBid = new Map<string, number>();
       for (const bid of ids) {
         const r = await z(`/broadcasts/${bid}/recipients?limit=1`);
-        for (const [k, v] of Object.entries(r.summary ?? {})) sum[k] = (sum[k] ?? 0) + (Number(v) || 0);
+        for (const [k, v] of Object.entries(r.summary ?? {})) {
+          if (k === 'pending' && s.results?.retired_broadcast_ids?.includes(bid)) continue;
+          sum[k] = (sum[k] ?? 0) + (Number(v) || 0);
+        }
         if (Number(r.summary?.failed) > 0) failedByBid.set(bid, Number(r.summary.failed));
       }
       // Botões do template na ordem aprovada (Botão 1, Botão 2…) para o histórico; campanhas antigas não guardavam.
@@ -531,12 +558,15 @@ Deno.serve(async (req) => {
         if (raw) templateButtons = templateMeta(raw).buttons.map((b) => ({ type: b.type, text: b.text }));
       }
       const nowIso = new Date().toISOString();
-      const slots: { at: string | null; broadcast_ids?: string[] }[] = Array.isArray(s?.results?.slots) ? s!.results.slots : [];
+      sum.total = s.lead_count ?? sum.total;
+      const slots: { at: string | null; broadcast_ids?: string[] }[] = (Array.isArray(s.results?.slots) ? s.results.slots : [])
+        .map((sl: { at: string | null; broadcast_ids?: string[] }) => ({ ...sl, broadcast_ids: sl.broadcast_ids?.filter((bid) => !s.results?.retired_broadcast_ids?.includes(bid)) }))
+        .filter((sl: { broadcast_ids?: string[] }) => sl.broadcast_ids?.length);
       // Lotes cujo horário já passou saíram pela Zernio: data real de envio = horário do lote (conversão usa sent_at).
       for (const sl of slots) {
         if (!sl.at || sl.at > nowIso) continue;
-        await admin.from('campaign_send_log').update({ status: 'sent', sent_at: sl.at }).eq('campaign_id', s!.id)
-          .eq('status', 'scheduled').eq('scheduled_at', sl.at);
+        await admin.from('campaign_send_log').update({ status: 'sent', sent_at: sl.at }).eq('campaign_id', s.id)
+          .eq('status', 'scheduled').eq('scheduled_at', sl.at).in('provider_message_id', sl.broadcast_ids ?? []);
       }
       // Quem a Meta recusou fica como falha, com o motivo, e sem data de envio.
       for (const [bid] of failedByBid) {
@@ -550,7 +580,7 @@ Deno.serve(async (req) => {
         }
         for (const [reason, phones] of byReason) {
           await admin.from('campaign_send_log').update({ status: 'failed', sent_at: null, error_message: reason })
-            .eq('campaign_id', s!.id).eq('provider_message_id', bid).in('telefone', phones).neq('status', 'failed');
+            .eq('campaign_id', s.id).eq('provider_message_id', bid).in('telefone', phones).neq('status', 'failed');
         }
       }
       const futureSlot = slots.some((sl) => sl.at && sl.at > nowIso);
@@ -559,15 +589,18 @@ Deno.serve(async (req) => {
         ...(!done && slots.some((sl) => sl.at) ? { status: slots.some((sl) => sl.at && sl.at <= nowIso) ? 'running' : 'scheduled' } : {}),
         sent_count: (sum.sent ?? 0) + (sum.delivered ?? 0) + (sum.read ?? 0), failed_count: sum.failed ?? 0,
         ...(done ? { status: (sum.failed ?? 0) > 0 ? 'completed_with_errors' : 'completed', completed_at: new Date().toISOString() } : {}),
-        results: { ...s!.results, summary: sum, ...(Array.isArray(templateButtons) ? { template_buttons: templateButtons } : {}) },
-      }).eq('id', s!.id);
+        results: { ...s.results, summary: sum, ...(Array.isArray(templateButtons) ? { template_buttons: templateButtons } : {}) },
+      }).eq('id', s.id);
       // Espelho em `campaigns` com os mesmos números reais (Copilot e relatórios leem dali).
       if (s?.results?.campaign_id) await admin.from('campaigns').update({
         total_sent: (sum.sent ?? 0) + (sum.delivered ?? 0) + (sum.read ?? 0), total_failed: sum.failed ?? 0,
         total_delivered: (sum.delivered ?? 0) + (sum.read ?? 0),
         ...(done ? { status: (sum.failed ?? 0) > 0 ? 'completed_with_errors' : 'completed', completed_at: new Date().toISOString() } : {}),
       }).eq('id', s.results.campaign_id);
-      return json({ summary: sum, template_buttons: Array.isArray(templateButtons) ? templateButtons : null });
+      return json({ summary: sum, status: done ? (sum.failed ?? 0) > 0 ? 'completed_with_errors' : 'completed' : slots.some((sl) => sl.at && sl.at <= nowIso) ? 'running' : 'scheduled', template_buttons: Array.isArray(templateButtons) ? templateButtons : null });
+      } finally {
+        await admin.from('wa_official_campaign_control').update({ lock_token: null, lock_until: null }).eq('session_id', p.campaignId).eq('lock_token', statusToken);
+      }
     }
 
     return json({ error: `ação desconhecida: ${action}` }, 400);
