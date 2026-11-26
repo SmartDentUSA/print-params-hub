@@ -191,9 +191,17 @@ export function SmartOpsEvents() {
 
   const [stats, setStats] = useState<Record<string, EventStats>>({});
 
-  async function loadStats() {
+  async function loadStats(eventIds: string[] = []) {
+    // Um cálculo por evento, em paralelo: o cálculo de todos de uma vez estoura o tempo limite e zera os valores.
+    const leadStatsP = eventIds.length
+      ? Promise.all(eventIds.map((id) => (supabase as any).rpc("fn_event_lead_stats", { p_event_id: id })))
+          .then((rs: any[]) => {
+            rs.forEach((r) => r.error && console.error("fn_event_lead_stats", r.error));
+            return { data: rs.flatMap((r) => r.data || []) };
+          })
+      : (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null });
     const [{ data: leadStats }, { data: tables }, { data: lpViews }, { data: chStats }] = await Promise.all([
-      (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null }),
+      leadStatsP,
       (supabase as any)
         .from("promotional_tables")
         .select("id, event_id, promotional_coupons(id, code, free_shipping, li_used_count, li_usage_checked_at)")
@@ -274,7 +282,7 @@ export function SmartOpsEvents() {
     if (error) toast.error(error.message);
     setRows((data || []) as unknown as EventRow[]);
     setLoading(false);
-    loadStats().catch(() => {});
+    loadStats(((data || []) as any[]).map((r) => r.id)).catch(() => {});
   }
 
   useEffect(() => { load(); }, []);
