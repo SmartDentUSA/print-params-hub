@@ -191,10 +191,22 @@ export function SmartOpsEvents() {
 
   const [stats, setStats] = useState<Record<string, EventStats>>({});
 
+  // Repete uma vez quando o banco recusa/expira, para um card não aparecer zerado por falha momentânea.
+  async function rpcRetry(fn: string, args: Record<string, unknown>) {
+    let r = await (supabase as any).rpc(fn, args);
+    if (r.error) {
+      console.error(fn, r.error);
+      await new Promise((ok) => setTimeout(ok, 800));
+      r = await (supabase as any).rpc(fn, args);
+      if (r.error) console.error(fn, "retry", r.error);
+    }
+    return r;
+  }
+
   async function loadStats(eventIds: string[] = []) {
     // Um cálculo por evento, em paralelo: o cálculo de todos de uma vez estoura o tempo limite e zera os valores.
     const leadStatsP = eventIds.length
-      ? Promise.all(eventIds.map((id) => (supabase as any).rpc("fn_event_lead_stats", { p_event_id: id })))
+      ? Promise.all(eventIds.map((id) => rpcRetry("fn_event_lead_stats", { p_event_id: id })))
           .then((rs: any[]) => {
             rs.forEach((r) => r.error && console.error("fn_event_lead_stats", r.error));
             return { data: rs.flatMap((r) => r.data || []) };
@@ -206,8 +218,8 @@ export function SmartOpsEvents() {
         .from("promotional_tables")
         .select("id, event_id, promotional_coupons(id, code, free_shipping, li_used_count, li_usage_checked_at)")
         .not("event_id", "is", null),
-      (supabase as any).rpc("fn_event_landing_views", { p_event_id: null }),
-      (supabase as any).rpc("fn_event_campaign_stats", { p_event_id: null }),
+      rpcRetry("fn_event_landing_views", { p_event_id: null }),
+      rpcRetry("fn_event_campaign_stats", { p_event_id: null }),
     ]);
     const map: Record<string, EventStats> = {};
     for (const s of (leadStats || []) as any[]) {
