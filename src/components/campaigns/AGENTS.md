@@ -1,0 +1,3 @@
+- Campaign creators share CampaignEventPicker and persist optional event_id separately from audience filters in campaigns, campaign_sessions and push_campaigns; all registered event types are eligible and blank means no link.
+- Event campaign metrics prioritize explicit event_id over legacy form/CTA inference and exclude mirrored sessions before aggregating logs; this prevents moving or duplicating costs when campaign names change.
+- Unknown channel costs remain null and the event summary labels incomplete totals as registered costs; no price or billed amount is inferred from missing provider data.

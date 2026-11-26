@@ -12,6 +12,8 @@ import { DatePickerInput } from "@/components/smartops/DatePickerInput";
 import { BellRing, RefreshCw, Send, Clock, Users, Bookmark, MousePointerClick, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { CampaignEventPicker } from "./CampaignEventPicker";
+import { campaignEventId } from "@/lib/campaignEvent";
 
 interface PushCampaign {
   id: string;
@@ -62,6 +64,7 @@ export function PushAppTab() {
 
   // Mensagem
   const [title, setTitle] = useState("");
+  const [eventId, setEventId] = useState("");
   const [message, setMessage] = useState("");
   const [iconUrl, setIconUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -235,6 +238,7 @@ export function PushAppTab() {
     const { data, error } = await supabase.functions.invoke("push-campaign-send", {
       body: {
         title: title.trim(),
+        event_id: campaignEventId(eventId),
         body: message.trim(),
         icon_url: iconUrl.trim() || null,
         image_url: imageUrl.trim() || null,
@@ -248,7 +252,7 @@ export function PushAppTab() {
     if (error || !res?.ok) { toast.error(res?.error || error?.message || "Falha ao enviar."); return; }
     if (res.status === "agendada") toast.success(`Campanha programada para ${res.audience ?? 0} usuários.`);
     else toast.success(`Push enviado para ${res.sent ?? 0} de ${res.audience ?? 0} usuários.`);
-    setTitle(""); setMessage(""); setSendDate("");
+    setTitle(""); setMessage(""); setSendDate(""); setEventId("");
     loadCampaigns();
   };
 
@@ -503,6 +507,7 @@ export function PushAppTab() {
           <CardDescription>Envie agora ou escolha a data e a hora do disparo desta campanha (06:00–23:00).</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3">
+          <div className="w-full"><CampaignEventPicker value={eventId} onChange={setEventId} /></div>
           <Button onClick={() => submit("now")} disabled={sending}>
             <Send className="w-4 h-4 mr-2" />
             {sending ? "Enviando..." : `Enviar agora (${audience ?? 0})`}

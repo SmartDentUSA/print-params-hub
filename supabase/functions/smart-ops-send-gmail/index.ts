@@ -477,6 +477,7 @@ Deno.serve(async (req) => {
 
     const isFutureSchedule = scheduled_at && new Date(scheduled_at).getTime() > Date.now();
     const { data: c, error: cErr } = await supabase.from("campaigns").insert({
+      event_id: body.event_id || null,
       nome: campaign_name || `Email — ${new Date().toISOString().slice(0, 10)}`,
       descricao: description || null,
       canal: "email",

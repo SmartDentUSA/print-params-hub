@@ -11,6 +11,7 @@ export type PendingAttempt = {
   language: string;
   leadFilters?: Record<string, unknown> | null;
   segmentName?: string | null;
+  eventId?: string | null;
   /** Linha de campaigns já criada nesta tentativa (falha entre criar a campanha e a sessão). */
   campaignRowId?: string | null;
 };
@@ -26,6 +27,7 @@ export function failedAttemptSession(a: PendingAttempt, error: string, now: Date
     name: a.name.slice(0, 300),
     description: a.description ?? null,
     channel: 'whatsapp_oficial',
+    event_id: a.eventId ?? null,
     status: 'failed',
     lead_ids: ids,
     lead_count: ids.length,

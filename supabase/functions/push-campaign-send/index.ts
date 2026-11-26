@@ -58,6 +58,7 @@ Deno.serve(async (req) => {
       const scheduleAt = body?.schedule_at ? new Date(body.schedule_at).toISOString() : null;
       const audience = await admin.rpc("fn_count_push_audience", { p_filters: filters });
       const { data, error } = await admin.from("push_campaigns").insert({
+        event_id: body?.event_id || null,
         title,
         body: text,
         icon_url: body?.icon_url ?? null,

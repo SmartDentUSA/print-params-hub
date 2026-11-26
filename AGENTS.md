@@ -1,4 +1,5 @@
 # Architecture rules
+- Campaign event rules: src/components/campaigns/AGENTS.md.
 
 - Public distributor registration uses a shared presentation-only locale dictionary for fields, options and page messages; preserve canonical submitted values and keep the internal editor in Portuguese.
 - Event distribution forms render the shared DistributorForm with an adapter to original field IDs and the existing ingest handler; preserve per-event URLs and distribution CRM routing instead of writing to the official distributor registry.

@@ -148,6 +148,12 @@ Deno.serve(async (req) => {
     if (action === 'send' || action === 'test') {
       const isTest = action === 'test';
       const { accountId, profileId, templateName, language, name, variableMap, description } = p;
+      const eventId = !isTest && p.eventId ? String(p.eventId) : null;
+      if (eventId) {
+        if (!UUID_RE.test(eventId)) return json({ error: 'Evento inválido' }, 400);
+        const { data: event, error } = await admin.from('smartops_events').select('id').eq('id', eventId).maybeSingle();
+        if (error || !event) return json({ error: 'Evento não encontrado' }, 400);
+      }
       // Teste: números digitados na tela (até MAX_TEST_PHONES) ou, sem número, o lead fixo de teste; nunca cria campanha.
       const rawTestPhones: string[] = isTest && Array.isArray(p.testPhones)
         ? p.testPhones.map((x: unknown) => String(x ?? '').trim()).filter(Boolean) : [];
@@ -169,7 +175,7 @@ Deno.serve(async (req) => {
         : null;
       if (!isTest) attempt = {
         name: String(name), description: description ?? null, userId: u.user.id, leadIds, accountId: String(accountId),
-        templateName: String(templateName), language: String(language), leadFilters, segmentName,
+        templateName: String(templateName), language: String(language), leadFilters, segmentName, eventId,
       };
       if (leadIds.length > 10000) return json({ error: 'máximo 10.000 leads por disparo' }, 400);
       const nowDate = new Date();
@@ -415,7 +421,8 @@ Deno.serve(async (req) => {
         const { data: exists } = await admin.from('campaigns').select('id').eq('id', campaignId).maybeSingle();
         if (exists) return json({ error: 'Esta campanha já foi enviada. Recarregue a tela para criar outra.' }, 409);
       }
-      const { data: camp } = await admin.from('campaigns').insert({
+      const { data: camp, error: campError } = await admin.from('campaigns').insert({
+        event_id: eventId,
         ...(campaignId ? { id: campaignId } : {}),
         nome: name, descricao: description ?? null, canal: 'whatsapp_oficial', status: isScheduled ? 'scheduled' : 'sending',
         mensagem_template: `template:${templateName}`, total_leads: valid.length, lead_filter: leadFilters,
@@ -424,9 +431,12 @@ Deno.serve(async (req) => {
         ...(isScheduled ? { scheduled_at: startAt } : { started_at: nowDate.toISOString() }),
         created_by: u.user.id,
       }).select('id').maybeSingle();
+      if (campError) throw campError;
+      if (!camp) throw new Error('Não foi possível registrar a campanha');
       if (attempt) attempt.campaignRowId = camp?.id ?? null;
 
       const { data: session, error: sErr } = await admin.from('campaign_sessions').insert({
+        event_id: eventId,
         name, channel: 'whatsapp_oficial', status: isScheduled ? 'scheduled' : 'running',
         ...(isScheduled ? { scheduled_at: startAt } : { started_at: nowDate.toISOString() }),
         lead_ids: valid.map((l) => l.id), lead_count: valid.length, lead_filters: leadFilters, created_by: u.user.id,

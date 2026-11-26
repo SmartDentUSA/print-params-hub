@@ -1,4 +1,6 @@
 # Roadmap
+- [x] Campanhas: evento opcional em e-mail, WhatsApp Evolution, WhatsApp API, SMS e Push; vínculo salvo e indicadores priorizam o evento escolhido, com custos registrados sem duplicar sessões (12 testes locais, 3 de tentativas WhatsApp e teste SQL transacional aprovados; funções publicadas).
+- [ ] Conferir seleção e gravação do evento na tela autenticada de Campanhas/Push: bloqueado porque o Supabase externo não permite disponibilizar sessão de teste; nenhum disparo real foi feito.
 - [x] 85 interessados BlackFriday 2026: todos cadastrados pela Regra de Ouro (últimos 11 em 26/11).
 - [x] Exibir faturamento total da promoção abaixo da identificação e cupons: CRM consolidado + loja, sem repetir subtotais de canais ou cupons; conferência autenticada bloqueada pela sessão externa.
 - [x] Card de campanha: WhatsApp recuperado pelo vínculo do formulário; custo por entrega, leads/conversão, vendas pagas registradas no período e receita por cupom; testes SQL e 4 testes de custo passaram. Conferência visual autenticada indisponível nesta sessão; totais da loja usam registros disponíveis, sem reconciliação completa com o provedor.

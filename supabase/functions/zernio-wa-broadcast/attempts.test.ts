@@ -29,8 +29,10 @@ Deno.test('tentativa com erro preserva o retrato da segmentação enviada', () =
   const row = failedAttemptSession({
     name: 'BlackFriday', userId: 'u1', leadIds: ['a'], accountId: 'acc', templateName: 'tpl', language: 'pt_BR',
     leadFilters: { uf: 'SP' }, segmentName: 'Clientes SP',
+    eventId: '6914e294-2313-4694-93b5-b7736747feae',
   }, 'Falha no provedor', new Date('2026-11-17T12:00:00Z'));
   assertEquals(row.lead_filters, { uf: 'SP' });
   assertEquals(row.results.audience_snapshot, true);
   assertEquals(row.results.segment_name, 'Clientes SP');
+  assertEquals(row.event_id, '6914e294-2313-4694-93b5-b7736747feae');
 });

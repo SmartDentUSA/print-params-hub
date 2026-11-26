@@ -586,7 +586,7 @@ export function SmartOpsEvents() {
                               ];
                               return (
                                 <div key={c.canal}>
-                                  <div className="text-xs font-semibold mb-1">{c.canal === "email" ? "E-mails" : c.canal === "sms" ? "SMS" : "WhatsApp API"}</div>
+                                  <div className="text-xs font-semibold mb-1">{c.canal === "email" ? "E-mails" : c.canal === "sms" ? "SMS" : c.canal === "push" ? "Push" : ["evolution", "whatsapp"].includes(c.canal) ? "WhatsApp Evolution" : "WhatsApp API"}</div>
                                   <div className="grid grid-cols-4 gap-1">
                                     {cells.map((x) => (
                                       <div key={x.l} className="rounded bg-muted/50 px-1.5 py-1">
@@ -597,11 +597,11 @@ export function SmartOpsEvents() {
                                     ))}
                                   </div>
                                   <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                                    {c.canal !== "email" && <div>
+                                    <div>
                                       <div className="text-[10px] uppercase text-muted-foreground">Custo do envio</div>
                                       <div className="font-semibold tabular-nums">{c.custo == null ? "Não informado" : exactBrl(c.custo)}</div>
                                       {c.canal === "whatsapp_oficial" && <div className="text-[10px] text-muted-foreground">{c.entregues.toLocaleString("pt-BR")} mensagens entregues</div>}
-                                    </div>}
+                                    </div>
                                     <div>
                                       <div className="text-[10px] uppercase text-muted-foreground">Conversão em vendas</div>
                                       <div className="font-semibold tabular-nums">{exactBrl(c.valor_convertido)}</div>
@@ -611,6 +611,11 @@ export function SmartOpsEvents() {
                                 </div>
                               );
                             })}
+                          </div>
+                          <div className="mt-3 border-t border-border pt-2">
+                            <div className="text-[10px] uppercase text-muted-foreground">Custo total registrado</div>
+                            <div className="text-base font-semibold tabular-nums">{st.channels.every((c) => c.custo == null) ? "Não informado" : exactBrl(st.channels.reduce((sum, c) => sum + (c.custo ?? 0), 0))}</div>
+                            {st.channels.some((c) => c.custo == null) && <div className="text-[10px] text-muted-foreground">Total incompleto: há canais sem custo informado.</div>}
                           </div>
                         </div>
                       )}

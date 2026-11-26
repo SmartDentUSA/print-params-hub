@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ZernioAdsTab from "@/components/campaigns/ZernioAdsTab";
 import { PushAppTab } from "@/components/campaigns/PushAppTab";
+import { CampaignEventPicker } from "@/components/campaigns/CampaignEventPicker";
+import { campaignEventId } from "@/lib/campaignEvent";
 import WhatsAppTemplateMapper, { callWaBroadcast, type WaAccount } from "@/components/campaigns/WhatsAppTemplateMapper";
 import EmailFlowsTab from "@/components/campaigns/emailflows/EmailFlowsTab";
 import WaOfficialHistoryTab from "@/components/campaigns/WaOfficialHistoryTab";
@@ -141,6 +143,7 @@ interface SavedSegment {
 
 interface DraftCampaign {
   id: string;
+  event_id?: string | null;
   nome: string;
   descricao: string | null;
   canal: string | null;
@@ -475,6 +478,7 @@ function CreateCampaign({
   // Step 1
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(preSelectedContent);
   const [campaignName, setCampaignName] = useState("");
+  const [eventId, setEventId] = useState("");
   const [campaignDesc, setCampaignDesc] = useState("");
   const [sendChannel, setSendChannel] = useState("evolution");
   const [evolutionInstance, setEvolutionInstance] = useState<string>("");
@@ -910,6 +914,7 @@ function CreateCampaign({
   useEffect(() => {
     if (!resumeDraft) return;
     setCampaignName(resumeDraft.nome ?? "");
+    setEventId(resumeDraft.event_id ?? "");
     setCampaignDesc(resumeDraft.descricao ?? "");
     if (resumeDraft.canal) setSendChannel(resumeDraft.canal);
     if (resumeDraft.canal === "sms") {
@@ -1088,6 +1093,7 @@ function CreateCampaign({
 
       const { error } = await supabase.from("campaign_sessions").insert({
         name: campaignName.trim(),
+        event_id: campaignEventId(eventId),
         description: campaignDesc.trim() || null,
         status: "draft",
         content_id: selectedContent?.id ?? null,
@@ -1196,6 +1202,7 @@ function CreateCampaign({
         .from("campaign_sessions")
         .insert({
           name: campaignName.trim(),
+          event_id: campaignEventId(eventId),
           description: campaignDesc.trim() || null,
           status: "queued",
           channel: "sms",
@@ -1237,6 +1244,7 @@ function CreateCampaign({
     const filters: any = buildFiltersObject();
     const payload = {
       canal: "sms",
+      event_id: campaignEventId(eventId),
       nome: campaignName.trim(),
       descricao: campaignDesc.trim() || null,
       mensagem_template: smsMessage,
@@ -1374,6 +1382,7 @@ function CreateCampaign({
                 </Select>
               </div>
             </div>
+            <CampaignEventPicker value={eventId} onChange={setEventId} />
             {sendChannel === "whatsapp_oficial" && (
               <div>
                 <label className="text-sm font-medium flex items-center gap-1.5">
@@ -2125,6 +2134,7 @@ function CreateCampaign({
         <WhatsAppTemplateMapper
           account={waAccounts.find((a) => a.accountId === waAccountId)}
           campaignName={campaignName}
+          eventId={eventId}
           description={campaignDesc}
           audienceCount={leadCount ?? 0}
           leadFilters={currentFilters}
@@ -2147,6 +2157,7 @@ function CreateCampaign({
             </div>
             <EmailCampaignWizard
               campaignName={campaignName}
+              eventId={eventId}
               description={campaignDesc}
               filters={buildFiltersObject()}
               audienceCount={leadCount ?? 0}
@@ -2916,7 +2927,7 @@ function CampaignDrafts({ onEdit }: { onEdit: (draft: DraftCampaign) => void }) 
     setLoading(true);
     const { data, error } = await supabase
       .from("campaigns" as any)
-      .select("id,nome,descricao,canal,status,mensagem_template,lead_filter,created_at,total_leads,audience_count")
+      .select("id,nome,descricao,canal,status,mensagem_template,lead_filter,created_at,total_leads,audience_count,event_id")
       .eq("status", "rascunho")
       .order("created_at", { ascending: false })
       .limit(200);

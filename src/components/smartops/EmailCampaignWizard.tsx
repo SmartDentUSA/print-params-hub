@@ -20,6 +20,7 @@ import { parseSections, serializeSections, toggleSection, type EmailSection } fr
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { buildLandingCtaOptions, buildSimulatorCtaOptions, canGenerateEmail } from "@/lib/emailCtaOptions";
 import { withClickOrigin } from "@/lib/clickOrigin";
+import { campaignEventId } from "@/lib/campaignEvent";
 
 type CtaType = "landing" | "form" | "whatsapp" | "custom";
 interface CtaOption { id: string; label: string; url: string; tipo: CtaType }
@@ -27,6 +28,7 @@ interface Cta { tipo: CtaType; id?: string; url: string; label: string }
 
 interface Props {
   campaignName: string;
+  eventId?: string;
   description?: string;
   filters: Record<string, unknown>;
   audienceCount?: number;
@@ -41,7 +43,7 @@ const STEPS = [
   { id: 5, label: "Criar régua", icon: ListPlus },
 ] as const;
 
-export function EmailCampaignWizard({ campaignName, description, filters, audienceCount, onSent }: Props) {
+export function EmailCampaignWizard({ campaignName, eventId, description, filters, audienceCount, onSent }: Props) {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // ── Products & CTAs ──
@@ -322,6 +324,7 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
       const { data, error } = await supabase.functions.invoke("smart-ops-send-gmail", {
         body: {
           campaign_name: campaignName || `Email — ${new Date().toISOString().slice(0, 10)}`,
+          event_id: campaignEventId(eventId),
           description, from_name: fromName,
           subject, preheader, html: effectiveHtml || html, filters,
           cta_config: { produto_id: produtoId, cta_principal: ctaPrincipal, ctas_secundarios: ctasSecundarios },

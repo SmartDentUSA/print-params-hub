@@ -13,6 +13,7 @@ import { CampaignLinkPicker } from "@/components/smartops/CampaignLinkPicker";
 import { BUTTON_LINK_SECTIONS } from "@/lib/social/groupLinkSections";
 import { MAX_REPLY_CHARS, defaultReplyText, previewReply } from "@/lib/waButtonReplies";
 import { Textarea } from "@/components/ui/textarea";
+import { campaignEventId } from "@/lib/campaignEvent";
 
 export type WaAccount = { accountId: string; profileId: string; name: string | null; phone: string | null };
 type HeaderType = "NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT" | "LOCATION";
@@ -58,6 +59,7 @@ export async function callWaBroadcast(body: Record<string, unknown>) {
 interface Props {
   account: WaAccount | undefined;
   campaignName: string;
+  eventId?: string;
   description: string;
   audienceCount: number;
   leadFilters: Record<string, unknown>;
@@ -67,7 +69,7 @@ interface Props {
   onSent: () => void;
 }
 
-export default function WhatsAppTemplateMapper({ account, campaignName, description, audienceCount, leadFilters, segmentName, resolveLeadIds, onBack, onSent }: Props) {
+export default function WhatsAppTemplateMapper({ account, campaignName, eventId, description, audienceCount, leadFilters, segmentName, resolveLeadIds, onBack, onSent }: Props) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loadingTpl, setLoadingTpl] = useState(false);
   const [tplKey, setTplKey] = useState("");
@@ -252,6 +254,7 @@ export default function WhatsAppTemplateMapper({ account, campaignName, descript
       const leadIds = await resolveLeadIds();
       const r = await callWaBroadcast({
         action: "send", accountId: account!.accountId, profileId: account!.profileId,
+        eventId: campaignEventId(eventId),
         templateName: tpl!.name, language: tpl!.language, name: campaignName.trim(), description,
         leadIds, leadFilters, segmentName, variableMap: vars, campaignId: draftCampaignId, buttonLinks: cleanButtonLinks(), buttonReplies: cleanReplyTexts(),
         ...(needsMedia ? { headerMediaUrl: headerMediaUrl.trim() } : {}),

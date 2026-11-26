@@ -2796,6 +2796,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           description: string | null
+          event_id: string | null
           failed_count: number | null
           id: string
           lead_count: number | null
@@ -2817,6 +2818,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          event_id?: string | null
           failed_count?: number | null
           id?: string
           lead_count?: number | null
@@ -2838,6 +2840,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          event_id?: string | null
           failed_count?: number | null
           id?: string
           lead_count?: number | null
@@ -2857,6 +2860,13 @@ export type Database = {
             columns: ["content_id"]
             isOneToOne: false
             referencedRelation: "system_a_content_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
             referencedColumns: ["id"]
           },
         ]
@@ -2920,6 +2930,7 @@ export type Database = {
           email_html: string | null
           email_preheader: string | null
           email_subject: string | null
+          event_id: string | null
           first_comment: string | null
           hashtags: string[] | null
           id: string
@@ -2966,6 +2977,7 @@ export type Database = {
           email_html?: string | null
           email_preheader?: string | null
           email_subject?: string | null
+          event_id?: string | null
           first_comment?: string | null
           hashtags?: string[] | null
           id?: string
@@ -3012,6 +3024,7 @@ export type Database = {
           email_html?: string | null
           email_preheader?: string | null
           email_subject?: string | null
+          event_id?: string | null
           first_comment?: string | null
           hashtags?: string[] | null
           id?: string
@@ -3048,6 +3061,13 @@ export type Database = {
             columns: ["content_bridge_id"]
             isOneToOne: false
             referencedRelation: "content_bridge"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
             referencedColumns: ["id"]
           },
           {
@@ -21756,6 +21776,7 @@ export type Database = {
           date_end: string | null
           date_start: string | null
           error_details: string | null
+          event_id: string | null
           failed_count: number
           filters: Json
           icon_url: string | null
@@ -21780,6 +21801,7 @@ export type Database = {
           date_end?: string | null
           date_start?: string | null
           error_details?: string | null
+          event_id?: string | null
           failed_count?: number
           filters?: Json
           icon_url?: string | null
@@ -21804,6 +21826,7 @@ export type Database = {
           date_end?: string | null
           date_start?: string | null
           error_details?: string | null
+          event_id?: string | null
           failed_count?: number
           filters?: Json
           icon_url?: string | null
@@ -21820,7 +21843,15 @@ export type Database = {
           total_audience?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "push_campaigns_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_send_log: {
         Row: {
