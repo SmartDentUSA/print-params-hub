@@ -68,12 +68,14 @@ type EventRow = {
 };
 
 type SellerStat = { seller: string; qtd: number; ganhos?: number; valor?: number };
+type OriginStat = { origin: string; qtd: number; ganhos?: number; valor?: number };
 type ProductStat = { produto: string; qtd: number };
 type AreaStat = { area: string; qtd: number };
 type EspecialidadeStat = { especialidade: string; qtd: number };
 type EventStats = {
   total_leads: number;
   by_seller: SellerStat[];
+  by_origin: OriginStat[];
   by_product: ProductStat[];
   by_area: AreaStat[];
   by_especialidade: EspecialidadeStat[];
@@ -99,6 +101,7 @@ type EventStats = {
 const emptyStats: EventStats = {
   total_leads: 0,
   by_seller: [],
+  by_origin: [],
   by_product: [],
   by_area: [],
   by_especialidade: [],
@@ -200,6 +203,7 @@ export function SmartOpsEvents() {
       map[s.event_id] = {
         total_leads: Number(s.total_leads) || 0,
         by_seller: (s.by_seller || []) as SellerStat[],
+        by_origin: (s.by_origin || []) as OriginStat[],
         by_product: (s.by_product || []) as ProductStat[],
         by_area: (s.by_area || []) as AreaStat[],
         by_especialidade: (s.by_especialidade || []) as EspecialidadeStat[],
@@ -385,6 +389,7 @@ export function SmartOpsEvents() {
               {filtered.map((r) => {
                 const st = stats[r.id];
                 const sellers = st?.by_seller ?? [];
+                const origins = st?.by_origin ?? [];
                 const produtos = st?.by_product ?? [];
                 const areas = st?.by_area ?? [];
                 const especialidades = st?.by_especialidade ?? [];
@@ -454,6 +459,26 @@ export function SmartOpsEvents() {
                           <div className="text-[10px] text-muted-foreground">leads que compraram</div>
                         </div>
                       </div>
+
+                      {origins.length > 0 && (
+                        <div className="rounded-md border bg-muted/20 p-2">
+                          <div className="text-[11px] uppercase text-muted-foreground mb-1.5">Leads por origem</div>
+                          <ul className="space-y-1.5">
+                            {origins.map((o) => (
+                              <li key={o.origin} className="border-b border-border/60 pb-1.5 last:border-0 last:pb-0">
+                                <div className="flex items-start justify-between gap-2 text-xs">
+                                  <span className="leading-snug break-words">{o.origin}</span>
+                                  <span className="shrink-0 font-semibold tabular-nums">{o.qtd} lead{o.qtd === 1 ? "" : "s"}</span>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground text-right">
+                                  {Number(o.ganhos) || 0} ganho{Number(o.ganhos) === 1 ? "" : "s"}
+                                  {Number(o.valor) > 0 && ` · ${brl(Number(o.valor))}`}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
                       {!!(st?.coupons_discount || st?.coupons_freight) && (
                         <div>

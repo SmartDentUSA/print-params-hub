@@ -39718,6 +39718,7 @@ export type Database = {
         Returns: {
           by_area: Json
           by_especialidade: Json
+          by_origin: Json
           by_product: Json
           by_seller: Json
           event_id: string
