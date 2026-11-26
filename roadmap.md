@@ -1,5 +1,5 @@
 # Roadmap
-- [ ] 85 interessados BlackFriday 2026: 64 cadastrados (61 notas enviadas, 3 pendentes); 21 aguardam autorização do usuário para liberar o processamento.
+- [x] 85 interessados BlackFriday 2026: todos cadastrados pela Regra de Ouro (últimos 11 em 26/11).
 - [x] Exibir faturamento total da promoção abaixo da identificação e cupons: CRM consolidado + loja, sem repetir subtotais de canais ou cupons; conferência autenticada bloqueada pela sessão externa.
 - [x] Card de campanha: WhatsApp recuperado pelo vínculo do formulário; custo por entrega, leads/conversão, vendas pagas registradas no período e receita por cupom; testes SQL e 4 testes de custo passaram. Conferência visual autenticada indisponível nesta sessão; totais da loja usam registros disponíveis, sem reconciliação completa com o provedor.
 - [x] Card Black Friday 2026: Campanha ativa, WhatsApp ativo e Engajamento entram no total e aparecem separados por origem (137 leads únicos verificados).
