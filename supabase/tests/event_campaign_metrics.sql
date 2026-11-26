@@ -3,6 +3,8 @@ DO $tests$
 DECLARE
   wa record;
   store record;
+  product_revenue numeric;
+  product_count integer;
   old_role text := current_setting('request.jwt.claim.role', true);
   old_sub text := current_setting('request.jwt.claim.sub', true);
   denied boolean;
@@ -17,6 +19,11 @@ BEGIN
   SELECT * INTO store FROM public.fn_event_store_stats('6914e294-2313-4694-93b5-b7736747feae');
   IF store.pedidos < 23 OR store.valor_total < 24053.97 THEN RAISE EXCEPTION 'Pedidos pagos recentes da timeline ausentes'; END IF;
   IF store.pedidos_cupom > store.pedidos OR store.valor_cupons > store.valor_total THEN RAISE EXCEPTION 'Cupons duplicaram o total'; END IF;
+
+  SELECT COALESCE(sum(b.receita),0),count(*) INTO product_revenue,product_count
+  FROM public.fn_event_store_breakdown('6914e294-2313-4694-93b5-b7736747feae') b WHERE b.tipo='produto';
+  IF product_count < 29 THEN RAISE EXCEPTION 'Produtos pagos ausentes do consolidado'; END IF;
+  IF product_revenue <> round(store.valor_total,2) THEN RAISE EXCEPTION 'Produtos divergem dos pedidos pagos: % vs %',product_revenue,store.valor_total; END IF;
 
   -- Um pedido atualizado não é uma segunda venda; a última situação cancelada exclui o outro.
   IF (WITH snapshots(oid,version,status,amount) AS (VALUES ('a',1,'paid',100),('a',2,'invoiced',100),('b',1,'paid',200),('b',2,'cancelled',200)),

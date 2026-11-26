@@ -26,7 +26,7 @@ import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEve
 import { EventFieldCapturesButton } from "@/components/smartops/events/EventFieldCapturesButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import { DEFAULT_EVENT_TYPE, EVENT_TYPE_OPTIONS, eventTypeLabel, normalizeEventType } from "@/lib/eventTypes";
-import { eventPromotionRevenue } from "@/lib/eventPromotionRevenue";
+import { consolidateEventProducts, eventPromotionRevenue } from "@/lib/eventPromotionRevenue";
 
 type EventRow = {
   id: string;
@@ -640,9 +640,9 @@ export function SmartOpsEvents() {
                       {r.event_type === "campanha_promocional" && (() => {
                         const lista = (titulo: string, itens: { nome: string; quantidade: number; receita: number }[], nota: string) => itens.length ? (
                           <div className="rounded-md border bg-muted/20 p-2">
-                            <div className="text-[11px] uppercase text-muted-foreground mb-1.5">{titulo}</div>
+                            <div className="text-[11px] uppercase text-muted-foreground mb-1.5">{titulo} · {itens.length} produto{itens.length === 1 ? "" : "s"}</div>
                             <ul className="space-y-1">
-                              {itens.slice(0, 10).map((p) => (
+                              {itens.map((p) => (
                                 <li key={p.nome} className="flex items-start justify-between gap-2 text-xs border-b border-border/60 pb-1 last:border-0 last:pb-0">
                                   <span className="leading-snug break-words">{p.nome}</span>
                                   <span className="shrink-0 text-right tabular-nums">
@@ -652,18 +652,15 @@ export function SmartOpsEvents() {
                                 </li>
                               ))}
                             </ul>
+                            <div className="mt-2 border-t border-border/60 pt-2 text-xs font-semibold tabular-nums">
+                              Total: {itens.reduce((sum, p) => sum + p.quantidade, 0).toLocaleString("pt-BR")} un. · {exactBrl(itens.reduce((sum, p) => sum + p.receita, 0))}
+                            </div>
                             <div className="text-[10px] text-muted-foreground mt-1">{nota}</div>
                           </div>
                         ) : null;
                         const loja = st?.top_products ?? [];
                         const crm = st?.crm_products ?? [];
-                        const acc = new Map<string, { nome: string; quantidade: number; receita: number }>();
-                        for (const p of [...crm, ...loja]) {
-                          const k = p.nome.trim().toLowerCase();
-                          const c = acc.get(k) || { nome: p.nome, quantidade: 0, receita: 0 };
-                          c.quantidade += p.quantidade; c.receita += p.receita; acc.set(k, c);
-                        }
-                        const total = [...acc.values()].sort((x, y) => y.receita - x.receita);
+                        const total = consolidateEventProducts(crm, loja);
                         return (
                           <>
                             {lista("Produtos mais vendidos · CRM", crm, "Itens dos negócios ganhos · receita rateada pelo valor do negócio")}
@@ -675,21 +672,27 @@ export function SmartOpsEvents() {
 
                       {origins.length > 0 && (
                         <div className="rounded-md border bg-muted/20 p-2">
-                          <div className="text-[11px] uppercase text-muted-foreground mb-1.5">Leads por origem</div>
-                          <ul className="space-y-1.5">
+                          <div className="text-[11px] uppercase text-muted-foreground mb-1.5">Tipos de formulário · leads por origem</div>
+                          <div className="space-y-1.5">
                             {origins.map((o) => (
-                              <li key={o.origin} className="border-b border-border/60 pb-1.5 last:border-0 last:pb-0">
-                                <div className="flex items-start justify-between gap-2 text-xs">
+                              <details key={o.origin} className="rounded-md border border-border/60 bg-card/40 px-2 py-1.5">
+                                <summary className="cursor-pointer select-none flex items-start justify-between gap-2 text-xs">
                                   <span className="leading-snug break-words">{o.origin}</span>
-                                  <span className="shrink-0 font-semibold tabular-nums">{o.qtd} lead{o.qtd === 1 ? "" : "s"}</span>
-                                </div>
-                                <div className="text-[10px] text-muted-foreground text-right">
-                                  {Number(o.ganhos) || 0} ganho{Number(o.ganhos) === 1 ? "" : "s"}
-                                  {Number(o.valor) > 0 && ` · ${brl(Number(o.valor))}`}
-                                </div>
-                              </li>
+                                  <span className="shrink-0 font-semibold tabular-nums">{o.qtd} lead{o.qtd === 1 ? "" : "s"} ▾</span>
+                                </summary>
+                                <dl className="mt-2 grid grid-cols-2 gap-2 border-t border-border/60 pt-2 text-xs">
+                                  <div>
+                                    <dt className="text-[10px] uppercase text-muted-foreground">Negócios ganhos</dt>
+                                    <dd className="font-semibold tabular-nums">{Number(o.ganhos) || 0}</dd>
+                                  </div>
+                                  <div>
+                                    <dt className="text-[10px] uppercase text-muted-foreground">Valor convertido</dt>
+                                    <dd className="font-semibold tabular-nums">{brl(Number(o.valor) || 0)}</dd>
+                                  </div>
+                                </dl>
+                              </details>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       )}
 

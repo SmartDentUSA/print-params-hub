@@ -18,3 +18,5 @@
 - [x] Loja: leads [LOJA] - Carrinho abandonado (2 h) e [LOJA] - Pedido cancelado no CRM com nota e categorias
 - [x] WhatsApp Oficial: pedidos de informação/contato recebem categorias; só após selecionar o interesse entram na ingestão oficial pela Regra de Ouro, com respostas originais nas notas do PipeRun e sem duplicidades (12 testes e envio real do menu verificados; entrada/nota reais aguardam escolha do cliente).
 - [x] WhatsApp Oficial: histórico autorizado desde 18/11 preparado — 84 interessados, 5 menus enviados, 79 aguardando reabertura da janela por nova mensagem.
+- [x] Eventos: todos os produtos pagos do e-commerce aparecem no card; loja e produtos compartilham os mesmos pedidos (24 pedidos, 29 produtos, 60 unidades, R$ 24.418,38 e diferença zero na validação).
+- [x] Eventos: tipos de formulários/origens apresentados em acordeões com leads, ganhos e valor convertido.
