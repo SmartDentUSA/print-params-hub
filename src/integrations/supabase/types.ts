@@ -40356,6 +40356,10 @@ export type Database = {
           vendedor: string
         }[]
       }
+      fn_piperun_stage_order: {
+        Args: { p_pipeline_id: number; p_stage_id: number }
+        Returns: number
+      }
       fn_product_owners: {
         Args: { _busca: string }
         Returns: {

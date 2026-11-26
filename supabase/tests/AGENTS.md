@@ -1,0 +1,2 @@
+- CRM transition tests exercise the installed trigger on temporary lead-shaped rows and roll back fixtures plus email-trigger suppression; this avoids CRM writes or outbound enrollment during validation.
+- `fn_piperun_stage_order` contains the verified complete PipeRun stage-position snapshot; refresh it through a migration after stage creation or reordering, never infer position from numeric IDs or compare different pipelines, because IDs are not chronological.
