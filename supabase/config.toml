@@ -356,12 +356,6 @@ verify_jwt = false
 [functions.astron-postback]
 verify_jwt = false
 
-[functions.smart-ops-sellflux-webhook]
-verify_jwt = false
-
-[functions.smart-ops-sellflux-sync]
-verify_jwt = false
-
 [functions.poll-loja-integrada-orders]
 verify_jwt = false
 
@@ -428,9 +422,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.backfill-primary-deal]
-verify_jwt = false
-
-[functions.manychat-lia-bridge]
 verify_jwt = false
 
 [functions.smart-ops-reassign-danilo-vendas]
